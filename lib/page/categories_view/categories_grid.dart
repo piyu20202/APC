@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../productlist_view/productlist.dart';
+import '../../main_navigation.dart';
 
 class CategoriesGridScreen extends StatefulWidget {
   const CategoriesGridScreen({super.key});
@@ -63,7 +64,7 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const ProductListScreen(),
+                        builder: (context) => const TabBarWrapper(child: ProductListScreen(), showTabBar: true),
                       ),
                     );
                   },

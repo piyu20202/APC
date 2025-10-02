@@ -72,7 +72,7 @@ class _DetailViewState extends State<DetailView> {
           'Detail Page',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)
         ),
-        centerTitle: true,
+        centerTitle: false,
       ),
       bottomNavigationBar: SafeArea(
         top: false,

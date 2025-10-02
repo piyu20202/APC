@@ -46,13 +46,10 @@ class _SplashScreenState extends State<SplashScreen>
     // Start animation
     _animationController.forward();
 
-    // Navigate to signup screen after 3 seconds
+    // Navigate to signin screen after 3 seconds
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const SignupScreen()),
-        );
+        Navigator.pushReplacementNamed(context, '/signin');
       }
     });
   }

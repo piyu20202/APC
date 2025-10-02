@@ -123,10 +123,7 @@ class _SigninScreenState extends State<SigninScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         // Navigate directly to main navigation screen
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
-                        );
+                        Navigator.pushReplacementNamed(context, '/main');
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF151D51), // Button color
@@ -252,10 +249,7 @@ class _SigninScreenState extends State<SigninScreen> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const SignupScreen()),
-                            );
+                            Navigator.pushReplacementNamed(context, '/signup');
                           },
                           child: const Text(
                             'Register Now',

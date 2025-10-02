@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../categories_view/categories_grid.dart';
-import '../trader_view/trader_dashboard.dart';
-import '../signup_view/register_traderuser.dart';
-import '../../services/user_role_service.dart';
+import '../../main_navigation.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -13,33 +11,6 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   String? _selectedTitle;
-  bool _isTrader = false;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkTraderStatus();
-  }
-
-  Future<void> _checkTraderStatus() async {
-    try {
-      final isTrader = await UserRoleService.isTraderUser();
-      if (mounted) {
-        setState(() {
-          _isTrader = isTrader;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isTrader = false;
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,70 +40,6 @@ class _AppDrawerState extends State<AppDrawer> {
               ),
             ),
 
-            // Trader Navigation Section
-            if (!_isLoading)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFC107), Color(0xFFFFD54F)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFC107).withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ListTile(
-                 
-                  title: Text(
-                    _isTrader ? 'Trader Dashboard' : 'Trader',
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  subtitle: _isTrader ? Text(
-                    'Access trading features',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontSize: 12,
-                    ),
-                  ) : null,
-                  trailing: _isTrader ? const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.black,
-                    size: 16,
-                  ) : null,
-                  onTap: () {
-                    Navigator.pop(context);
-                    if (_isTrader) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TraderDashboard(),
-                        ),
-                      );
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegisterTraderUserPage(),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-            
-            const SizedBox(height: 8),
-            _buildSeparator(),
 
             _buildItem(icon: Icons.local_fire_department, title: 'Sale', onTap: () { Navigator.pop(context); }),
             _buildSeparator(),
@@ -169,7 +76,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const CategoriesGridScreen()),
+                  MaterialPageRoute(builder: (context) => const TabBarWrapper(child: CategoriesGridScreen(), showTabBar: true)),
                 );
               },
             ),

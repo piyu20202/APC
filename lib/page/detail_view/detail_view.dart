@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../cart_view/cart.dart';
 import 'dart:async';
 import '../widget/product_card.dart';
+import '../../main_navigation.dart';
 
 class DetailView extends StatefulWidget {
   const DetailView({super.key});
@@ -72,7 +73,7 @@ class _DetailViewState extends State<DetailView> {
           'Detail Page',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)
         ),
-        centerTitle: true,
+        centerTitle: false,
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -197,7 +198,7 @@ class _DetailViewState extends State<DetailView> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const CartPage(),
+                                    builder: (context) => const TabBarWrapper(child: CartPage(), showTabBar: true),
                                   ),
                                 );
                               },

@@ -278,7 +278,7 @@ class _ManualsListViewPageState extends State<ManualsListViewPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
+        centerTitle: false,
         actions: [
           if (currentPath.isNotEmpty)
             IconButton(

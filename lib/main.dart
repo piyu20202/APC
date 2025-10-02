@@ -5,6 +5,8 @@ import 'page/checkout_page/orderpricedetail.dart';
 import 'page/checkout_page/orderplaced.dart';
 import 'page/payment_page/payment.dart';
 import 'page/manuals/manuals_menu.dart';
+import 'page/signin_view/signin.dart';
+import 'page/signup_view/signup_new.dart';
 import 'main_navigation.dart';
 
 void main() {
@@ -23,18 +25,20 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         primaryColor: const Color(0xFF151D51),
         appBarTheme: const AppBarTheme(
-          centerTitle: true,
+          centerTitle: false,
           elevation: 0,
         ),
       ),
       home: const SplashScreen(),
       routes: {
         '/main': (context) => const MainNavigationScreen(),
-        '/checkout': (context) => const CheckoutPage(),
-        '/order-price-detail': (context) => const OrderPriceDetailPage(),
-        '/payment': (context) => const PaymentPage(),
-        '/order-placed': (context) => const OrderPlacedPage(),
-        '/manuals': (context) => const ManualsMenuPage(),
+        '/signin': (context) => const SigninScreen(),
+        '/signup': (context) => const SignupScreen(),
+        '/checkout': (context) => const TabBarWrapper(child: CheckoutPage(), showTabBar: true),
+        '/order-price-detail': (context) => const TabBarWrapper(child: OrderPriceDetailPage(), showTabBar: true),
+        '/payment': (context) => const TabBarWrapper(child: PaymentPage(), showTabBar: true),
+        '/order-placed': (context) => const TabBarWrapper(child: OrderPlacedPage(), showTabBar: true),
+        '/manuals': (context) => const TabBarWrapper(child: ManualsMenuPage(), showTabBar: true),
       },
     );
   }

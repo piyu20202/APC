@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widget/cart_item_card.dart';
+import '../drawer_view/drawer.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -48,6 +49,7 @@ class _CartPageState extends State<CartPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F8F8),
@@ -60,25 +62,8 @@ class _CartPageState extends State<CartPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
-        actions: cartItems.isNotEmpty
-            ? [
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      cartItems.clear();
-                    });
-                  },
-                  child: const Text(
-                    'Clear all',
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ]
-            : null,
+        centerTitle: false,
+        actions: null,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: cartItems.isEmpty ? _buildEmptyCart() : _buildCartWithItems(),

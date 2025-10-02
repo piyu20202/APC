@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'manuals_listdownload.dart';
+import '../drawer_view/drawer.dart';
 
 class ManualsMenuPage extends StatelessWidget {
   const ManualsMenuPage({super.key});
@@ -7,6 +8,7 @@ class ManualsMenuPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F8F8),

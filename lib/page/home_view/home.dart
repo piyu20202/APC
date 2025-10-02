@@ -4,10 +4,13 @@ import '../drawer_view/drawer.dart';
 import '../detail_view/detail_view.dart';
 import '../widget/product_card.dart';
 import '../cart_view/cart.dart';
+import '../../main_navigation.dart';
 import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onSearchTap;
+  
+  const HomeScreen({super.key, this.onSearchTap});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -201,25 +204,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     // Search Bar
                     Expanded(
-                      child: Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 12),
-                            Icon(Icons.search, color: Colors.grey[600], size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Search products...',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (widget.onSearchTap != null) {
+                            widget.onSearchTap!();
+                          }
+                        },
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 12),
+                              Icon(Icons.search, color: Colors.grey[600], size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Search products...',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -231,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const CartPage()),
+                          MaterialPageRoute(builder: (context) => const TabBarWrapper(child: CartPage(), showTabBar: true)),
                         );
                       },
                       child: Stack(
@@ -460,7 +470,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (category['name'] == 'See all categories') {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const CategoriesGridScreen()),
+                      MaterialPageRoute(builder: (context) => const TabBarWrapper(child: CategoriesGridScreen(), showTabBar: true)),
                     );
                   }
                 },
@@ -686,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: featuredProducts.length,
                itemBuilder: (context, index) {
-                final product = products[index];
+                final product = featuredProducts[index];
                 return ProductCard(
                   product: product,
                   width: 160,
@@ -726,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 340,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: featuredProducts.length,
+              itemCount: products.length,
                itemBuilder: (context, index) {
                 final product = products[index];
                 return ProductCard(

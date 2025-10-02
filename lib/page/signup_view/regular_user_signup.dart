@@ -103,10 +103,7 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                     const SnackBar(content: Text('Regular User account created successfully!')),
                   );
                   // Navigate to sign in screen after successful signup
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SigninScreen()),
-                  );
+                  Navigator.pushReplacementNamed(context, '/signin');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -236,10 +233,7 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                 ),
                 GestureDetector(
                   onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const SigninScreen()),
-                    );
+                    Navigator.pushReplacementNamed(context, '/signin');
                   },
                   child: Text(
                     'Sign In',

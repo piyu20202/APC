@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../signin_view/signin.dart';
 import '../home_view/home.dart';
 import 'register_traderuser.dart';
+import '../../main_navigation.dart';
 
 class TradeWelcomePage extends StatefulWidget {
   const TradeWelcomePage({super.key});
@@ -263,10 +264,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
               height: 50,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HomeScreen()),
-                  );
+                  Navigator.pushReplacementNamed(context, '/main');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF151D51),
@@ -292,10 +290,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
               height: 50,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SigninScreen()),
-                  );
+                  Navigator.pushReplacementNamed(context, '/signin');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.yellow,

@@ -155,10 +155,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             const SnackBar(content: Text('Sign up successful!')),
                           );
                           // Navigate to sign in screen after successful signup
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const SigninScreen()),
-                          );
+                          Navigator.pushReplacementNamed(context, '/signin');
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -196,10 +193,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const SigninScreen()),
-                            );
+                            Navigator.pushReplacementNamed(context, '/signin');
                           },
                           child: Text(
                             'Sign In',
