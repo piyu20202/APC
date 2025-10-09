@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../signin_view/signin.dart';
-import '../home_view/home.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -47,7 +45,7 @@ class _SignupScreenState extends State<SignupScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 60),
-                  
+
                   // Logo
                   Container(
                     width: 120,
@@ -85,9 +83,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 40),
-                  
+
                   // Username Field
                   _buildInputField(
                     controller: _usernameController,
@@ -101,9 +99,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       return null;
                     },
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Email Field
                   _buildInputField(
                     controller: _emailController,
@@ -114,15 +112,17 @@ class _SignupScreenState extends State<SignupScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter email';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      if (!RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      ).hasMatch(value)) {
                         return 'Please enter a valid email';
                       }
                       return null;
                     },
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Password Field
                   _buildInputField(
                     controller: _passwordController,
@@ -140,9 +140,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       return null;
                     },
                   ),
-                  
+
                   const SizedBox(height: 40),
-                  
+
                   // Sign Up Button
                   SizedBox(
                     width: double.infinity,
@@ -152,14 +152,18 @@ class _SignupScreenState extends State<SignupScreen> {
                         if (_formKey.currentState!.validate()) {
                           // Handle sign up logic here
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Sign up successful!')),
+                            const SnackBar(
+                              content: Text('Sign up successful!'),
+                            ),
                           );
                           // Navigate to sign in screen after successful signup
                           Navigator.pushReplacementNamed(context, '/signin');
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF151D51), // Button color
+                        backgroundColor: const Color(
+                          0xFF151D51,
+                        ), // Button color
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -176,9 +180,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 40),
-                  
+
                   // Sign In Link
                   Center(
                     child: Wrap(
@@ -207,7 +211,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 30),
                 ],
               ),
@@ -242,18 +246,16 @@ class _SignupScreenState extends State<SignupScreen> {
           height: 48, // Fixed height for the text box
           child: Container(
             decoration: BoxDecoration(
-              color: Color(0xFFF2F2F4), // Lighter shade of gray for text box background
+              color: Color(
+                0xFFF2F2F4,
+              ), // Lighter shade of gray for text box background
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Padding(
                   padding: const EdgeInsets.only(left: 12.0),
-                  child: Icon(
-                    icon,
-                    color: Color(0xFF151D51),
-                    size: 20,
-                  ),
+                  child: Icon(icon, color: Color(0xFF151D51), size: 20),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
@@ -277,7 +279,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       suffixIcon: isPassword
                           ? IconButton(
                               icon: Icon(
-                                _obscureText ? Icons.visibility : Icons.visibility_off,
+                                _obscureText
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                                 color: Color(0xFF151D51),
                               ),
                               onPressed: _togglePasswordVisibility,

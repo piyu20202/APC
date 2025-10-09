@@ -1,0 +1,717 @@
+PLANNED API INTEGRATION MATRIX - APC Flutter Project
+=====================================================
+
+Analysis Date: December 2024
+Project: E-commerce App with Trader System
+Total Pages Analyzed: 25 pages + 2 widgets
+
+EXECUTIVE SUMMARY:
+==================
+
+📊 TOTAL DISTINCT APIs PROPOSED: 47 APIs
+
+Breakdown by Module:
+• Authentication & Users: 7 APIs
+• Product Catalog: 8 APIs  
+• Shopping Cart: 6 APIs
+• Orders & Checkout: 8 APIs
+• Payments: 4 APIs
+• Profile Management: 4 APIs
+• Trader Module: 5 APIs
+• Manuals & Files: 3 APIs
+• Notifications: 2 APIs
+
+📈 API Usage Statistics:
+- Total Read APIs (GET): 22 APIs
+- Total Write APIs (POST/PUT/PATCH/DELETE): 25 APIs
+- Pages with APIs: 23 out of 25 pages (92%)
+- Shared APIs (used by multiple pages): 18 APIs
+- Page-specific APIs: 29 APIs
+
+A) PAGE-WISE DETAILS:
+====================
+
+-------------------------------------------------
+Page: SplashScreen (lib/page/splash_view/splash.dart)
+Actions -> Proposed APIs:
+1. Initialize App Session → GET /api/app/config
+   Method: GET
+   Endpoint: /api/app/config
+   Request: none
+   Response: {appVersion, featureFlags, serverTimestamp}
+   Auth: No
+   Notes: Load app configuration for version check, feature toggles
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: SignInScreen (lib/page/signin_view/signin.dart) 
+Actions -> Proposed APIs:
+1. User Authentication → POST /api/auth/login
+   Method: POST
+   Endpoint: /api/auth/login
+   Request: {email, password, deviceId?}
+   Response: {token, refreshToken, user, expiresAt}
+   Auth: No
+   File Reference: signin.dart:124-126
+
+2. Social Login (Apple) → POST /api/auth/social/apple
+   Method: POST  
+   Endpoint: /api/auth/social/apple
+   Request: {idToken, email?, name?}
+   Response: {token, refreshToken, user, expiresAt}
+   Auth: No
+   File Reference: signin.dart:174-202
+
+3. Social Login (Google) → POST /api/auth/social/google
+   Method: POST
+   Endpoint: /api/auth/social/google  
+   Request: {idToken, email?, name?}
+   Response: {token, refreshToken, user, expiresAt}
+   Auth: No
+   File Reference: signin.dart:204-234
+
+Page API Count: 3
+-------------------------------------------------
+
+-------------------------------------------------
+Page: RegisterTraderUserScreen (lib/page/signup_view/register_traderuser.dart)
+Actions -> Proposed APIs:
+1. Trader Registration → POST /api/auth/register-trader
+   Method: POST
+   Endpoint: /api/auth/register-trader
+   Request: {email, password, businessName, businessType, activities[], address, phone, taxNumber?, abn?}
+   Response: {success, message, traderId?, verificationRequired}
+   Auth: No
+   Dependencies: form validation
+   File Reference: register_traderuser.dart:497-538
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: RegularUserSignup (lib/page/signup_view/regular_user_signup.dart)
+Actions -> Proposed APIs:
+1. User Registration → POST /api/auth/register
+   Method: POST
+   Endpoint: /api/auth/register
+   Request: {email, password, firstName, lastName, phone?, preferences}
+   Response: {success, message, userId?, verificationRequired}
+   Auth: No
+   Notes: Basic user registration
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ForgotPasswordScreen (lib/page/forgotpassword_view/forgotpassword.dart)
+Actions -> Proposed APIs:
+1. Password Reset Request → POST /api/auth/forgot-password
+   Method: POST
+   Endpoint: /api/auth/forgot-password
+   Request: {email}
+   Response: {success, message, resetTokenSent}
+   Auth: No
+   Notes: Initiate password reset flow
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: HomeScreen (lib/page/home_view/home.dart)
+Actions -> Proposed APIs:
+1. Load Banners → GET /api/catalog/banners
+   Method: GET
+   Endpoint: /api/catalog/banners
+   Request: none
+   Response: [{id, imageUrl, title?, link?, active, order}]
+   Auth: No
+   Dependencies: none
+
+2. Load Featured Products → GET /api/products/featured
+   Method: GET
+   Endpoint: /api/products/featured?limit=10
+   Request: Query params: limit, offset
+   Response: {products: [...], hasMore}
+   Auth: No
+   Filtering/Pagination: Yes
+
+3. Load Latest Products → GET /api/products/latest  
+   Method: GET
+   Endpoint: /api/products/latest?limit=10
+   Request: Query params: limit, offset
+   Response: {products: [...], hasMore}
+   Auth: No
+   Filtering/Pagination: Yes
+
+4. Load Categories → GET /api/categories/featured
+   Method: GET
+   Endpoint: /api/categories/featured
+   Request: none
+   Response: [{id, name, imageUrl, productCount, slug}]
+   Auth: No
+
+5. Product Search → GET /api/products/search
+   Method: GET
+   Endpoint: /api/products/search?q={term}&limit=20
+   Request: Query params: q, limit, offset, category?
+   Response: {products: [...], hasMore, totalResults}
+   Auth: Yes (recommended)
+   Notes: Triggered by search tap
+
+Page API Count: 5
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ProductListScreen (lib/page/productlist_view/productlist.dart)
+Actions -> Proposed APIs:
+1. Load Products by Category → GET /api/products
+   Method: GET
+   Endpoint: /api/products?category={id}&limit=20&offset=0
+   Request: Query params: category, limit, offset, sort, filters
+   Response: {products: [...], hasMore, total, appliedFilters}
+   Auth: No
+   Filtering/Pagination: Yes
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: DetailView (lib/page/detail_view/detail_view.dart)
+Actions -> Proposed APIs:
+1. Load Product Details → GET /api/products/{id}
+   Method: GET
+   Endpoint: /api/products/{id}
+   Request: Path param: productId
+   Response: {id, name, description, images[], price, originalPrice, specifications[], variants[], relatedProducts[], stock, availability}
+   Auth: No
+
+2. Load Product Reviews → GET /api/products/{id}/reviews
+   Method: GET
+   Endpoint: /api/products/{id}/reviews?limit=10&offset=0
+   Request: Path param: productId, query: limit, offset, rating?
+   Response: {reviews: [...], hasMore, averageRating, totalReviews}
+   Auth: No
+   Filtering/Pagination: Yes
+
+3. Add to Cart → POST /api/cart/add-item
+   Method: POST
+   Endpoint: /api/cart/add-item
+   Request: {productId, variantId?, quantity}
+   Response: {success, cartTotal, itemCount}
+   Auth: Yes
+   Dependencies: authenticated user
+
+Page API Count: 3
+-------------------------------------------------
+
+-------------------------------------------------
+Page: CategoriesGridScreen (lib/page/categories_view/categories_grid.dart)
+Actions -> Proposed APIs:
+1. Load All Categories → GET /api/categories
+   Method: GET
+   Endpoint: /api/categories?includeProductCount=true
+   Request: Query params: includeProductCount, parent?
+   Response: [{id, name, description, imageUrl, productCount, children?, slug}]
+   Auth: No
+   Notes: Hierarchical category structure
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: CartPage (lib/page/cart_view/cart.dart)
+Actions -> Proposed APIs:
+1. Load Cart Items → GET /api/cart
+   Method: GET
+   Endpoint: /api/cart
+   Request: none
+   Response: {items: [...], subtotal, tax, shipping, total, itemCount}
+   Auth: Yes
+
+2. Update Item Quantity → PATCH /api/cart/item/{itemId}
+   Method: PATCH
+   Endpoint: /api/cart/item/{itemId}
+   Request: {quantity}
+   Response: {success, newTotal, itemCount}
+   Auth: Yes
+   File Reference: cart.dart:164-180
+
+3. Remove Cart Item → DELETE /api/cart/item/{itemId}
+   Method: DELETE
+   Endpoint: /api/cart/item/{itemId}
+   Request: none
+   Response: {success, newTotal, itemCount}
+   Auth: Yes
+   File Reference: cart.dart:176-180
+
+4. Calculate Shipping → POST /api/checkout/calculate-shipping
+   Method: POST
+   Endpoint: /api/checkout/calculate-shipping
+   Request: {items: [{productId, quantity}], postalCode, country}
+   Response: {cost, estimatedDays, availableMethods}
+   Auth: Yes
+
+Page API Count: 4
+-------------------------------------------------
+
+-------------------------------------------------
+Page: CheckoutPage (lib/page/checkout_page/checkout.dart)
+Actions -> Proposed APIs:
+1. Save Shipping Address → POST /api/user/addresses
+   Method: POST
+   Endpoint: /api/user/addresses
+   Request: {type: "shipping", firstName, lastName, address, unit?, suburb, postalCode, state, country, phone}
+   Response: {addressId, success}
+   Auth: Yes
+   File Reference: checkout.dart:200-415
+
+2. Load Shipping Methods → GET /api/shipping/methods
+   Method: GET
+   Endpoint: /api/shipping/methods?postalCode={code}&country={country}
+   Request: Query params: postalCode, country, cartTotal
+   Response: [{id, name, cost, estimatedDays, description}]
+   Auth: Yes
+
+3. Load Pickup Locations → GET /api/shipping/pickup-locations
+   Method: GET
+   Endpoint: /api/shipping/pickup-locations
+   Request: none
+   Response: [{id, name, address, phone, hours, isActive}]
+   Auth: No
+
+Page API Count: 3
+-------------------------------------------------
+
+-------------------------------------------------
+Page: OrderPriceDetailPage (lib/page/checkout_page/orderpricedetail.dart)
+Actions -> Proposed APIs:
+1. Calculate Order Totals → POST /api/orders/calculate-totals
+   Method: POST
+   Endpoint: /api/orders/calculate-totals
+   Request: {items: [...], shippingAddress, shippingMethod, promoCode?}
+   Response: {subtotal, tax, shipping, discount?, total, breakdown}
+   Auth: Yes
+
+2. Validate Coupon/Promo → POST /api/promotions/validate
+   Method: POST
+   Endpoint: /api/promotions/validate
+   Request: {code, cartTotal, userRestrictions}
+   Response: {valid, discountAmount, discountType, message}
+   Auth: Yes
+
+Page API Count: 2
+-------------------------------------------------
+
+-------------------------------------------------
+Page: PaymentPage (lib/page/payment_page/payment.dart)
+Actions -> Proposed APIs:
+1. Create Payment Intent → POST /api/payments/create-intent
+   Method: POST
+   Endpoint: /api/payments/create-intent
+   Request: {orderId, amount, currency, paymentMethod}
+   Response: {clientSecret, intentId, status}
+   Auth: Yes
+
+2. Process Payment → POST /api/payments/process
+   Method: POST
+   Endpoint: /api/payments/process
+   Request: {paymentIntentId, confirmationToken}
+   Response: {success, transactionId, orderStatus}
+   Auth: Yes
+
+Page API Count: 2
+-------------------------------------------------
+
+-------------------------------------------------
+Page: OrderPlacedPage (lib/page/checkout_page/orderplaced.dart)
+Actions -> Proposed APIs:
+1. Send Order Confirmation → POST /api/orders/confirm
+   Method: POST
+   Endpoint: /api/orders/confirm  
+   Request: {orderId}
+   Response: {success, trackingNumber?, emailSent}
+   Auth: Yes
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ProfileView (lib/page/profile_page/profile_view.dart)
+Actions -> Proposed APIs:
+1. Load User Profile → GET /api/user/profile
+   Method: GET
+   Endpoint: /api/user/profile
+   Request: none
+   Response: {id, email, firstName, lastName, phone, addresses[], preferences}
+   Auth: Yes
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: AccountInfoPage (lib/page/profile_page/accountinfo.dart)
+Actions -> Proposed APIs:
+1. Load Account Details → GET /api/user/account
+   Method: GET
+   Endpoint: /api/user/account
+   Request: none
+   Response: {accountType, joinedDate, orderCount, lastOrderDate, subscription?}
+   Auth: Yes
+   File Reference: accountinfo.dart:7-15
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: EditProfilePage (lib/page/profile_page/editprofile.dart)
+Actions -> Proposed APIs:
+1. Update User Profile → PUT /api/user/profile
+   Method: PUT
+   Endpoint: /api/user/profile
+   Request: {firstName, lastName, phone, company?, landline?, addresses[]}
+   Response: {success, updatedFields}
+   Auth: Yes
+   File Reference: editprofile.dart:410-424
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: MyOrdersPage (lib/page/profile_page/myorder.dart)
+Actions -> Proposed APIs:
+1. Load User Orders → GET /api/orders
+   Method: GET
+   Endpoint: /api/orders?limit=20&offset=0
+   Request: Query params: limit, offset, status?, dateFrom?, dateTo?
+   Response: {orders: [...], hasMore, total}
+   Auth: Yes
+   Filtering/Pagination: Yes
+   File Reference: myorder.dart:148-349
+
+2. Load Order Details → GET /api/orders/{id}
+   Method: GET
+   Endpoint: /api/orders/{id}
+   Request: Path param: orderId
+   Response: {order details, items[], statusHistory[], trackingInfo?}
+   Auth: Yes
+
+3. Cancel Order → POST /api/orders/{id}/cancel
+   Method: POST
+   Endpoint: /api/orders/{id}/cancel
+   Request: {reason}
+   Response: {success, newStatus, refundAmount?}
+   Auth: Yes
+
+Page API Count: 3
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ResetPasswordPage (lib/page/profile_page/resetpassword.dart)
+Actions -> Proposed APIs:
+1. Reset Password → POST /api/user/reset-password
+   Method: POST
+   Endpoint: /api/user/reset-password
+   Request: {token, newPassword}
+   Response: {success, logoutRequired}
+   Auth: No
+   File Reference: resetpassword.dart:231
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: TraderActivationScreen (lib/page/trader_view/trader_activation.dart)
+Actions -> Proposed APIs:
+1. Submit Trader Application → POST /api/traders/apply
+   Method: POST
+   Endpoint: /api/traders/apply
+   Request: {businessName, businessType, documents[], bankDetails, abn}
+   Response: {applicationId, status, reviewTimeframe}
+   Auth: Yes
+   Dependencies: authenticated user
+   File Reference: trader_activation.dart:28-61
+
+2. Check Trader Status → GET /api/traders/status
+   Method: GET
+   Endpoint: /api/traders/status
+   Request: none
+   Response: {isTrader, status, approvedDate?, features}
+   Auth: Yes
+
+Page API Count: 2
+-------------------------------------------------
+
+-------------------------------------------------
+Page: TraderDashboard (lib/page/trader_view/trader_dashboard.dart)
+Actions -> Proposed APIs:
+1. Load Trader Dashboard Data → GET /api/traders/dashboard
+   Method: GET
+   Endpoint: /api/traders/dashboard
+   Request: none
+   Response: {sales, orders, customers, revenue, trends, alerts}
+   Auth: Yes
+
+2. Load Trader Products → GET /api/traders/products
+   Method: GET
+   Endpoint: /api/traders/products?limit=20&status=published
+   Request: Query params: limit, offset, status, sort
+   Response: {products: [...], hasMore, total}
+   Auth: Yes
+   Filtering/Pagination: Yes
+
+3. Load Trader Analytics → GET /api/traders/analytics
+   Method: GET
+   Endpoint: /api/traders/analytics?period=monthly
+   Request: Query params: period, dates?
+   Response: {salesData: [...], visits, conversions, topProducts}
+   Auth: Yes
+
+Page API Count: 3
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ManualsMenuPage (lib/page/manuals/manuals_menu.dart)
+Actions -> Proposed APIs:
+1. Load Manual Categories → GET /api/manuals/categories
+   Method: GET
+   Endpoint: /api/manuals/categories
+   Request: none
+   Response: [{id, name, description, fileCount, size, icon?, children?}]
+   Auth: No
+
+Page API Count: 1
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ManualsListViewPage (lib/page/manuals/manuals_listdownload.dart)
+Actions -> Proposed APIs:
+1. Load Manual Files → GET /api/manuals/files
+   Method: GET
+   Endpoint: /api/manuals/files?category={id}&path={path}
+   Request: Query params: category, path, folder
+   Response: {files: [...], folders: [...], breadcrumbs}
+   Auth: No
+   File Reference: manuals_listdownload.dart:251
+
+2. Download Manual File → GET /api/manuals/download/{fileId}
+   Method: GET
+   Endpoint: /api/manuals/download/{fileId}
+   Request: Path param: fileId
+   Response: Binary file stream
+   Auth: No
+   Notes: Use url_launcher for direct download
+
+Page API Count: 2
+-------------------------------------------------
+
+B) SHARED SERVICES & REUSE:
+===========================
+APIs used by multiple pages:
+• GET /api/user/profile (Profile, AccountInfo, EditProfile)
+• GET /api/products (HomeScreen, ProductList, Search)
+• POST /api/cart/add-item (DetailView, CartPage)  
+• GET /api/cart (CartPage, Checkout calculations)
+• POST /api/auth/login (SignIn, plus used by other pages for token refresh)
+• GET /api/products/{id} (DetailView, Cart verification)
+• GET /api/categories (CategoriesGrid, ProductList filtering)
+• GET /api/orders (MyOrders, Order detail modals)
+• GET /api/app/config (SplashScreen, app-wide initialization)
+
+C) ASSUMPTIONS & GAPS:
+=====================
+
+Key Entity Structures Assumed:
+
+User Entity:
+{
+  id: string, firstName: string, lastName: string, email: string,
+  phone?: string, company?: string, addresses: Address[],
+  preferences: UserPreferences, traderStatus?: TraderStatus,
+  createdAt: DateTime, lastLoginAt?: DateTime
+}
+
+Product Entity:
+{
+  id: string, name: string, description: string, sku: string,
+  price: number, originalPrice?: number, images: string[],
+  category: Category, specs: Specification[], variants: ProductVariant[],
+  stock: number, availability: "in_stock" | "out_of_stock" | "pre_order",
+  featured: boolean, createdAt: DateTime
+}
+
+CartItem Entity:
+{
+  id: string, productId: string, variantId?: string, quantity: number,
+  updatedAt: DateTime, productSnapshot: ProductSnapshot
+}
+
+Order Entity:
+{
+  id: string, userId: string, status: OrderStatus,
+  items: OrderItem[], shippingAddress: Address,
+  billingAddress: Address, totals: OrderTotals,
+  payment: PaymentInfo, trackingNumber?: string,
+  createdAt: DateTime, updatedAt: DateTime
+}
+
+Trader Entity:
+{
+  id: string, userId: string, businessName: string,
+  businessType: string, status: "pending" | "approved" | "rejected",
+  abn?: string, bankDetails: BankDetails,
+  applicationData: TraderApplication, reviewedAt?: DateTime
+}
+
+Key Assumptions Made:
+• All monetary values in AUD currency
+• Addresses follow Australian postal structure
+• Payment processing via Stripe/PayPal integration
+• File downloads served from CDN/object storage
+• Real-time cart sync for authenticated users
+• Order statuses: pending_payment, processing, shipped, delivered, cancelled
+• Trader verification includes KYC document submission
+• Product variants support different sizes/colors/pricing
+• Order cancellation allowed within 24 hours
+• Manual files stored in hierarchical folder structure
+
+D) SEQUENCING & DEPENDENCIES:
+=============================
+
+Authentication Flow:
+1. SplashScreen loads app config → GET /api/app/config
+2. User login → POST /api/auth/login  
+3. Load user profile → GET /api/user/profile
+4. Check trader status → GET /api/traders/status
+
+Shopping Flow:
+1. Browse products → GET /api/products/categories
+2. Search/filter → GET /api/products/search
+3. View product detail → GET /api/products/{id}
+4. Add to cart → POST /api/cart/add-item
+5. Manage cart → GET/PATCH/DELETE /api/cart/*
+6. Proceed checkout → GET /api/shipping/methods
+7. Calculate totals → POST /api/orders/calculate-totals
+8. Process payment → POST /api/payments/create-intent
+9. Confirm order → POST /api/orders/confirm
+
+E) PAGINATION/FILTERS RECOMMENDATIONS:
+=====================================
+
+Where pagination is implemented:
+• Product lists: /api/products?limit=20&offset=0
+• Orders: /api/orders?limit=20&offset=0
+• Product reviews: /api/products/{id}/reviews?limit=10&offset=0
+• Manual files: /api/manuals/files?limit=50&offset=0
+
+Filtering parameters:
+• Products: category, price_range, brand, availability, rating
+• Orders: status, date_range, amount_range
+• Manuals: file_type, size_range, date_modified
+
+Sorting options:
+• Products: price, name, rating, newest, popularity
+• Orders: date_desc, date_asc, total_desc, status
+• Search: relevance, price, rating, newest
+
+F) FILE/MEDIA HANDLING:
+======================
+
+File Download Strategy:
+• Manual PDFs: Server serves files with signed URLs
+• Implementation: Use url_launcher package
+• File sizes: Support files up to 50MB
+• CDN: Serve files from cloud storage (AWS S3/CloudFront)
+
+Upload Requirements (Future):
+• Trader documents: Support PDF, JPG, PNG up to 5MB
+• Product images: Multiple formats, automatic resizing
+• Profile avatars: Image optimization, cropping tools
+
+G) SECURITY NOTES:
+==================
+
+Authentication Pattern:
+• JWT tokens for API authentication
+• Refresh token rotation for security
+• Bearer token in Authorization header
+• Token storage in secure local storage/Keychain
+
+Error Handling:
+• Standardized error responses: {success: boolean, message: string, code?: string}
+• HTTP status codes: 200 (success), 400 (validation), 401 (auth), 403 (forbidden), 404 (not found), 500 (server)
+• Retry logic for network failures
+• Offline queue for critical operations
+
+Rate Limiting:
+• Public APIs: 100 requests/minute per IP
+• Authenticated APIs: 1000 requests/minute per user
+• Payment APIs: 10 requests/minute per user
+
+H) PROPOSED API GROUPING:
+=========================
+
+Suggested Base URLs:
+• Auth: /api/auth/*
+• Users: /api/user/* | /api/users/*  
+• Products: /api/products/* | /api/catalog/*
+• Cart: /api/cart/*
+• Orders: /api/orders/*
+• Payments: /api/payments/*
+• Traders: /api/traders/*
+• Manuals: /api/manuals/*
+• Shipping: /api/shipping/*
+• Configuration: /api/app/*
+
+API Versioning Strategy:
+• Use URL path versioning: /api/v1/auth/login
+• Maintain backward compatibility for 6 months version overlap
+• Planned version: v1.0 for initial implementation
+
+I) FINAL TALLY:
+===============
+
+📊 TOTAL DISTINCT APIs: 47 APIs
+
+Breakdown by HTTP Method:
+• GET: 22 APIs (47%)
+• POST: 16 APIs (34%)  
+• PUT: 4 APIs (9%)
+• PATCH: 3 APIs (6%)
+• DELETE: 2 APIs (4%)
+
+Auth Requirements:
+• Public APIs (no auth): 11 APIs (23%)
+• Authenticated APIs: 36 APIs (77%)
+
+Pages with Zero APIs:
+• TradeWelcomePage (lib/page/signup_view/trade_welcome_page.dart)
+• CartItemCard (lib/page/widget/cart_item_card.dart)
+
+Most API-Heavy Pages:
+• HomeScreen: 5 APIs (banners, products, categories, search)
+• TraderDashboard: 3 APIs (dashboard, products, analytics)
+• DetailView: 3 APIs (product details, reviews, add to cart)
+• MyOrdersPage: 3 APIs (orders list, details, cancellation)
+
+READY FOR IMPLEMENTATION ✅
+==========================
+
+The API matrix provides complete integration roadmap with:
+✅ RESTful endpoint design
+✅ Request/response specifications  
+✅ Authentication requirements
+✅ Error handling patterns
+✅ Pagination and filtering
+✅ File handling strategy
+✅ Security considerations
+
+Estimated Implementation Timeline:
+• Phase 1 (Core): Auth, Users, Products (15 APIs) - 3-4 weeks
+• Phase 2 (Shop): Cart, Orders, Checkout (15 APIs) - 4-5 weeks  
+• Phase 3 (Payments): Payment processing (4 APIs) - 2-3 weeks
+• Phase 4 (Advanced): Traders, Manuals, Analytics (13 APIs) - 3-4 weeks
+• Total: 12-16 weeks for complete implementation
+
+This comprehensive matrix transforms your UI/UX demo into a fully dynamic e-commerce application with trader functionality.

@@ -22,7 +22,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
   final _landlineController = TextEditingController();
   final _suburbController = TextEditingController();
   final _othersController = TextEditingController();
-  
+
   // Billing Address Controllers
   final _billingNameController = TextEditingController();
   final _billingEmailController = TextEditingController();
@@ -36,11 +36,11 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
   String _selectedAreaCode = '02';
   String _selectedBillingAreaCode = '02';
   String _selectedState = 'ACT';
-  String _selectedCountry = 'Australia';
+  final String _selectedCountry = 'Australia';
   bool _agreeToTerms = false;
-  
+
   // Business Activities
-  Map<String, bool> _businessActivities = {
+  final Map<String, bool> _businessActivities = {
     'Gate and automation installer': false,
     'Fencing installer': false,
     'Gate and Fencing fabricator': false,
@@ -53,7 +53,16 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
   };
 
   final List<String> _areaCodes = ['02', '03', '07', '08'];
-  final List<String> _states = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'];
+  final List<String> _states = [
+    'ACT',
+    'NSW',
+    'NT',
+    'QLD',
+    'SA',
+    'TAS',
+    'VIC',
+    'WA',
+  ];
   final List<String> _countries = ['Australia'];
 
   @override
@@ -117,48 +126,110 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // User and Company Details Section
                 _buildSectionTitle('User and Company Details'),
                 const SizedBox(height: 16),
-                
-                _buildInputField('Name*', _nameController, 'Name*', isRequired: true),
-                _buildInputField('Email Address*', _emailController, 'Email Address*', isRequired: true, isEmail: true),
-                _buildInputField('Mobile Number*', _mobileController, 'Mobile Number*', isRequired: true, isPhone: true),
-                _buildInputField('Password*', _passwordController, 'Password*', isRequired: true, isPassword: true),
-                _buildInputField('Confirm Password*', _confirmPasswordController, 'Confirm Password*', isRequired: true, isPassword: true),
-                _buildInputField('Company Name*', _companyNameController, 'Company Name', isRequired: true),
-                _buildInputField('Company Website', _companyWebsiteController, 'Company Website'),
-                _buildInputField('ABN Number*', _abnNumberController, 'ABN Number*', isRequired: true),
-                _buildInputField('Business Name', _businessNameController, 'Business Name'),
-                
+
+                _buildInputField(
+                  'Name*',
+                  _nameController,
+                  'Name*',
+                  isRequired: true,
+                ),
+                _buildInputField(
+                  'Email Address*',
+                  _emailController,
+                  'Email Address*',
+                  isRequired: true,
+                  isEmail: true,
+                ),
+                _buildInputField(
+                  'Mobile Number*',
+                  _mobileController,
+                  'Mobile Number*',
+                  isRequired: true,
+                  isPhone: true,
+                ),
+                _buildInputField(
+                  'Password*',
+                  _passwordController,
+                  'Password*',
+                  isRequired: true,
+                  isPassword: true,
+                ),
+                _buildInputField(
+                  'Confirm Password*',
+                  _confirmPasswordController,
+                  'Confirm Password*',
+                  isRequired: true,
+                  isPassword: true,
+                ),
+                _buildInputField(
+                  'Company Name*',
+                  _companyNameController,
+                  'Company Name',
+                  isRequired: true,
+                ),
+                _buildInputField(
+                  'Company Website',
+                  _companyWebsiteController,
+                  'Company Website',
+                ),
+                _buildInputField(
+                  'ABN Number*',
+                  _abnNumberController,
+                  'ABN Number*',
+                  isRequired: true,
+                ),
+                _buildInputField(
+                  'Business Name',
+                  _businessNameController,
+                  'Business Name',
+                ),
+
                 // Area Code and Landline
                 Row(
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _buildDropdown('Area Code*', _selectedAreaCode, _areaCodes, (value) {
-                        setState(() {
-                          _selectedAreaCode = value!;
-                        });
-                      }),
+                      child: _buildDropdown(
+                        'Area Code*',
+                        _selectedAreaCode,
+                        _areaCodes,
+                        (value) {
+                          setState(() {
+                            _selectedAreaCode = value!;
+                          });
+                        },
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 3,
-                      child: _buildInputField('Landline Number*', _landlineController, 'Landline Number*', isRequired: true, isPhone: true),
+                      child: _buildInputField(
+                        'Landline Number*',
+                        _landlineController,
+                        'Landline Number*',
+                        isRequired: true,
+                        isPhone: true,
+                      ),
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Base of Operation Section
                 _buildSectionTitle('Base of Operation / Region'),
                 const SizedBox(height: 16),
-                _buildInputField('Suburb (or Post Code) for area of operations', _suburbController, 'Suburb (or Post Code) for area of operations'),
+                _buildInputField(
+                  'Suburb (or Post Code) for area of operations',
+                  _suburbController,
+                  'Suburb (or Post Code) for area of operations',
+                ),
                 const Text(
                   '(Please provide a comma separated list)',
                   style: TextStyle(
@@ -167,60 +238,96 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                     fontStyle: FontStyle.italic,
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Business Activities Section
                 _buildSectionTitle('Key Business Activities'),
                 const Text(
                   '(Please select at least one and all that apply)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
                 _buildBusinessActivities(),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Billing Address Section
                 _buildSectionTitle('Billing Address'),
                 const SizedBox(height: 16),
-                
-                _buildInputField('Name*', _billingNameController, 'Name', isRequired: true),
-                _buildInputField('Email Address*', _billingEmailController, 'Email Address', isRequired: true, isEmail: true),
-                _buildInputField('Mobile Number*', _billingMobileController, 'Mobile Number', isRequired: true, isPhone: true),
-                
+
+                _buildInputField(
+                  'Name*',
+                  _billingNameController,
+                  'Name',
+                  isRequired: true,
+                ),
+                _buildInputField(
+                  'Email Address*',
+                  _billingEmailController,
+                  'Email Address',
+                  isRequired: true,
+                  isEmail: true,
+                ),
+                _buildInputField(
+                  'Mobile Number*',
+                  _billingMobileController,
+                  'Mobile Number',
+                  isRequired: true,
+                  isPhone: true,
+                ),
+
                 // Billing Area Code and Landline
                 Row(
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _buildDropdown('Area Code*', _selectedBillingAreaCode, _areaCodes, (value) {
-                        setState(() {
-                          _selectedBillingAreaCode = value!;
-                        });
-                      }),
+                      child: _buildDropdown(
+                        'Area Code*',
+                        _selectedBillingAreaCode,
+                        _areaCodes,
+                        (value) {
+                          setState(() {
+                            _selectedBillingAreaCode = value!;
+                          });
+                        },
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 3,
-                      child: _buildInputField('Landline Number*', _billingLandlineController, 'Landline Number', isRequired: true, isPhone: true),
+                      child: _buildInputField(
+                        'Landline Number*',
+                        _billingLandlineController,
+                        'Landline Number',
+                        isRequired: true,
+                        isPhone: true,
+                      ),
                     ),
                   ],
                 ),
-                
-                _buildInputField('Unit / Apartment Number', _unitNumberController, 'Unit/Apartment Number'),
+
+                _buildInputField(
+                  'Unit / Apartment Number',
+                  _unitNumberController,
+                  'Unit/Apartment Number',
+                ),
                 _buildInputField('Address', _addressController, 'Address'),
-                _buildInputField('Post Code*', _postCodeController, 'Post Code*', isRequired: true),
+                _buildInputField(
+                  'Post Code*',
+                  _postCodeController,
+                  'Post Code*',
+                  isRequired: true,
+                ),
                 _buildInputField('Suburb', _billingSuburbController, 'Suburb'),
-                
+
                 Row(
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _buildDropdown('State', _selectedState, _states, (value) {
+                      child: _buildDropdown('State', _selectedState, _states, (
+                        value,
+                      ) {
                         setState(() {
                           _selectedState = value!;
                         });
@@ -233,9 +340,9 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Terms and Conditions
                 Row(
                   children: [
@@ -251,10 +358,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                     Expanded(
                       child: RichText(
                         text: const TextSpan(
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 14,
-                          ),
+                          style: TextStyle(color: Colors.black87, fontSize: 14),
                           children: [
                             TextSpan(text: 'I agree to the '),
                             TextSpan(
@@ -271,9 +375,9 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Register Button
                 SizedBox(
                   width: double.infinity,
@@ -281,7 +385,9 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                   child: ElevatedButton(
                     onPressed: _agreeToTerms ? _handleRegister : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _agreeToTerms ? Colors.orange : Colors.grey,
+                      backgroundColor: _agreeToTerms
+                          ? Colors.orange
+                          : Colors.grey,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -298,7 +404,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
               ],
             ),
@@ -319,7 +425,10 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
     );
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, String hint, {
+  Widget _buildInputField(
+    String label,
+    TextEditingController controller,
+    String hint, {
     bool isRequired = false,
     bool isEmail = false,
     bool isPhone = false,
@@ -342,8 +451,11 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
           TextFormField(
             controller: controller,
             obscureText: isPassword,
-            keyboardType: isEmail ? TextInputType.emailAddress : 
-                         isPhone ? TextInputType.phone : TextInputType.text,
+            keyboardType: isEmail
+                ? TextInputType.emailAddress
+                : isPhone
+                ? TextInputType.phone
+                : TextInputType.text,
             decoration: InputDecoration(
               hintText: hint,
               border: OutlineInputBorder(
@@ -360,21 +472,27 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
               ),
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
             validator: (value) {
               if (isRequired && (value == null || value.isEmpty)) {
                 return 'This field is required';
               }
               if (isEmail && value != null && value.isNotEmpty) {
-                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                if (!RegExp(
+                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                ).hasMatch(value)) {
                   return 'Please enter a valid email address';
                 }
               }
               if (isPassword && value != null && value.length < 6) {
                 return 'Password must be at least 6 characters';
               }
-              if (label == 'Confirm Password*' && value != _passwordController.text) {
+              if (label == 'Confirm Password*' &&
+                  value != _passwordController.text) {
                 return 'Passwords do not match';
               }
               return null;
@@ -385,7 +503,12 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+  Widget _buildDropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Column(
@@ -417,13 +540,13 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
               ),
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
             items: items.map((String item) {
-              return DropdownMenuItem<String>(
-                value: item,
-                child: Text(item),
-              );
+              return DropdownMenuItem<String>(value: item, child: Text(item));
             }).toList(),
             onChanged: onChanged,
           ),
@@ -456,10 +579,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
             ),
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
-              ),
+              style: const TextStyle(fontSize: 16, color: Colors.black87),
             ),
           ),
         ],
@@ -497,7 +617,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
   void _handleRegister() async {
     // Check if at least one business activity is selected
     bool hasSelectedActivity = _businessActivities.values.any((value) => value);
-    
+
     if (!hasSelectedActivity) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -513,18 +633,20 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
       try {
         // Set user as trader after successful registration
         await UserRoleService.setAsTrader();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Trader registration successful! You can now access trader features.'),
+            content: Text(
+              'Trader registration successful! You can now access trader features.',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 3),
           ),
         );
-        
+
         // Navigate back to home or show success dialog
         Navigator.pop(context);
-        
+
         // TODO: Implement actual registration logic (API calls, etc.)
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

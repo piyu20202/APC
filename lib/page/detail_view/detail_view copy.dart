@@ -27,7 +27,6 @@ class _DetailViewState extends State<DetailView> {
   int kitQuantity = 1;
   double totalPrice = 2005.00;
 
-
   @override
   void initState() {
     super.initState();
@@ -56,7 +55,6 @@ class _DetailViewState extends State<DetailView> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,7 +68,11 @@ class _DetailViewState extends State<DetailView> {
         ),
         title: const Text(
           'Detail Page',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         centerTitle: false,
       ),
@@ -154,10 +156,7 @@ class _DetailViewState extends State<DetailView> {
                       const SizedBox(height: 8),
                       const Text(
                         'Your (Kit and Add-On) Price:',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black87,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.black87),
                       ),
                     ],
                   ),
@@ -193,7 +192,10 @@ class _DetailViewState extends State<DetailView> {
                                     );
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 10,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.orange,
                                       borderRadius: BorderRadius.circular(24),
@@ -239,11 +241,7 @@ class _DetailViewState extends State<DetailView> {
                   Expanded(
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.phone,
-                          color: Colors.orange,
-                          size: 16,
-                        ),
+                        Icon(Icons.phone, color: Colors.orange, size: 16),
                         const SizedBox(width: 6),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,17 +305,11 @@ class _DetailViewState extends State<DetailView> {
                           ),
                           Text(
                             'Within One',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(fontSize: 10, color: Colors.grey),
                           ),
                           Text(
                             'Business Day',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(fontSize: 10, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -336,13 +328,13 @@ class _DetailViewState extends State<DetailView> {
           children: [
             // Product Images Section
             _buildProductImagesSection(),
-            
+
             // Product Details
             _buildProductDetails(),
-            
+
             // Kit Includes
             _buildKitIncludes(),
-            
+
             // Customise your Kit
             _buildCustomiseYourKit(),
 
@@ -414,7 +406,7 @@ class _DetailViewState extends State<DetailView> {
               },
             ),
           ),
-          
+
           // Image Indicators
           Container(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -428,15 +420,15 @@ class _DetailViewState extends State<DetailView> {
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _currentImageIndex == index 
-                        ? Colors.blue 
+                    color: _currentImageIndex == index
+                        ? Colors.blue
                         : Colors.grey[300],
                   ),
                 ),
               ),
             ),
           ),
-          
+
           // Thumbnail Images
           Container(
             height: 80,
@@ -452,18 +444,15 @@ class _DetailViewState extends State<DetailView> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: _currentImageIndex == index 
-                          ? Colors.blue 
+                      color: _currentImageIndex == index
+                          ? Colors.blue
                           : Colors.grey[300]!,
                       width: 2,
                     ),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: Image.asset(
-                      productImages[index],
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.asset(productImages[index], fit: BoxFit.cover),
                   ),
                 );
               },
@@ -483,18 +472,12 @@ class _DetailViewState extends State<DetailView> {
         children: [
           const Text(
             'MacBook Pro 16 M4 512 GB Space Black',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           const Text(
             'Product SKU: APC-790-FMLA-SOL-FGEK',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.black87),
           ),
           const SizedBox(height: 8),
           Container(
@@ -553,11 +536,7 @@ class _DetailViewState extends State<DetailView> {
               const SizedBox(width: 12),
               Row(
                 children: [
-                  Icon(
-                    Icons.local_shipping,
-                    color: Colors.red,
-                    size: 16,
-                  ),
+                  Icon(Icons.local_shipping, color: Colors.red, size: 16),
                   const SizedBox(width: 4),
                   Text(
                     'Freight Delivery',
@@ -568,11 +547,7 @@ class _DetailViewState extends State<DetailView> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(
-                    Icons.info_outline,
-                    color: Colors.red,
-                    size: 14,
-                  ),
+                  Icon(Icons.info_outline, color: Colors.red, size: 14),
                 ],
               ),
             ],
@@ -582,10 +557,7 @@ class _DetailViewState extends State<DetailView> {
             children: [
               const Text(
                 'Kit Price: ',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.black,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.black),
               ),
               const Text(
                 '\$1,345.00',
@@ -619,10 +591,7 @@ class _DetailViewState extends State<DetailView> {
             children: [
               Text(
                 'Or in 4 payment of ',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[800],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
               ),
               const Text(
                 '\$312.25',
@@ -634,13 +603,13 @@ class _DetailViewState extends State<DetailView> {
               ),
               Text(
                 ' with ',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[800],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFCCF4E6),
                   borderRadius: BorderRadius.circular(18),
@@ -671,10 +640,7 @@ class _DetailViewState extends State<DetailView> {
             children: [
               const Text(
                 'or from ',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.black,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.black),
               ),
               const Text(
                 '\$10/week',
@@ -686,10 +652,7 @@ class _DetailViewState extends State<DetailView> {
               ),
               Text(
                 ' with ',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[800],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
               ),
               Row(
                 children: [
@@ -731,32 +694,18 @@ class _DetailViewState extends State<DetailView> {
                 ],
               ),
               const SizedBox(width: 6),
-              Icon(
-                Icons.info_outline,
-                color: Colors.grey[700],
-                size: 14,
-              ),
+              Icon(Icons.info_outline, color: Colors.grey[700], size: 14),
             ],
           ),
           const SizedBox(height: 8),
           const Text(
             'Single Swing Solar Powered Farm Gate Opener Suitable for Square Posts up to 125mm and gates up to 3.5 Metre, 250kg',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.black,
-              height: 1.4,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.black, height: 1.4),
           ),
         ],
       ),
     );
   }
-
-  
-
-  
-
-
 
   Widget _buildSuggestedProducts() {
     final suggestedProducts = [
@@ -787,10 +736,7 @@ class _DetailViewState extends State<DetailView> {
         children: [
           const Text(
             'Suggested products',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -816,7 +762,7 @@ class _DetailViewState extends State<DetailView> {
   Widget _buildScrollableFooter() {
     int kitQuantity = 1;
     double totalPrice = 2005.00;
-    
+
     return Container(
       margin: const EdgeInsets.only(top: 8),
       color: Colors.white,
@@ -827,9 +773,7 @@ class _DetailViewState extends State<DetailView> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.grey[50],
-              border: Border(
-                top: BorderSide(color: Colors.grey[300]!),
-              ),
+              border: Border(top: BorderSide(color: Colors.grey[300]!)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,7 +787,7 @@ class _DetailViewState extends State<DetailView> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Kit Items
                 Row(
                   children: [
@@ -864,16 +808,13 @@ class _DetailViewState extends State<DetailView> {
                     const Expanded(
                       child: Text(
                         'Upgraded to 24v 40 Watts Solar Panel With Solar Panel Post & Bracket',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.green,
-                        ),
+                        style: TextStyle(fontSize: 13, color: Colors.green),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                
+
                 Row(
                   children: [
                     Container(
@@ -893,10 +834,7 @@ class _DetailViewState extends State<DetailView> {
                     const Expanded(
                       child: Text(
                         'Add On 1x Universal Galvanized Farm Gate Bracket ( Suitable with',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.green,
-                        ),
+                        style: TextStyle(fontSize: 13, color: Colors.green),
                       ),
                     ),
                   ],
@@ -904,14 +842,13 @@ class _DetailViewState extends State<DetailView> {
               ],
             ),
           ),
-          
+
           // Bottom padding for scroll
           const SizedBox(height: 40),
         ],
       ),
     );
   }
-
 
   Widget _buildKitIncludes() {
     return Container(
@@ -938,10 +875,7 @@ class _DetailViewState extends State<DetailView> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.yellow[600]!,
-                      Colors.grey[300]!,
-                    ],
+                    colors: [Colors.yellow[600]!, Colors.grey[300]!],
                     stops: const [0.3, 1.0],
                   ),
                 ),
@@ -952,16 +886,44 @@ class _DetailViewState extends State<DetailView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildKitItem('01', 'APC-T700TL Top Limit Actuator Kit', 'QTY: 1'),
-              _buildKitItem('02', 'APC Weatherproof Control Box with Built in Battery Compartment', 'QTY: 1'),
+              _buildKitItem(
+                '01',
+                'APC-T700TL Top Limit Actuator Kit',
+                'QTY: 1',
+              ),
+              _buildKitItem(
+                '02',
+                'APC Weatherproof Control Box with Built in Battery Compartment',
+                'QTY: 1',
+              ),
               _buildKitItem('03', 'APC Four Button Keyring Remote', 'QTY: 2'),
               _buildKitItem('04', '9aH High Capacity Battery', 'QTY: 2'),
               _buildKitItem('05', '24v 20 Watts Solar Panel', 'QTY: 1'),
-              _buildKitItem('06', 'Solar Panel Fence Post & Bracket for APC 20 Watt Solar Panels', 'QTY: 1'),
-              _buildKitItem('07', 'APC Four Button Long Distance Remote', 'QTY: 1'),
-              _buildKitItem('08', '433MHZ Booster Antenna for Gate Automation Remotes, Garage Doors, Access Controls With 6.5 dBi Gain, Supplied With Bracket and Pre-Connected 5m cable', 'QTY: 1'),
-              _buildKitItem('09', 'APC Retro Reflective Safety Sensor - for gate opening system safety Retro Reflective Gate Sensor', 'QTY: 1'),
-              _buildKitItem('10', 'Two FREE Sunvisor Remote Controls (Promotion) with every Electric Gate Automation Kit order.', 'QTY: 2'),
+              _buildKitItem(
+                '06',
+                'Solar Panel Fence Post & Bracket for APC 20 Watt Solar Panels',
+                'QTY: 1',
+              ),
+              _buildKitItem(
+                '07',
+                'APC Four Button Long Distance Remote',
+                'QTY: 1',
+              ),
+              _buildKitItem(
+                '08',
+                '433MHZ Booster Antenna for Gate Automation Remotes, Garage Doors, Access Controls With 6.5 dBi Gain, Supplied With Bracket and Pre-Connected 5m cable',
+                'QTY: 1',
+              ),
+              _buildKitItem(
+                '09',
+                'APC Retro Reflective Safety Sensor - for gate opening system safety Retro Reflective Gate Sensor',
+                'QTY: 1',
+              ),
+              _buildKitItem(
+                '10',
+                'Two FREE Sunvisor Remote Controls (Promotion) with every Electric Gate Automation Kit order.',
+                'QTY: 2',
+              ),
             ],
           ),
         ],
@@ -997,10 +959,7 @@ class _DetailViewState extends State<DetailView> {
           Expanded(
             child: Text(
               description,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF151D51),
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF151D51)),
             ),
           ),
           const SizedBox(width: 8),
@@ -1022,7 +981,8 @@ class _DetailViewState extends State<DetailView> {
       {
         'name': 'APC Four Button Keyring Remote',
         'code': 'APC-RC4s',
-        'description': 'Compact and Light key ring remote with easy to use buttons',
+        'description':
+            'Compact and Light key ring remote with easy to use buttons',
         'image': 'assets/images/product1.png',
         'quantity': 2,
       },
@@ -1036,7 +996,8 @@ class _DetailViewState extends State<DetailView> {
       {
         'name': 'Two FREE Sunvisor Remote Controls (Promotion)',
         'code': 'APC-RC4-SV-GR-Free',
-        'description': 'Two FREE Sunvisor Remote Controls (Promotion) for APC Electric Gate Motors',
+        'description':
+            'Two FREE Sunvisor Remote Controls (Promotion) for APC Electric Gate Motors',
         'image': 'assets/images/product3.png',
         'quantity': 2,
       },
@@ -1066,10 +1027,7 @@ class _DetailViewState extends State<DetailView> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.yellow[600]!,
-                      Colors.grey[300]!,
-                    ],
+                    colors: [Colors.yellow[600]!, Colors.grey[300]!],
                     stops: const [0.3, 1.0],
                   ),
                 ),
@@ -1096,7 +1054,8 @@ class _DetailViewState extends State<DetailView> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: Image.asset(
-                        (product['image'] as String?) ?? 'assets/images/product1.png',
+                        (product['image'] as String?) ??
+                            'assets/images/product1.png',
                         width: 46,
                         height: 46,
                         fit: BoxFit.cover,
@@ -1156,7 +1115,10 @@ class _DetailViewState extends State<DetailView> {
                           ),
                           const SizedBox(height: 2),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               border: Border.all(color: Colors.grey[300]!),
@@ -1184,11 +1146,13 @@ class _DetailViewState extends State<DetailView> {
                                 },
                                 items: List.generate(10, (i) {
                                   final qty = i + 1;
-                                  final int price = qty > 2 ? (qty - 2) * 40 : 0;
+                                  final int price = qty > 2
+                                      ? (qty - 2) * 40
+                                      : 0;
                                   return DropdownMenuItem<int>(
                                     value: qty,
                                     child: Text(
-                                      '$qty (+\$${price}.00)',
+                                      '$qty (+\$$price.00)',
                                       style: const TextStyle(fontSize: 9),
                                     ),
                                   );
@@ -1224,7 +1188,8 @@ class _DetailViewState extends State<DetailView> {
       {
         'name': 'Premium Remote Control Set',
         'code': 'APC-PRC-SET',
-        'description': 'Premium remote controls with extended range and features',
+        'description':
+            'Premium remote controls with extended range and features',
         'price': '+\$80.00',
         'image': 'assets/images/product2.png',
       },
@@ -1261,10 +1226,7 @@ class _DetailViewState extends State<DetailView> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.yellow[600]!,
-                      Colors.grey[300]!,
-                    ],
+                    colors: [Colors.yellow[600]!, Colors.grey[300]!],
                     stops: const [0.3, 1.0],
                   ),
                 ),
@@ -1284,7 +1246,7 @@ class _DetailViewState extends State<DetailView> {
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(8),
-                  border: _selectedUpgradeIndex == index 
+                  border: _selectedUpgradeIndex == index
                       ? Border.all(color: Colors.blue, width: 2)
                       : null,
                 ),
@@ -1311,7 +1273,8 @@ class _DetailViewState extends State<DetailView> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: Image.asset(
-                          (item['image'] as String?) ?? 'assets/images/product1.png',
+                          (item['image'] as String?) ??
+                              'assets/images/product1.png',
                           width: 45,
                           height: 45,
                           fit: BoxFit.cover,
@@ -1411,13 +1374,14 @@ class _DetailViewState extends State<DetailView> {
     );
   }
 
-  List<bool> _addOnSelections = [true, true]; // Track checkbox states
-  List<int> _addOnQuantities = [1, 1]; // Track quantities
+  final List<bool> _addOnSelections = [true, true]; // Track checkbox states
+  final List<int> _addOnQuantities = [1, 1]; // Track quantities
 
   Widget _buildAddOnItems() {
     final List<Map<String, dynamic>> addOnItems = [
       {
-        'name': 'Universal Galvanized Farm Gate Bracket (Suitable with MONOS4, 700,750,790, 800,850,890 Motors)',
+        'name':
+            'Universal Galvanized Farm Gate Bracket (Suitable with MONOS4, 700,750,790, 800,850,890 Motors)',
         'code': 'APC-FGB2532-GB',
         'description': 'Suitable for 25mm to 32mm round gate tube',
         'image': 'assets/images/product1.png',
@@ -1426,9 +1390,11 @@ class _DetailViewState extends State<DetailView> {
         'savings': null,
       },
       {
-        'name': 'Universal Automatic Gate Safety Light and Antenna KIT (Including Cables)',
+        'name':
+            'Universal Automatic Gate Safety Light and Antenna KIT (Including Cables)',
         'code': 'APC-ULA-KIT',
-        'description': 'Universal 12-265V AC/DC LED with Antenna **All cables included**',
+        'description':
+            'Universal 12-265V AC/DC LED with Antenna **All cables included**',
         'image': 'assets/images/product2.png',
         'unitPrice': 69.00,
         'originalPrice': 85.00,
@@ -1460,10 +1426,7 @@ class _DetailViewState extends State<DetailView> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.yellow[600]!,
-                      Colors.grey[300]!,
-                    ],
+                    colors: [Colors.yellow[600]!, Colors.grey[300]!],
                     stops: const [0.3, 1.0],
                   ),
                 ),
@@ -1478,14 +1441,14 @@ class _DetailViewState extends State<DetailView> {
             itemBuilder: (context, index) {
               final item = addOnItems[index];
               final isSelected = _addOnSelections[index];
-              
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
-                  border: isSelected 
+                  border: isSelected
                       ? Border.all(color: Colors.blue, width: 1)
                       : Border.all(color: Colors.grey[300]!, width: 1),
                 ),
@@ -1505,7 +1468,8 @@ class _DetailViewState extends State<DetailView> {
                             });
                           },
                           activeColor: Colors.blue,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -1513,7 +1477,8 @@ class _DetailViewState extends State<DetailView> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: Image.asset(
-                          (item['image'] as String?) ?? 'assets/images/product1.png',
+                          (item['image'] as String?) ??
+                              'assets/images/product1.png',
                           width: 45,
                           height: 45,
                           fit: BoxFit.cover,
@@ -1580,94 +1545,97 @@ class _DetailViewState extends State<DetailView> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                          // Quantity dropdown - smaller
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<int>(
-                                value: _addOnQuantities[index],
-                                isDense: true,
-                                items: List.generate(10, (i) {
-                                  final qty = i + 1;
-                                  return DropdownMenuItem<int>(
-                                    value: qty,
-                                    child: Text(
-                                      '$qty',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                  );
-                                }),
-                                onChanged: (val) {
-                                  setState(() {
-                                    _addOnQuantities[index] = val ?? 1;
-                                  });
-                                },
+                            // Quantity dropdown - smaller
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: Colors.grey[300]!),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<int>(
+                                  value: _addOnQuantities[index],
+                                  isDense: true,
+                                  items: List.generate(10, (i) {
+                                    final qty = i + 1;
+                                    return DropdownMenuItem<int>(
+                                      value: qty,
+                                      child: Text(
+                                        '$qty',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                    );
+                                  }),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _addOnQuantities[index] = val ?? 1;
+                                    });
+                                  },
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          // Unit Price - compact
-                          const Text(
-                            'Unit Price',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: Color(0xFF151D51),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            "\$${(item['unitPrice'] as double).toStringAsFixed(2)}",
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          // Pricing info - compact
-                          if (item['originalPrice'] != null) ...[
-                            const SizedBox(height: 1),
-                            Text(
-                              "\$${(item['originalPrice'] as double).toStringAsFixed(2)}",
+                            const SizedBox(height: 6),
+                            // Unit Price - compact
+                            const Text(
+                              'Unit Price',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 9,
-                                decoration: TextDecoration.lineThrough,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            Text(
-                              "Save \$${(item['savings'] as double).toStringAsFixed(2)}",
-                              style: const TextStyle(
-                                fontSize: 9,
-                                color: Colors.green,
+                                color: Color(0xFF151D51),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ],
-                          const SizedBox(height: 6),
-                          // View Details - smaller
-                          GestureDetector(
-                            onTap: () {
-                              // Handle view details
-                            },
-                            child: const Text(
-                              'View Details ≫',
-                              style: TextStyle(
-                                fontSize: 9,
+                            const SizedBox(height: 1),
+                            Text(
+                              "\$${(item['unitPrice'] as double).toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.blue,
-                                decoration: TextDecoration.underline,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            // Pricing info - compact
+                            if (item['originalPrice'] != null) ...[
+                              const SizedBox(height: 1),
+                              Text(
+                                "\$${(item['originalPrice'] as double).toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  decoration: TextDecoration.lineThrough,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              Text(
+                                "Save \$${(item['savings'] as double).toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 6),
+                            // View Details - smaller
+                            GestureDetector(
+                              onTap: () {
+                                // Handle view details
+                              },
+                              child: const Text(
+                                'View Details ≫',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.blue,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -1705,10 +1673,7 @@ class _DetailViewState extends State<DetailView> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.yellow[600]!,
-                      Colors.grey[300]!,
-                    ],
+                    colors: [Colors.yellow[600]!, Colors.grey[300]!],
                     stops: const [0.3, 1.0],
                   ),
                 ),

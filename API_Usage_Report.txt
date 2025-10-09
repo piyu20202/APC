@@ -1,0 +1,382 @@
+API USAGE REPORT - APC Flutter Project
+=====================================
+
+Analysis Date: December 2024
+Project Structure: E-commerce application with product catalog, user management, trader system, and checkout flow
+Total Files Analyzed: 33 Dart files
+
+EXECUTIVE SUMMARY:
+------------------
+This Flutter project is currently in UI/UX development phase with NO external API integrations implemented. All data is hardcoded using static lists and local state management. The application structure is ready for future API integration with clear TODO markers and planned endpoints.
+
+Dependencies Found:
+- shared_preferences: ^2.2.2 (Local storage only)
+- url_launcher: ^6.2.5 (For external URLs)
+- No HTTP clients (http, dio, retrofit, etc.)
+- No authentication services
+- No cloud databases
+
+DETAILED PAGE ANALYSIS:
+=======================
+
+-------------------------------------------------
+Page: SplashScreen  (Path: lib/page/splash_view/splash.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- No API calls, uses navigation only
+-------------------------------------------------
+
+-------------------------------------------------
+Page: MainNavigationScreen  (Path: lib/main_navigation.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Tab navigation wrapper, no data fetching
+-------------------------------------------------
+
+-------------------------------------------------
+Page: HomeScreen  (Path: lib/page/home_view/home.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- All product data hardcoded in static lists
+- Banner, products, categories are predefined
+-------------------------------------------------
+
+-------------------------------------------------
+Page: SigninScreen  (Path: lib/page/signin_view/signin.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Form validation only, no authentication API
+- Direct navigation to main screen
+-------------------------------------------------
+
+-------------------------------------------------
+Page: SignupScreen  (Path: lib/page/signup_view/signup_new.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- User registration form with no backend integration
+-------------------------------------------------
+
+-------------------------------------------------
+Page: RegularUserSignup  (Path: lib/page/signup_view/regular_user_signup.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Registration form for regular users only
+-------------------------------------------------
+
+-------------------------------------------------
+Page: TradeWelcomePage  (Path: lib/page/signup_view/trade_welcome_page.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Information page for trader signup process
+-------------------------------------------------
+
+-------------------------------------------------
+Page: RegisterTraderUserScreen  (Path: lib/page/signup_view/register_traderuser.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- TODO comment: "Implement actual registration logic (API calls, etc.)"
+- Uses UserRoleService for local storage only
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ForgotPasswordScreen  (Path: lib/page/forgotpassword_view/forgotpassword.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Shows success message but no actual password reset API
+-------------------------------------------------
+
+-------------------------------------------------
+Page: DetailView  (Path: lib/page/detail_view/detail_view.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Product details are hardcoded in static data
+-------------------------------------------------
+
+-------------------------------------------------
+Page: DetailView Copy  (Path: lib/page/detail_view/detail_view copy.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Duplicate detail view file, same as above
+-------------------------------------------------
+
+-------------------------------------------------
+Page: CartPage  (Path: lib/page/cart_view/cart.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Cart data stored in local state only
+- No persistence or sync with backend
+-------------------------------------------------
+
+-------------------------------------------------
+Page: CategoriesGridScreen  (Path: lib/page/categories_view/categories_grid.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Categories are hardcoded static lists
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ProductListScreen  (Path: lib/page/productlist_view/productlist.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Product listing with hardcoded data
+-------------------------------------------------
+
+-------------------------------------------------
+Page: CheckoutPage  (Path: lib/page/checkout_page/checkout.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Order form validation only, no order processing API
+-------------------------------------------------
+
+-------------------------------------------------
+Page: OrderPriceDetailPage  (Path: lib/page/checkout_page/orderpricedetail.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Order pricing calculations done locally
+-------------------------------------------------
+
+-------------------------------------------------
+Page: OrderPlacedPage  (Path: lib/page/checkout_page/orderplaced.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Order confirmation page only
+-------------------------------------------------
+
+-------------------------------------------------
+Page: PaymentPage  (Path: lib/page/payment_page/payment.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Placeholder page with no payment gateway integration
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ProfileView  (Path: lib/page/profile_page/profile_view.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Static profile menu with no data fetching
+-------------------------------------------------
+
+-------------------------------------------------
+Page: AccountInfoPage  (Path: lib/page/profile_page/accountinfo.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Displays hardcoded user information
+-------------------------------------------------
+
+-------------------------------------------------
+Page: EditProfilePage  (Path: lib/page/profile_page/editprofile.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Form validation only, no profile update API
+- Local success message only
+-------------------------------------------------
+
+-------------------------------------------------
+Page: MyOrdersPage  (Path: lib/page/profile_page/myorder.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Displays hardcoded order list in static array
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ResetPasswordPage  (Path: lib/page/profile_page/resetpassword.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Contains comment: "Simulate API call" with Future.delayed mock
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ManualsMenuPage  (Path: lib/page/manuals/manuals_menu.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Static list of manual categories
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ManualsListViewPage  (Path: lib/page/manuals/manuals_listdownload.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- TODO comment: "Implement file download functionality"
+- File system structure is hardcoded
+- No url_launcher usage found despite dependency
+-------------------------------------------------
+
+-------------------------------------------------
+Page: TraderActivationScreen  (Path: lib/page/trader_view/trader_activation.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Uses UserRoleService for local storage only
+- No external trader verification API
+-------------------------------------------------
+
+-------------------------------------------------
+Page: TraderDashboard  (Path: lib/page/trader_view/trader_dashboard.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Static trader dashboard with "Coming Soon" dialogs
+-------------------------------------------------
+
+-------------------------------------------------
+Page: AppDrawer  (Path: lib/page/drawer_view/drawer.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Navigation drawer with hardcoded menu items
+-------------------------------------------------
+
+-------------------------------------------------
+Page: ProductCard  (Path: lib/page/widget/product_card.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- UI component only, no data fetching
+-------------------------------------------------
+
+-------------------------------------------------
+Page: CartItemCard  (Path: lib/page/widget/cart_item_card.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- UI component only, no data operations
+-------------------------------------------------
+
+SHARED SERVICES ANALYSIS:
+=========================
+
+-------------------------------------------------
+Service: UserRoleService  (Path: lib/services/user_role_service.dart)
+Number of APIs: 0
+APIs:
+- None
+Notes:
+- Uses SharedPreferences for local storage only
+- Functions: isTraderUser(), setAsTrader(), removeTraderStatus()
+- Used by: RegisterTraderUserScreen, TraderActivationScreen
+- No external API integration
+-------------------------------------------------
+
+PLANNED INTEGRATION POINTS IDENTIFIED:
+======================================
+
+1. Registration API (RegisterTraderUserScreen:528):
+   - Comment: "TODO: Implement actual registration logic (API calls, etc.)"
+
+2. Password Reset API (ResetPasswordPage:231):
+   - Comment: "Simulate API call" - currently mocked with Future.delayed
+
+3. File Download API (ManualsListViewPage:251):
+   - Comment: "TODO: Implement file download functionality"
+
+4. No URL Launcher Usage:
+   - url_launcher dependency added but not used anywhere in codebase
+
+KEY FINDINGS:
+=============
+
+• Hardcoded Data Sources:
+  - Product listings (HomeScreen, DetailView)
+  - Cart items (CartPage)
+  - Order history (MyOrdersPage)
+  - Manual file system (ManualsListViewPage)
+  - Categories (CategoriesGridScreen)
+  - User profile data (AccountInfoPage, EditProfilePage)
+
+• Mock Implementations:
+  - Password reset with simulated loading
+  - Order placement with local calculations
+  - File downloads with success messages
+
+• Missing External Integrations:
+  - Authentication service
+  - Product catalog API
+  - Order management API
+  - Payment processing
+  - File downloads
+  - User profile synchronization
+
+SUMMARY SECTION:
+================
+
+Total Pages Scanned: 25 pages + 2 widget components = 27 files
+Total Unique APIs/Endpoints: 0 (none implemented)
+Pages with No API Calls: All pages (100%)
+
+Shared Services/Repositories:
+- UserRoleService: Used by 2 pages (local SharedPreferences only)
+
+State Management: None (uses StatefulWidget setState only)
+HTTP Clients: None found
+Authentication: None implemented
+Database: None (local SharedPreferences only)
+Payment: Not implemented
+File Downloads: Planned but not implemented
+
+CONCLUSION:
+===========
+The APC Flutter project is currently a complete UI/UX prototype with no external API integrations. All functionality uses hardcoded data, local state management, and mock operations. The codebase structure is well-organized and ready for API integration with clear TODO markers indicating planned backend connections.
+
+Ready for Implementation:
+- User authentication APIs
+- Product catalog APIs
+- Order management APIs
+- Payment gateway integration
+- File download services
+- User profile synchronization
+- Real-time data fetching

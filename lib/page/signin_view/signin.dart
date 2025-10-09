@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../signup_view/signup_new.dart';
 import '../forgotpassword_view/forgotpassword.dart';
-import '../../main_navigation.dart';
 
 class SigninScreen extends StatefulWidget {
   const SigninScreen({super.key});
@@ -42,14 +40,14 @@ class _SigninScreenState extends State<SigninScreen> {
                 children: [
                   const SizedBox(height: 40),
                   // Title
-                const Text(
-                  'Sign In',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF151D51),
+                  const Text(
+                    'Sign In',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF151D51),
+                    ),
                   ),
-                ),
                   const SizedBox(height: 40),
                   // Email Field
                   _buildInputField(
@@ -61,15 +59,17 @@ class _SigninScreenState extends State<SigninScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter email';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      if (!RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      ).hasMatch(value)) {
                         return 'Please enter a valid email';
                       }
                       return null;
                     },
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Password Field
                   _buildInputField(
                     controller: _passwordController,
@@ -87,35 +87,35 @@ class _SigninScreenState extends State<SigninScreen> {
                       return null;
                     },
                   ),
-                  
-                  
 
-                    const SizedBox(height: 8),
-                
-                // Forgot Password Link
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: GestureDetector(
-                    onTap: () {
-                      // Navigate to forgot password screen
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
-                      );
-                    },
-                    child: Text(
-                      'Forgot Password?',
-                      style: TextStyle(
-                        color: Color(0xFF151D51),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                  const SizedBox(height: 8),
+
+                  // Forgot Password Link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () {
+                        // Navigate to forgot password screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          color: Color(0xFF151D51),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                 const SizedBox(height: 8),
-                  
+                  const SizedBox(height: 8),
+
                   // Log In Button
                   SizedBox(
                     width: double.infinity,
@@ -126,7 +126,9 @@ class _SigninScreenState extends State<SigninScreen> {
                         Navigator.pushReplacementNamed(context, '/main');
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF151D51), // Button color
+                        backgroundColor: const Color(
+                          0xFF151D51,
+                        ), // Button color
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -144,96 +146,98 @@ class _SigninScreenState extends State<SigninScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                    // Privacy Policy Text
-                Center(
-                  child: RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      style: TextStyle(
-                        color: Color(0xFF151D51).withOpacity(0.7),
-                        fontSize: 14,
-                      ),
-                      children: [
-                        const TextSpan(text: 'By signing up, you agree to our '),
-                        TextSpan(
-                          text: 'Privacy Policy',
-                          style: TextStyle(
-                            color: Color(0xFF151D51),
-                            fontWeight: FontWeight.bold,
-                          ),
+                  // Privacy Policy Text
+                  Center(
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: Color(0xFF151D51).withOpacity(0.7),
+                          fontSize: 14,
                         ),
-                      ],
+                        children: [
+                          const TextSpan(
+                            text: 'By signing up, you agree to our ',
+                          ),
+                          TextSpan(
+                            text: 'Privacy Policy',
+                            style: TextStyle(
+                              color: Color(0xFF151D51),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 60),
-                
-                // Social Login Section
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.apple,
-                              size: 24,
-                              color: Colors.black,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Apple',
-                              style: TextStyle(
+
+                  const SizedBox(height: 60),
+
+                  // Social Login Section
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.apple,
+                                size: 24,
                                 color: Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Text(
+                                'Apple',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.g_mobiledata,
-                              size: 24,
-                              color: Colors.black,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Google',
-                              style: TextStyle(
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.g_mobiledata,
+                                size: 24,
                                 color: Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Text(
+                                'Google',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                 const SizedBox(height: 30),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
                   // Register Link
                   Center(
                     child: Wrap(
@@ -244,7 +248,6 @@ class _SigninScreenState extends State<SigninScreen> {
                           style: TextStyle(
                             color: Color(0xFF151D51).withOpacity(0.7),
                             fontSize: 16,
-                           
                           ),
                         ),
                         GestureDetector(
@@ -257,15 +260,12 @@ class _SigninScreenState extends State<SigninScreen> {
                               color: Colors.black,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  
-                  
                 ],
               ),
             ),
@@ -297,20 +297,22 @@ class _SigninScreenState extends State<SigninScreen> {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Color(0xFFF2F2F4), // Lighter shade of gray for text box background
+            color: Color(
+              0xFFF2F2F4,
+            ), // Lighter shade of gray for text box background
             borderRadius: BorderRadius.circular(8),
           ),
           child: Padding(
-            padding: const EdgeInsets.only(top: 2.0), // Add top padding for the input field
+            padding: const EdgeInsets.only(
+              top: 2.0,
+            ), // Add top padding for the input field
             child: Row(
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(left: 12.0), // Add left padding for icon
-                  child: Icon(
-                    icon,
-                    color: Color(0xFF151D51),
-                    size: 20,
-                  ),
+                  padding: const EdgeInsets.only(
+                    left: 12.0,
+                  ), // Add left padding for icon
+                  child: Icon(icon, color: Color(0xFF151D51), size: 20),
                 ),
                 const SizedBox(width: 20), // Increased padding after icon
                 Expanded(
@@ -333,7 +335,9 @@ class _SigninScreenState extends State<SigninScreen> {
                         suffixIcon: isPassword
                             ? IconButton(
                                 icon: Icon(
-                                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                  _obscurePassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
                                   color: Color(0xFF151D51),
                                 ),
                                 onPressed: () {

@@ -24,21 +24,25 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         primaryColor: const Color(0xFF151D51),
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-        ),
+        appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
       ),
       home: const SplashScreen(),
       routes: {
         '/main': (context) => const MainNavigationScreen(),
         '/signin': (context) => const SigninScreen(),
         '/signup': (context) => const SignupScreen(),
-        '/checkout': (context) => const TabBarWrapper(child: CheckoutPage(), showTabBar: true),
-        '/order-price-detail': (context) => const TabBarWrapper(child: OrderPriceDetailPage(), showTabBar: true),
-        '/payment': (context) => const TabBarWrapper(child: PaymentPage(), showTabBar: true),
-        '/order-placed': (context) => const TabBarWrapper(child: OrderPlacedPage(), showTabBar: true),
-        '/manuals': (context) => const TabBarWrapper(child: ManualsMenuPage(), showTabBar: true),
+        '/checkout': (context) =>
+            const TabBarWrapper(showTabBar: true, child: CheckoutPage()),
+        '/order-price-detail': (context) => const TabBarWrapper(
+          showTabBar: true,
+          child: OrderPriceDetailPage(),
+        ),
+        '/payment': (context) =>
+            const TabBarWrapper(showTabBar: true, child: PaymentPage()),
+        '/order-placed': (context) =>
+            const TabBarWrapper(showTabBar: true, child: OrderPlacedPage()),
+        '/manuals': (context) =>
+            const TabBarWrapper(showTabBar: true, child: ManualsMenuPage()),
       },
     );
   }

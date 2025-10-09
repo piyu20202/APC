@@ -24,7 +24,10 @@ class _AppDrawerState extends State<AppDrawer> {
               height: 96,
               child: DrawerHeader(
                 margin: EdgeInsets.zero,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: const BoxDecoration(color: Color(0xFFF8F8F8)),
                 child: const Align(
                   alignment: Alignment.bottomLeft,
@@ -40,34 +43,117 @@ class _AppDrawerState extends State<AppDrawer> {
               ),
             ),
 
-
-            _buildItem(icon: Icons.local_fire_department, title: 'Sale', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.local_fire_department,
+              title: 'Sale',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.settings_input_component, title: 'Gate Automation Kits', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.settings_input_component,
+              title: 'Gate Automation Kits',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.home_repair_service, title: 'Gate & Fencing Hardware', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.home_repair_service,
+              title: 'Gate & Fencing Hardware',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.electric_bolt, title: 'Brushless Electric Gate Kits', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.electric_bolt,
+              title: 'Brushless Electric Gate Kits',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.handyman, title: 'Premium Hardware for Cantilever, Sliding & Swing Gates', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.handyman,
+              title: 'Premium Hardware for Cantilever, Sliding & Swing Gates',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.auto_awesome_mosaic, title: 'Gate, Automation & Hardware Combos', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.auto_awesome_mosaic,
+              title: 'Gate, Automation & Hardware Combos',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.door_sliding, title: 'Gates & Gate Frames', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.door_sliding,
+              title: 'Gates & Gate Frames',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.build_circle, title: 'Custom Made Gates', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.build_circle,
+              title: 'Custom Made Gates',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.traffic, title: 'Boom Gates', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.traffic,
+              title: 'Boom Gates',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.videocam, title: 'Video Intercoms and Surveillance Systems', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.videocam,
+              title: 'Video Intercoms and Surveillance Systems',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.settings_remote, title: 'Remotes', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.settings_remote,
+              title: 'Remotes',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.security, title: 'Access Control & Accessories', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.security,
+              title: 'Access Control & Accessories',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.power, title: 'Replacement Parts, Power Supplies & Cables', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.power,
+              title: 'Replacement Parts, Power Supplies & Cables',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
-            _buildItem(icon: Icons.solar_power, title: 'Solar Equipment', onTap: () { Navigator.pop(context); }),
+            _buildItem(
+              icon: Icons.solar_power,
+              title: 'Solar Equipment',
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.add_circle_outline,
@@ -76,7 +162,12 @@ class _AppDrawerState extends State<AppDrawer> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const TabBarWrapper(child: CategoriesGridScreen(), showTabBar: true)),
+                  MaterialPageRoute(
+                    builder: (context) => const TabBarWrapper(
+                      showTabBar: true,
+                      child: CategoriesGridScreen(),
+                    ),
+                  ),
                 );
               },
             ),
@@ -95,7 +186,10 @@ class _AppDrawerState extends State<AppDrawer> {
     return Container(
       color: isSelected ? const Color(0xFFFFC107) : Colors.transparent,
       child: ListTile(
-        leading: Icon(icon, color: isSelected ? Colors.black : Color(0xFF101010)),
+        leading: Icon(
+          icon,
+          color: isSelected ? Colors.black : Color(0xFF101010),
+        ),
         title: Text(
           title,
           style: TextStyle(
@@ -123,5 +217,3 @@ class _AppDrawerState extends State<AppDrawer> {
     return const Divider(color: Color(0xFF101010), height: 1);
   }
 }
-
-

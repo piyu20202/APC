@@ -11,20 +11,72 @@ class CategoriesGridScreen extends StatefulWidget {
 
 class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
   final List<Map<String, dynamic>> allCategories = [
-    {'name': 'Gas Automation Kits', 'icon': 'assets/images/product1.png', 'isImage': true},
-    {'name': 'Gate & Fencing Hardware', 'icon': 'assets/images/product2.png', 'isImage': true},
-    {'name': 'Brushless Electric Gate Kits', 'icon': 'assets/images/product3.png', 'isImage': true},
-    {'name': 'Brushless Electric Gate Kits', 'icon': 'assets/images/product4.png', 'isImage': true},
-    {'name': 'Premium Hardware for Cantilever, Sliding & Swing Gates', 'icon': 'assets/images/product5.png', 'isImage': true},
-    {'name': 'Gate, Automation & Hardware Combos', 'icon': 'assets/images/product6.png', 'isImage': true},
-    {'name': 'Gates & Gate Frames', 'icon': 'assets/images/product7.png', 'isImage': true},
-    {'name': 'Custom Made Gates', 'icon': 'assets/images/product8.png', 'isImage': true},
-    {'name': 'Boom Gates', 'icon': 'assets/images/product9.png', 'isImage': true},
-    {'name': 'Video Intercoms and Surveillance Systems', 'icon': 'assets/images/product10.png', 'isImage': true},
+    {
+      'name': 'Gas Automation Kits',
+      'icon': 'assets/images/product1.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Gate & Fencing Hardware',
+      'icon': 'assets/images/product2.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Brushless Electric Gate Kits',
+      'icon': 'assets/images/product3.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Brushless Electric Gate Kits',
+      'icon': 'assets/images/product4.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Premium Hardware for Cantilever, Sliding & Swing Gates',
+      'icon': 'assets/images/product5.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Gate, Automation & Hardware Combos',
+      'icon': 'assets/images/product6.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Gates & Gate Frames',
+      'icon': 'assets/images/product7.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Custom Made Gates',
+      'icon': 'assets/images/product8.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Boom Gates',
+      'icon': 'assets/images/product9.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Video Intercoms and Surveillance Systems',
+      'icon': 'assets/images/product10.png',
+      'isImage': true,
+    },
     {'name': 'Remotes', 'icon': 'assets/images/product11.png', 'isImage': true},
-    {'name': 'Access Control & Accessories', 'icon': 'assets/images/product12.png', 'isImage': true},
-    {'name': 'Replacement Parts, Power Supplies & Cables', 'icon': 'assets/images/product12.png', 'isImage': true},
-    {'name': 'Solar Equipment', 'icon': 'assets/images/product13.png', 'isImage': true},
+    {
+      'name': 'Access Control & Accessories',
+      'icon': 'assets/images/product12.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Replacement Parts, Power Supplies & Cables',
+      'icon': 'assets/images/product12.png',
+      'isImage': true,
+    },
+    {
+      'name': 'Solar Equipment',
+      'icon': 'assets/images/product13.png',
+      'isImage': true,
+    },
   ];
 
   @override
@@ -48,14 +100,14 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-                         child: GridView.builder(
-               padding: const EdgeInsets.only(bottom: 80),
-               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                 crossAxisCount: 2,
-                 crossAxisSpacing: 16,
-                 mainAxisSpacing: 16,
-                 childAspectRatio: 0.95,
-               ),
+            child: GridView.builder(
+              padding: const EdgeInsets.only(bottom: 80),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.95,
+              ),
               itemCount: allCategories.length,
               itemBuilder: (context, index) {
                 final category = allCategories[index];
@@ -64,23 +116,26 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TabBarWrapper(child: ProductListScreen(), showTabBar: true),
+                        builder: (context) => const TabBarWrapper(
+                          showTabBar: true,
+                          child: ProductListScreen(),
+                        ),
                       ),
                     );
                   },
                   child: Container(
-                                                                                                                             decoration: BoxDecoration(
-                       color: const Color(0xFFF8F8F8),
-                       borderRadius: BorderRadius.circular(16),
-                       boxShadow: [
-                         BoxShadow(
-                           color: Colors.black.withOpacity(0.15),
-                           spreadRadius: 2,
-                           blurRadius: 8,
-                           offset: const Offset(0, 4),
-                         ),
-                       ],
-                     ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F8F8),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -92,15 +147,15 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                                                         child: Image.asset(
-                               category['icon'] as String,
-                               width: 60,
-                               height: 60,
-                               fit: BoxFit.contain,
+                            child: Image.asset(
+                              category['icon'] as String,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) {
-                                                                 return Container(
-                                   width: 50,
-                                   height: 50,
+                                return Container(
+                                  width: 50,
+                                  height: 50,
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
@@ -123,11 +178,11 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
                             textAlign: TextAlign.center,
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
-                                                                                                                                                                             style: const TextStyle(
-                               fontSize: 11,
-                               fontWeight: FontWeight.w600,
-                               color: Color(0xFF151D51),
-                             ),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF151D51),
+                            ),
                           ),
                         ),
                       ],

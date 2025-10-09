@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../signin_view/signin.dart';
-import '../home_view/home.dart';
 import 'trade_welcome_page.dart';
 import 'regular_user_signup.dart';
 
@@ -27,7 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
               children: [
                 // Skip button
                 const SizedBox(height: 40),
-                             
+
                 // Title
                 const Text(
                   'Signup',
@@ -37,18 +35,18 @@ class _SignupScreenState extends State<SignupScreen> {
                     color: Color(0xFF151D51),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // User Type Selection
                 _buildUserTypeSelector(),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // Dynamic Content Based on User Type
-                _selectedUserType == 'trader' 
-                  ? const TradeWelcomePage()
-                  : const RegularUserSignup(),
+                _selectedUserType == 'trader'
+                    ? const TradeWelcomePage()
+                    : const RegularUserSignup(),
               ],
             ),
           ),
@@ -56,7 +54,6 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
   }
-
 
   Widget _buildUserTypeSelector() {
     return Column(
@@ -72,12 +69,19 @@ class _SignupScreenState extends State<SignupScreen> {
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: _selectedUserType == 'regular' ? const Color(0xFF151D51) : Colors.white,
+                    color: _selectedUserType == 'regular'
+                        ? const Color(0xFF151D51)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: _selectedUserType == 'regular' ? const Color(0xFF151D51) : Colors.grey.shade300,
+                      color: _selectedUserType == 'regular'
+                          ? const Color(0xFF151D51)
+                          : Colors.grey.shade300,
                       width: 1.5,
                     ),
                   ),
@@ -86,14 +90,18 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       Icon(
                         Icons.person,
-                        color: _selectedUserType == 'regular' ? Colors.white : const Color(0xFF151D51),
+                        color: _selectedUserType == 'regular'
+                            ? Colors.white
+                            : const Color(0xFF151D51),
                         size: 16,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Regular User',
                         style: TextStyle(
-                          color: _selectedUserType == 'regular' ? Colors.white : const Color(0xFF151D51),
+                          color: _selectedUserType == 'regular'
+                              ? Colors.white
+                              : const Color(0xFF151D51),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -112,12 +120,19 @@ class _SignupScreenState extends State<SignupScreen> {
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: _selectedUserType == 'trader' ? Colors.yellow : Colors.white,
+                    color: _selectedUserType == 'trader'
+                        ? Colors.yellow
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: _selectedUserType == 'trader' ? Colors.yellow : Colors.grey.shade300,
+                      color: _selectedUserType == 'trader'
+                          ? Colors.yellow
+                          : Colors.grey.shade300,
                       width: 1.5,
                     ),
                   ),
@@ -126,14 +141,18 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       Icon(
                         Icons.business,
-                        color: _selectedUserType == 'trader' ? Colors.black : const Color(0xFF151D51),
+                        color: _selectedUserType == 'trader'
+                            ? Colors.black
+                            : const Color(0xFF151D51),
                         size: 16,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Trade User',
                         style: TextStyle(
-                          color: _selectedUserType == 'trader' ? Colors.black : const Color(0xFF151D51),
+                          color: _selectedUserType == 'trader'
+                              ? Colors.black
+                              : const Color(0xFF151D51),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -148,5 +167,4 @@ class _SignupScreenState extends State<SignupScreen> {
       ],
     );
   }
-
 }

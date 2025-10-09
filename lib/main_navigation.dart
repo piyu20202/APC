@@ -4,7 +4,8 @@ import 'page/cart_view/cart.dart';
 import 'page/manuals/manuals_menu.dart';
 import 'page/signin_view/signin.dart';
 import 'page/profile_page/profile_view.dart';
-import 'page/drawer_view/drawer.dart';
+import 'page/wishlist_view/wishlist.dart';
+import 'page/search_view/search.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -25,6 +26,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _screens = [
       HomeScreen(onSearchTap: () => _onItemTapped(1)),
       const SearchScreen(),
+      const WishlistScreen(),
       const CartPage(),
       const ManualsMenuPage(),
       const ProfileView(),
@@ -40,10 +42,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
@@ -64,14 +63,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Search',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.favorite_border),
+            activeIcon: Icon(Icons.favorite),
+            label: 'Wishlist',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart_outlined),
             activeIcon: Icon(Icons.shopping_cart),
             label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book_outlined),
-            activeIcon: Icon(Icons.book),
-            label: 'Manuals',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -89,11 +88,7 @@ class TabBarWrapper extends StatefulWidget {
   final Widget child;
   final bool showTabBar;
 
-  const TabBarWrapper({
-    super.key,
-    required this.child,
-    this.showTabBar = true,
-  });
+  const TabBarWrapper({super.key, required this.child, this.showTabBar = true});
 
   @override
   State<TabBarWrapper> createState() => _TabBarWrapperState();
@@ -120,26 +115,46 @@ class _TabBarWrapperState extends State<TabBarWrapper> {
             break;
           case 1:
             // Search
-            break;
-          case 2:
-            // Cart
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const TabBarWrapper(child: CartPage(), showTabBar: true)),
+              MaterialPageRoute(
+                builder: (context) => const TabBarWrapper(
+                  showTabBar: true,
+                  child: SearchScreen(),
+                ),
+              ),
+            );
+            break;
+          case 2:
+            // Wishlist
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TabBarWrapper(
+                  showTabBar: true,
+                  child: WishlistScreen(),
+                ),
+              ),
             );
             break;
           case 3:
-            // Manuals
+            // Cart
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const TabBarWrapper(child: ManualsMenuPage(), showTabBar: true)),
+              MaterialPageRoute(
+                builder: (context) =>
+                    const TabBarWrapper(showTabBar: true, child: CartPage()),
+              ),
             );
             break;
           case 4:
             // Profile
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const TabBarWrapper(child: ProfileView(), showTabBar: true)),
+              MaterialPageRoute(
+                builder: (context) =>
+                    const TabBarWrapper(showTabBar: true, child: ProfileView()),
+              ),
             );
             break;
         }
@@ -160,14 +175,14 @@ class _TabBarWrapperState extends State<TabBarWrapper> {
           label: 'Search',
         ),
         BottomNavigationBarItem(
+          icon: Icon(Icons.favorite_border),
+          activeIcon: Icon(Icons.favorite),
+          label: 'Wishlist',
+        ),
+        BottomNavigationBarItem(
           icon: Icon(Icons.shopping_cart_outlined),
           activeIcon: Icon(Icons.shopping_cart),
           label: 'Cart',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.book_outlined),
-          activeIcon: Icon(Icons.book),
-          label: 'Manuals',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
@@ -180,49 +195,6 @@ class _TabBarWrapperState extends State<TabBarWrapper> {
 }
 
 // Placeholder screens for tabs that don't have existing screens
-class SearchScreen extends StatelessWidget {
-const SearchScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const AppDrawer(),
-      appBar: AppBar(
-        title: const Text('Search'),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Search',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Search for products and services',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class SignInScreen extends StatelessWidget {
   const SignInScreen({super.key});
@@ -266,15 +238,16 @@ class SignInScreen extends StatelessWidget {
                 // Navigate to actual sign in page
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const SigninScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const SigninScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

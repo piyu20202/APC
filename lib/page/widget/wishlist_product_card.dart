@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import '../detail_view/detail_view.dart';
 import '../../main_navigation.dart';
 
-class ProductCard extends StatelessWidget {
+class WishlistProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final double? width;
   final double? height;
   final EdgeInsets? margin;
 
-  const ProductCard({
+  const WishlistProductCard({
     super.key,
     required this.product,
     this.width,
@@ -48,7 +48,7 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: Discount badge (left) and Wishlist icon (right)
+            // Top row: Only Discount badge (no heart icon for wishlist)
             Padding(
               padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
               child: Row(
@@ -83,26 +83,8 @@ class ProductCard extends StatelessWidget {
                     )
                   else
                     const SizedBox.shrink(),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          spreadRadius: 0.5,
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.favorite_border,
-                      color: Colors.red[300],
-                      size: 18,
-                    ),
-                  ),
+                  // Empty space where heart icon would be
+                  const SizedBox(width: 30),
                 ],
               ),
             ),

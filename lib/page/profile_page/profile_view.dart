@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../signin_view/signin.dart';
 import '../drawer_view/drawer.dart';
-import '../../main_navigation.dart';
 import 'accountinfo.dart';
 import 'myorder.dart';
 import 'editprofile.dart';
@@ -237,12 +236,16 @@ class ProfileView extends StatelessWidget {
                       // Navigate to signin screen
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (context) => const SigninScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const SigninScreen(),
+                        ),
                         (route) => false,
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF151D51), // Same as login page button
+                      backgroundColor: const Color(
+                        0xFF151D51,
+                      ), // Same as login page button
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(

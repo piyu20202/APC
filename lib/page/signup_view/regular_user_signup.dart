@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../signin_view/signin.dart';
 
 class RegularUserSignup extends StatefulWidget {
   const RegularUserSignup({super.key});
@@ -49,9 +48,9 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
               return null;
             },
           ),
-          
+
           const SizedBox(height: 15),
-          
+
           // Email Field
           _buildInputField(
             controller: _emailController,
@@ -62,15 +61,17 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
               if (value == null || value.isEmpty) {
                 return 'Please enter email';
               }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              if (!RegExp(
+                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+              ).hasMatch(value)) {
                 return 'Please enter a valid email';
               }
               return null;
             },
           ),
-          
+
           const SizedBox(height: 15),
-          
+
           // Password Field
           _buildInputField(
             controller: _passwordController,
@@ -88,9 +89,9 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
               return null;
             },
           ),
-          
+
           const SizedBox(height: 40),
-          
+
           // Sign Up Button
           SizedBox(
             width: double.infinity,
@@ -100,7 +101,11 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                 if (_formKey.currentState!.validate()) {
                   // Handle sign up logic for regular users
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Regular User account created successfully!')),
+                    const SnackBar(
+                      content: Text(
+                        'Regular User account created successfully!',
+                      ),
+                    ),
                   );
                   // Navigate to sign in screen after successful signup
                   Navigator.pushReplacementNamed(context, '/signin');
@@ -124,9 +129,9 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Privacy Policy Text
           Center(
             child: RichText(
@@ -149,9 +154,9 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 60),
-          
+
           // Social Login Section
           Row(
             children: [
@@ -166,11 +171,7 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.apple,
-                        size: 24,
-                        color: Colors.black,
-                      ),
+                      const Icon(Icons.apple, size: 24, color: Colors.black),
                       const SizedBox(width: 8),
                       Text(
                         'Apple',
@@ -216,9 +217,9 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Sign In Link
           Center(
             child: Wrap(
@@ -303,7 +304,9 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                       suffixIcon: isPassword
                           ? IconButton(
                               icon: Icon(
-                                _obscureText ? Icons.visibility : Icons.visibility_off,
+                                _obscureText
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                                 color: Color(0xFF151D51),
                               ),
                               onPressed: _togglePasswordVisibility,

@@ -9,7 +9,7 @@ import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSearchTap;
-  
+
   const HomeScreen({super.key, this.onSearchTap});
 
   @override
@@ -25,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Timer _midBannerTimer;
   final PageController _midBannerController = PageController();
   String? _selectedDrawerItem;
-  
+
   // Auto-scroll for Latest Products
   int _currentProductIndex = 0;
   late Timer _productTimer;
@@ -196,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 12),
-              
+
               // Search and Cart Bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -219,7 +219,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Row(
                             children: [
                               const SizedBox(width: 12),
-                              Icon(Icons.search, color: Colors.grey[600], size: 20),
+                              Icon(
+                                Icons.search,
+                                color: Colors.grey[600],
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Search products...',
@@ -233,15 +237,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(width: 12),
-                    
+
                     // Cart Icon
                     GestureDetector(
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const TabBarWrapper(child: CartPage(), showTabBar: true)),
+                          MaterialPageRoute(
+                            builder: (context) => const TabBarWrapper(
+                              showTabBar: true,
+                              child: CartPage(),
+                            ),
+                          ),
                         );
                       },
                       child: Stack(
@@ -252,7 +261,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Icon(Icons.shopping_cart, color: Colors.grey[600], size: 20),
+                            child: Icon(
+                              Icons.shopping_cart,
+                              color: Colors.grey[600],
+                              size: 20,
+                            ),
                           ),
                           Positioned(
                             top: 0,
@@ -295,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // Latest Products Section
               _buildLatestProductsSection(),
 
-               const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               // Banner below Latest Products
               _buildMidBanner(),
@@ -377,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-                    
+
                     // Overlay for better text readability
                     Positioned.fill(
                       child: Container(
@@ -400,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          
+
           // Banner Indicators
           Positioned(
             bottom: 16,
@@ -431,12 +444,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoriesSection() {
     final categories = [
-      {'name': 'Sale', 'icon': 'assets/images/product0.png', 'color': const Color(0xFF002e5b), 'isImage': true},
-      {'name': 'Gas Automation Kits', 'icon': 'assets/images/product1.png', 'color': const Color(0xFF002e5b), 'isImage': true},
-      {'name': 'Gate & Fencing Hardware', 'icon': 'assets/images/product2.png', 'color': const Color(0xFF002e5b), 'isImage': true},
-      {'name': 'Brushless Electric Gate Kits', 'icon': 'assets/images/product3.png', 'color': const Color(0xFF002e5b), 'isImage': true},
-      {'name': 'Custom Made Gates', 'icon': 'assets/images/product8.png', 'color': const Color(0xFF002e5b), 'isImage': true},
-      {'name': 'See all categories', 'icon': Icons.add, 'color': const Color(0xFF002e5b), 'isImage': false, 'isDarkCard': true, 'plainIcon': true},
+      {
+        'name': 'Sale',
+        'icon': 'assets/images/product0.png',
+        'color': const Color(0xFF002e5b),
+        'isImage': true,
+      },
+      {
+        'name': 'Gas Automation Kits',
+        'icon': 'assets/images/product1.png',
+        'color': const Color(0xFF002e5b),
+        'isImage': true,
+      },
+      {
+        'name': 'Gate & Fencing Hardware',
+        'icon': 'assets/images/product2.png',
+        'color': const Color(0xFF002e5b),
+        'isImage': true,
+      },
+      {
+        'name': 'Brushless Electric Gate Kits',
+        'icon': 'assets/images/product3.png',
+        'color': const Color(0xFF002e5b),
+        'isImage': true,
+      },
+      {
+        'name': 'Custom Made Gates',
+        'icon': 'assets/images/product8.png',
+        'color': const Color(0xFF002e5b),
+        'isImage': true,
+      },
+      {
+        'name': 'See all categories',
+        'icon': Icons.add,
+        'color': const Color(0xFF002e5b),
+        'isImage': false,
+        'isDarkCard': true,
+        'plainIcon': true,
+      },
     ];
 
     return Container(
@@ -470,7 +515,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (category['name'] == 'See all categories') {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const TabBarWrapper(child: CategoriesGridScreen(), showTabBar: true)),
+                      MaterialPageRoute(
+                        builder: (context) => const TabBarWrapper(
+                          showTabBar: true,
+                          child: CategoriesGridScreen(),
+                        ),
+                      ),
                     );
                   }
                 },
@@ -491,21 +541,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: EdgeInsets.all(category['isImage'] == true ? 8 : 12),
+                        padding: EdgeInsets.all(
+                          category['isImage'] == true ? 8 : 12,
+                        ),
                         decoration: category['isImage'] == true
                             ? BoxDecoration(
                                 color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                               )
                             : (category['plainIcon'] == true
-                                ? BoxDecoration(
-                                    color: Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
-                                  )
-                                : BoxDecoration(
-                                    color: (category['color'] as Color).withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  )),
+                                  ? BoxDecoration(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    )
+                                  : BoxDecoration(
+                                      color: (category['color'] as Color)
+                                          .withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    )),
                         child: category['isImage'] == true
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
@@ -525,7 +578,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               )
                             : Icon(
                                 category['icon'] as IconData,
-                                color: category['plainIcon'] == true ? Colors.black : category['color'] as Color,
+                                color: category['plainIcon'] == true
+                                    ? Colors.black
+                                    : category['color'] as Color,
                                 size: category['plainIcon'] == true ? 28 : 24,
                               ),
                       ),
@@ -632,7 +687,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: const [
                             Icon(Icons.image, color: Colors.blueGrey, size: 20),
                             SizedBox(width: 8),
-                            Text('Promotional Banner', style: TextStyle(color: Colors.blueGrey)),
+                            Text(
+                              'Promotional Banner',
+                              style: TextStyle(color: Colors.blueGrey),
+                            ),
                           ],
                         ),
                       ),
@@ -695,7 +753,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: featuredProducts.length,
-               itemBuilder: (context, index) {
+              itemBuilder: (context, index) {
                 final product = featuredProducts[index];
                 return ProductCard(
                   product: product,
@@ -710,9 +768,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-
-   Widget _buildRecentProductsSection() {
+  Widget _buildRecentProductsSection() {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -737,7 +793,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: products.length,
-               itemBuilder: (context, index) {
+              itemBuilder: (context, index) {
                 final product = products[index];
                 return ProductCard(
                   product: product,
