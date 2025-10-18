@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../categories_view/categories_grid.dart';
 import '../drawer_view/drawer.dart';
-import '../detail_view/detail_view.dart';
 import '../widget/product_card.dart';
+import '../signup_view/trader_upgrade_flow.dart';
 import '../cart_view/cart.dart';
 import '../../main_navigation.dart';
+import '../../services/user_role_service.dart';
 import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
@@ -24,12 +25,14 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentMidBannerIndex = 0;
   late Timer _midBannerTimer;
   final PageController _midBannerController = PageController();
-  String? _selectedDrawerItem;
 
   // Auto-scroll for Latest Products
   int _currentProductIndex = 0;
   late Timer _productTimer;
   final PageController _productController = PageController();
+
+  // Trader status
+  bool _isTrader = false;
 
   final List<Map<String, dynamic>> banners = [
     {
@@ -117,6 +120,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _startBannerTimer();
     _startProductTimer();
     _startMidBannerTimer();
+    _checkTraderStatus();
+  }
+
+  Future<void> _checkTraderStatus() async {
+    final isTrader = await UserRoleService.isTraderUser();
+    setState(() {
+      _isTrader = isTrader;
+    });
   }
 
   void _startBannerTimer() {
@@ -188,6 +199,53 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          // Trader upgrade button (only for non-traders)
+          if (!_isTrader)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const TraderUpgradeFlow(isExistingUser: true),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.business,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  label: const Text(
+                    'Become Trade User',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       backgroundColor: Colors.grey[50],
       body: SafeArea(
@@ -628,7 +686,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 330,
+            height: 310,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: products.length,
@@ -749,7 +807,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 340,
+            height: 310,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: featuredProducts.length,
@@ -789,7 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 340,
+            height: 310,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: products.length,

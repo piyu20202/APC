@@ -3,7 +3,9 @@ import 'trade_welcome_page.dart';
 import 'regular_user_signup.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  final bool autoSelectTrader;
+
+  const SignupScreen({super.key, this.autoSelectTrader = false});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -11,6 +13,15 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   String _selectedUserType = 'regular'; // 'regular' or 'trader'
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-select trader if coming from upgrade flow
+    if (widget.autoSelectTrader) {
+      _selectedUserType = 'trader';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

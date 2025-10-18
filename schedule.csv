@@ -1,0 +1,99 @@
+Day,Date,API_Name,Endpoint,Method,Task,Subtask,Estimated_Hours,Deliverable,Dependency,Notes
+1,2024-12-16,Network_Setup,Core_Infrastructure,GET,Setup Network Layer,Configure dio with base URL and interceptors,2,Network layer,None,Foundation for all API calls
+1,2024-12-16,Secure_Storage,Core_Infrastructure,GET,Setup Secure Storage,Configure flutter_secure_storage,1,Token storage service,None,Required for auth tokens
+1,2024-12-16,Code_Generation,Core_Infrastructure,GET,Setup Code Generation,Configure build_runner and json_serializable,1,Code generation setup,None,Required for model generation
+1,2024-12-16,Base_Models,Core_Infrastructure,GET,Create Base Models,ApiResponse wrapper and base entities,2,Base model classes,None,Foundation for all API models
+1,2024-12-16,Testing_Infrastructure,Core_Infrastructure,GET,Setup Testing Infrastructure,Configure dio_adapter and test utilities,2,Test setup,None,Required for API testing
+2,2024-12-17,AppConfig,/api/app/config,GET,AppConfig API Integration,Create AppConfig model with freezed,4,AppConfig API integration,None,App initialization and feature flags
+2,2024-12-17,Splash_Screen,UI_Update,GET,Splash Screen Updates,Update splash.dart to use AppConfig API,2,Updated splash screen,AppConfig API,Loading states and error handling
+2,2024-12-17,AppConfig_Testing,Testing,GET,Testing,Unit and integration tests for AppConfig,2,AppConfig tests,AppConfig API,Error scenarios and network failure
+3,2024-12-18,Login,/api/auth/login,POST,Login API Integration,Create LoginRequest and LoginResponse models,4,Login API integration,None,Core authentication functionality
+3,2024-12-18,SignIn_Screen,UI_Update,POST,SignIn Screen Updates,Update signin.dart to use AuthProvider,2,Updated signin screen,Login API,Form validation and error handling
+3,2024-12-18,Login_Testing,Testing,POST,Testing,Unit and integration tests for login,2,Login tests,Login API,Invalid credentials and network errors
+4,2024-12-19,SocialLoginApple,/api/auth/social/apple,POST,Apple Sign-In Integration,Implement Apple Sign-In with sign_in_with_apple,3,Apple sign-in integration,None,Social authentication
+4,2024-12-19,SocialLoginGoogle,/api/auth/social/google,POST,Google Sign-In Integration,Implement Google Sign-In with google_sign_in,3,Google sign-in integration,None,Social authentication
+4,2024-12-19,Social_Testing,Testing,POST,Testing,Mock social login responses and token handling,2,Social auth tests,Social APIs,Error scenarios for social auth
+5,2024-12-20,RegisterUser,/api/auth/register,POST,User Registration API,Create RegisterUserRequest and RegisterUserResponse models,3,User registration API,None,Basic user registration
+5,2024-12-20,RegisterTrader,/api/auth/register-trader,POST,Trader Registration API,Create RegisterTraderRequest model with business details,3,Trader registration API,None,Business user registration
+5,2024-12-20,Registration_Screens,UI_Update,POST,Registration Screens Updates,Update registration screens with API integration,2,Updated registration screens,Registration APIs,Form validation and success flows
+6,2024-12-23,ForgotPassword,/api/auth/forgot-password,POST,Forgot Password API,Create ForgotPasswordRequest and ForgotPasswordResponse models,2,Password reset API,None,Password recovery functionality
+6,2024-12-23,ResetPassword,/api/user/reset-password,POST,Reset Password API,Create ResetPasswordRequest model,2,Password reset with token,None,Password reset with token validation
+6,2024-12-23,Password_Screens,UI_Update,POST,Password Screens Updates,Update password screens with API integration,2,Updated password screens,Password APIs,Email verification flow
+6,2024-12-23,Password_Testing,Testing,POST,Testing,Unit and integration tests for password reset,2,Password reset tests,Password APIs,Token validation and expiration
+7,2024-12-24,LoadBanners,/api/catalog/banners,GET,Banners API Integration,Create Banner model with freezed,2,Banners API integration,None,Home screen banner carousel
+7,2024-12-24,LoadCategories,/api/categories/featured,GET,Categories API Integration,Create Category model with hierarchical structure,2,Categories API integration,None,Home screen category grid
+7,2024-12-24,Home_Screen,UI_Update,GET,Home Screen Updates,Update home.dart with banners and categories,3,Updated home screen,Banners/Categories APIs,Banner carousel and category navigation
+7,2024-12-24,Home_Testing,Testing,GET,Testing,Unit tests for banner and category parsing,1,Home screen tests,Banners/Categories APIs,Integration tests with mocked responses
+8,2024-12-25,Product_Models,Core_Models,GET,Product Models,Create comprehensive Product model with freezed,2,Product model classes,None,Foundation for product-related APIs
+8,2024-12-25,LoadFeaturedProducts,/api/products/featured,GET,Featured Products API,Create ProductsRepository with featured products method,2,Featured products API,Product Models,Pagination handling for product lists
+8,2024-12-25,LoadLatestProducts,/api/products/latest,GET,Latest Products API,Implement latest products loading,2,Latest products API,Product Models,Product sorting and filtering
+8,2024-12-25,Home_Product_Sections,UI_Update,GET,Home Screen Product Sections,Update home screen with product sections,2,Updated home product sections,Featured/Latest APIs,Product cards with images
+9,2024-12-26,SearchProducts,/api/products/search,GET,Search API Integration,Create SearchRequest and SearchResponse models,3,Search API integration,Product Models,Search suggestions and autocomplete
+9,2024-12-26,Search_Screen,UI_Update,GET,Search Screen Updates,Create dedicated search results screen,2,Updated search screens,Search API,Search history and recent searches
+9,2024-12-26,Navigation_Updates,UI_Update,GET,Navigation Updates,Update main_navigation.dart with search integration,2,Navigation updates,Search API,Cart count and tab navigation
+9,2024-12-26,Search_Testing,Testing,GET,Testing,Unit tests for search functionality,1,Search tests,Search API,Integration tests for search API
+10,2024-12-27,LoadAllCategories,/api/categories,GET,All Categories API,Implement hierarchical categories loading,2,Categories API,None,Category product count handling
+10,2024-12-27,LoadProductsByCategory,/api/products,GET,Products by Category API,Create ProductsByCategoryRequest model,3,Category products API,Product Models,Product filtering and sorting
+10,2024-12-27,Categories_Screen,UI_Update,GET,Categories Screen Updates,Update categories_grid.dart with API integration,2,Updated categories screen,Categories API,Category hierarchy display
+10,2024-12-27,ProductList_Screen,UI_Update,GET,Product List Screen Updates,Update productlist.dart with category API,1,Updated product list screen,Category Products API,Product filtering and sorting UI
+11,2024-12-30,LoadProductDetails,/api/products/{id},GET,Product Details API,Create comprehensive ProductDetails model,3,Product details API,Product Models,Product variants and specifications
+11,2024-12-30,LoadProductReviews,/api/products/{id}/reviews,GET,Product Reviews API,Create ProductReview model with rating system,2,Product reviews API,Product Models,Review filtering by rating
+11,2024-12-30,Detail_View,UI_Update,GET,Detail View Updates,Update detail_view.dart with product details API,3,Updated detail view,Product Details/Reviews APIs,Product image gallery and reviews
+12,2024-12-31,Cart_Models,Core_Models,GET,Cart Models,Create CartItem Cart CartTotals models,2,Cart model classes,None,Foundation for cart functionality
+12,2024-12-31,AddToCart,/api/cart/add-item,POST,Add to Cart API,Implement add to cart functionality,2,Add to cart API,Cart Models,Product variants and quantities
+12,2024-12-31,LoadCartItems,/api/cart,GET,Load Cart API,Implement cart loading with items,2,Load cart API,Cart Models,Cart totals calculation
+12,2024-12-31,Cart_Screen,UI_Update,GET,Cart Screen Updates,Update cart.dart with cart APIs,2,Updated cart screen,Cart APIs,Cart item display with quantities
+13,2025-01-01,UpdateCartQuantity,/api/cart/item/{itemId},PATCH,Update Cart Item API,Implement cart item quantity updates,2,Update cart item API,Cart Models,Stock validation for quantity changes
+13,2025-01-01,RemoveCartItem,/api/cart/item/{itemId},DELETE,Remove Cart Item API,Implement cart item removal,2,Remove cart item API,Cart Models,Empty cart after last item removal
+13,2025-01-01,CalculateShipping,/api/checkout/calculate-shipping,POST,Calculate Shipping API,Create ShippingCalculationRequest model,2,Shipping calculation API,Cart Models,Shipping method selection
+13,2025-01-01,Cart_Management,UI_Update,PATCH,Cart Screen Management,Update cart screen with item management,2,Updated cart management,Cart Update/Remove APIs,Quantity steppers and remove buttons
+14,2025-01-02,SaveShippingAddress,/api/user/addresses,POST,Address Management API,Create Address model with validation,3,Address management API,None,Address saving and loading
+14,2025-01-02,LoadShippingMethods,/api/shipping/methods,GET,Shipping Methods API,Create ShippingMethod model,2,Shipping methods API,None,Shipping cost calculation
+14,2025-01-02,Checkout_Screen,UI_Update,POST,Checkout Screen Updates,Update checkout.dart with address management,3,Updated checkout screen,Address/Shipping APIs,Address form with validation
+15,2025-01-03,CalculateOrderTotals,/api/orders/calculate-totals,POST,Order Totals Calculation API,Create OrderCalculationRequest model,3,Order calculation API,Cart Models,Tax calculation and breakdown
+15,2025-01-03,ValidatePromoCode,/api/promotions/validate,POST,Promo Code Validation API,Create PromoCodeRequest and PromoCodeResponse models,2,Promo code API,None,Discount calculation and application
+15,2025-01-03,Order_Price_Detail,UI_Update,POST,Order Price Detail Updates,Update orderpricedetail.dart with calculation APIs,3,Updated order price detail,Order Calculation/Promo APIs,Order breakdown display
+16,2025-01-06,Payment_Models,Core_Models,POST,Payment Models,Create PaymentIntent PaymentMethod models,2,Payment model classes,None,Foundation for payment processing
+16,2025-01-06,CreatePaymentIntent,/api/payments/create-intent,POST,Create Payment Intent API,Implement payment intent creation,3,Payment intent API,Payment Models,Payment method validation
+16,2025-01-06,ProcessPayment,/api/payments/process,POST,Process Payment API,Implement payment processing,2,Payment process API,Payment Models,Payment confirmation handling
+16,2025-01-06,Payment_Screen,UI_Update,POST,Payment Screen Updates,Update payment.dart with payment APIs,1,Updated payment screen,Payment APIs,Payment method selection
+17,2025-01-07,ConfirmOrder,/api/orders/confirm,POST,Order Confirmation API,Create OrderConfirmationRequest model,2,Order confirmation API,Payment Models,Order tracking number generation
+17,2025-01-07,Order_Models,Core_Models,GET,Order Models,Create comprehensive Order model,2,Order model classes,None,Foundation for order management
+17,2025-01-07,Order_Placed_Screen,UI_Update,POST,Order Placed Screen Updates,Update orderplaced.dart with confirmation API,2,Updated order placed screen,Order Confirmation API,Order success display
+17,2025-01-07,Order_Management,Core_Functionality,GET,Order Management,Implement order loading and display,2,Order management,Order Models,Order status tracking
+18,2025-01-08,LoadUserProfile,/api/user/profile,GET,User Profile API,Create comprehensive UserProfile model,3,User profile API,None,User preferences and settings
+18,2025-01-08,LoadAccountDetails,/api/user/account,GET,Account Details API,Create AccountDetails model,2,Account details API,None,Account statistics and history
+18,2025-01-08,Profile_Screens,UI_Update,GET,Profile Screen Updates,Update profile screens with profile API,3,Updated profile screens,Profile/Account APIs,Profile editing functionality
+19,2025-01-09,UpdateUserProfile,/api/user/profile,PUT,Update Profile API,Create UpdateProfileRequest model,2,Profile update API,User Profile API,Profile validation and error handling
+19,2025-01-09,LoadUserOrders,/api/orders,GET,User Orders API,Create UserOrdersRequest and UserOrdersResponse models,3,User orders API,Order Models,Order filtering by status and date
+19,2025-01-09,LoadOrderDetails,/api/orders/{id},GET,Order Details API,Implement individual order details loading,2,Order details API,Order Models,Order status history tracking
+19,2025-01-09,Profile_Editing,UI_Update,PUT,Profile Editing Updates,Update editprofile.dart with update API,1,Updated profile editing,Profile Update API,Form validation and error handling
+20,2025-01-10,CancelOrder,/api/orders/{id}/cancel,POST,Cancel Order API,Create CancelOrderRequest model,2,Cancel order API,Order Models,Cancellation reason handling
+20,2025-01-10,My_Orders_Screen,UI_Update,GET,My Orders Screen Updates,Update myorder.dart with orders API,4,Updated my orders screen,User Orders/Details APIs,Order list with filtering and sorting
+20,2025-01-10,Order_Tracking,Core_Functionality,GET,Order Tracking,Add order tracking information display,2,Order tracking,Order Details API,Order status updates
+21,2025-01-13,SubmitTraderApplication,/api/traders/apply,POST,Trader Application API,Create TraderApplicationRequest model,4,Trader application API,None,Document upload handling
+21,2025-01-13,CheckTraderStatus,/api/traders/status,GET,Trader Status API,Create TraderStatus model,2,Trader status API,None,Trader feature access control
+21,2025-01-13,Trader_Activation_Screen,UI_Update,POST,Trader Activation Screen Updates,Update trader_activation.dart with trader APIs,2,Updated trader activation screen,Trader APIs,Application form with validation
+22,2025-01-14,LoadTraderDashboard,/api/traders/dashboard,GET,Trader Dashboard API,Create TraderDashboard model,3,Trader dashboard API,None,Sales orders and customer statistics
+22,2025-01-14,LoadTraderProducts,/api/traders/products,GET,Trader Products API,Create TraderProductsRequest model,3,Trader products API,Product Models,Product status management
+22,2025-01-14,Trader_Dashboard,UI_Update,GET,Trader Dashboard Updates,Update trader_dashboard.dart with dashboard API,2,Updated trader dashboard,Trader Dashboard/Products APIs,Dashboard widgets and charts
+23,2025-01-15,LoadTraderAnalytics,/api/traders/analytics,GET,Trader Analytics API,Create TraderAnalytics model,4,Trader analytics API,None,Sales data and conversion tracking
+23,2025-01-15,Analytics_Visualization,UI_Update,GET,Analytics Visualization,Add charts and graphs for analytics,3,Analytics visualization,Trader Analytics API,Data visualization widgets
+23,2025-01-15,Analytics_Testing,Testing,GET,Testing,Unit tests for analytics data parsing,1,Analytics tests,Trader Analytics API,Integration tests for analytics API
+24,2025-01-16,LoadManualCategories,/api/manuals/categories,GET,Manual Categories API,Create ManualCategory model,2,Manual categories API,None,Hierarchical category structure
+24,2025-01-16,LoadManualFiles,/api/manuals/files,GET,Manual Files API,Create ManualFile model,3,Manual files API,None,File browsing and navigation
+24,2025-01-16,DownloadManualFile,/api/manuals/download/{fileId},GET,File Download API,Implement manual file download,2,File download API,Manual Files API,File download progress tracking
+24,2025-01-16,Manuals_Screens,UI_Update,GET,Manuals Screen Updates,Update manuals screens with APIs,1,Updated manuals screens,Manuals APIs,File download functionality
+25,2025-01-17,GetSearchSuggestions,/api/search/suggestions,GET,Search Suggestions API,Create SearchSuggestions model,3,Search suggestions API,None,Popular search terms
+25,2025-01-17,LoadCartCount,/api/cart/count,GET,Cart Count API,Implement cart count loading,2,Cart count API,Cart Models,Real-time cart count updates
+25,2025-01-17,Navigation_Integration,UI_Update,GET,Navigation Updates,Update main_navigation.dart with search API,3,Navigation integration,Search/Cart Count APIs,Search functionality and cart count display
+26,2025-01-20,Unit_Testing,Testing,GET,Unit Testing,Complete unit tests for all models,4,Comprehensive unit tests,All APIs,90%+ code coverage
+26,2025-01-20,Integration_Testing,Testing,GET,Integration Testing,Test all API integrations with mocks,4,Comprehensive integration tests,All APIs,Error handling scenarios
+27,2025-01-21,Error_Handling,Core_Functionality,GET,Error Handling,Implement comprehensive error handling,4,Robust error handling,All APIs,User-friendly error messages
+27,2025-01-21,Edge_Cases,Testing,GET,Edge Cases,Test empty states and loading states,4,Edge case coverage,All APIs,Token expiration and refresh
+28,2025-01-22,API_Optimization,Performance,GET,API Optimization,Implement API response caching,4,Performance optimizations,All APIs,Request deduplication
+28,2025-01-22,UI_Optimization,Performance,GET,UI Optimization,Optimize widget rebuilds,4,Caching and optimization,All APIs,Lazy loading for lists
+29,2025-01-23,Security_Implementation,Security,GET,Security Implementation,Implement secure token storage,4,Security measures,All APIs,API request signing
+29,2025-01-23,Input_Validation,Security,GET,Input Validation,Add comprehensive form validation,4,Input validation,All APIs,XSS and injection prevention
+30,2025-01-24,Final_Testing,Testing,GET,Final Testing,End-to-end testing of all flows,4,Final testing completion,All APIs,User acceptance testing
+30,2025-01-24,Documentation,Documentation,GET,Documentation,Update API integration documentation,4,Documentation,All APIs,Troubleshooting guide

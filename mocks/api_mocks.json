@@ -1,0 +1,647 @@
+{
+  "AppConfig": {
+    "appVersion": "1.0.0",
+    "featureFlags": {
+      "socialLogin": true,
+      "traderModule": true,
+      "manualDownloads": true,
+      "promoCodes": true
+    },
+    "serverTimestamp": "2024-12-16T10:30:00Z",
+    "minAppVersion": "1.0.0",
+    "maintenanceMode": false
+  },
+  "Login": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "refresh_token_12345",
+    "user": {
+      "id": "user_123",
+      "email": "user@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "phone": "+61400000000",
+      "accountType": "regular"
+    },
+    "expiresAt": "2024-12-17T10:30:00Z"
+  },
+  "SocialLoginApple": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "refresh_token_67890",
+    "user": {
+      "id": "user_456",
+      "email": "apple.user@icloud.com",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "phone": null,
+      "accountType": "regular"
+    },
+    "expiresAt": "2024-12-17T10:30:00Z"
+  },
+  "SocialLoginGoogle": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "refresh_token_11111",
+    "user": {
+      "id": "user_789",
+      "email": "google.user@gmail.com",
+      "firstName": "Bob",
+      "lastName": "Johnson",
+      "phone": "+61400000001",
+      "accountType": "regular"
+    },
+    "expiresAt": "2024-12-17T10:30:00Z"
+  },
+  "RegisterTrader": {
+    "success": true,
+    "message": "Trader registration successful",
+    "traderId": "trader_123",
+    "verificationRequired": true,
+    "nextSteps": "Please upload required documents for verification"
+  },
+  "RegisterUser": {
+    "success": true,
+    "message": "User registration successful",
+    "userId": "user_999",
+    "verificationRequired": false,
+    "emailSent": true
+  },
+  "ForgotPassword": {
+    "success": true,
+    "message": "Password reset email sent",
+    "resetTokenSent": true,
+    "expiresIn": 3600
+  },
+  "LoadBanners": [
+    {
+      "id": "banner_1",
+      "imageUrl": "https://cdn.example.com/banners/banner1.jpg",
+      "title": "Summer Sale",
+      "link": "/products?category=summer",
+      "active": true,
+      "order": 1
+    },
+    {
+      "id": "banner_2",
+      "imageUrl": "https://cdn.example.com/banners/banner2.jpg",
+      "title": "New Arrivals",
+      "link": "/products?sort=newest",
+      "active": true,
+      "order": 2
+    }
+  ],
+  "LoadFeaturedProducts": {
+    "products": [
+      {
+        "id": "prod_1",
+        "name": "Premium Widget",
+        "description": "High-quality widget for all your needs",
+        "price": 99.99,
+        "originalPrice": 129.99,
+        "images": ["https://cdn.example.com/products/prod1_1.jpg"],
+        "category": "Electronics",
+        "rating": 4.5,
+        "reviewCount": 128,
+        "stock": 50,
+        "availability": "in_stock"
+      }
+    ],
+    "hasMore": true,
+    "total": 25
+  },
+  "LoadLatestProducts": {
+    "products": [
+      {
+        "id": "prod_2",
+        "name": "Latest Gadget",
+        "description": "Brand new gadget with advanced features",
+        "price": 199.99,
+        "originalPrice": null,
+        "images": ["https://cdn.example.com/products/prod2_1.jpg"],
+        "category": "Electronics",
+        "rating": 4.8,
+        "reviewCount": 45,
+        "stock": 25,
+        "availability": "in_stock"
+      }
+    ],
+    "hasMore": true,
+    "total": 15
+  },
+  "LoadCategories": [
+    {
+      "id": "cat_1",
+      "name": "Electronics",
+      "imageUrl": "https://cdn.example.com/categories/electronics.jpg",
+      "productCount": 150,
+      "slug": "electronics"
+    },
+    {
+      "id": "cat_2",
+      "name": "Home & Garden",
+      "imageUrl": "https://cdn.example.com/categories/home-garden.jpg",
+      "productCount": 89,
+      "slug": "home-garden"
+    }
+  ],
+  "SearchProducts": {
+    "products": [
+      {
+        "id": "prod_3",
+        "name": "Search Result Product",
+        "description": "Product found in search results",
+        "price": 49.99,
+        "images": ["https://cdn.example.com/products/prod3_1.jpg"],
+        "category": "Electronics",
+        "rating": 4.2,
+        "reviewCount": 67
+      }
+    ],
+    "hasMore": false,
+    "totalResults": 1,
+    "searchTerm": "widget"
+  },
+  "LoadProductsByCategory": {
+    "products": [
+      {
+        "id": "prod_4",
+        "name": "Category Product",
+        "description": "Product from specific category",
+        "price": 79.99,
+        "images": ["https://cdn.example.com/products/prod4_1.jpg"],
+        "category": "Electronics",
+        "rating": 4.0,
+        "reviewCount": 23
+      }
+    ],
+    "hasMore": true,
+    "total": 45,
+    "appliedFilters": {
+      "category": "cat_1",
+      "priceRange": "50-100"
+    }
+  },
+  "LoadProductDetails": {
+    "id": "prod_1",
+    "name": "Premium Widget",
+    "description": "High-quality widget for all your needs. Features include advanced functionality and durable construction.",
+    "images": [
+      "https://cdn.example.com/products/prod1_1.jpg",
+      "https://cdn.example.com/products/prod1_2.jpg"
+    ],
+    "price": 99.99,
+    "originalPrice": 129.99,
+    "specifications": [
+      {
+        "name": "Material",
+        "value": "Aluminum"
+      },
+      {
+        "name": "Weight",
+        "value": "500g"
+      }
+    ],
+    "variants": [
+      {
+        "id": "var_1",
+        "name": "Red",
+        "price": 99.99,
+        "stock": 25
+      },
+      {
+        "id": "var_2",
+        "name": "Blue",
+        "price": 99.99,
+        "stock": 15
+      }
+    ],
+    "relatedProducts": ["prod_5", "prod_6"],
+    "stock": 40,
+    "availability": "in_stock",
+    "rating": 4.5,
+    "reviewCount": 128
+  },
+  "LoadProductReviews": {
+    "reviews": [
+      {
+        "id": "rev_1",
+        "userId": "user_123",
+        "userName": "John D.",
+        "rating": 5,
+        "title": "Excellent product",
+        "comment": "Really happy with this purchase. Great quality and fast delivery.",
+        "date": "2024-12-01T10:00:00Z",
+        "verified": true
+      }
+    ],
+    "hasMore": true,
+    "averageRating": 4.5,
+    "totalReviews": 128
+  },
+  "AddToCart": {
+    "success": true,
+    "cartTotal": 199.98,
+    "itemCount": 2,
+    "message": "Item added to cart successfully"
+  },
+  "LoadAllCategories": [
+    {
+      "id": "cat_1",
+      "name": "Electronics",
+      "description": "Electronic devices and accessories",
+      "imageUrl": "https://cdn.example.com/categories/electronics.jpg",
+      "productCount": 150,
+      "children": [
+        {
+          "id": "cat_1_1",
+          "name": "Smartphones",
+          "productCount": 45
+        }
+      ],
+      "slug": "electronics"
+    }
+  ],
+  "LoadCartItems": {
+    "items": [
+      {
+        "id": "cart_item_1",
+        "productId": "prod_1",
+        "variantId": "var_1",
+        "quantity": 2,
+        "productSnapshot": {
+          "name": "Premium Widget",
+          "price": 99.99,
+          "image": "https://cdn.example.com/products/prod1_1.jpg"
+        },
+        "updatedAt": "2024-12-16T10:00:00Z"
+      }
+    ],
+    "subtotal": 199.98,
+    "tax": 20.00,
+    "shipping": 15.00,
+    "total": 234.98,
+    "itemCount": 2
+  },
+  "UpdateCartQuantity": {
+    "success": true,
+    "newTotal": 299.97,
+    "itemCount": 3,
+    "message": "Cart updated successfully"
+  },
+  "RemoveCartItem": {
+    "success": true,
+    "newTotal": 99.99,
+    "itemCount": 1,
+    "message": "Item removed from cart"
+  },
+  "CalculateShipping": {
+    "cost": 15.00,
+    "estimatedDays": 3,
+    "availableMethods": [
+      {
+        "id": "standard",
+        "name": "Standard Shipping",
+        "cost": 15.00,
+        "estimatedDays": 3
+      },
+      {
+        "id": "express",
+        "name": "Express Shipping",
+        "cost": 25.00,
+        "estimatedDays": 1
+      }
+    ]
+  },
+  "SaveShippingAddress": {
+    "addressId": "addr_123",
+    "success": true,
+    "message": "Address saved successfully"
+  },
+  "LoadShippingMethods": [
+    {
+      "id": "standard",
+      "name": "Standard Shipping",
+      "cost": 15.00,
+      "estimatedDays": 3,
+      "description": "Regular delivery within 3-5 business days"
+    },
+    {
+      "id": "express",
+      "name": "Express Shipping",
+      "cost": 25.00,
+      "estimatedDays": 1,
+      "description": "Fast delivery within 1-2 business days"
+    }
+  ],
+  "LoadPickupLocations": [
+    {
+      "id": "pickup_1",
+      "name": "Sydney Store",
+      "address": "123 George St, Sydney NSW 2000",
+      "phone": "+61234567890",
+      "hours": "Mon-Fri 9AM-6PM, Sat 10AM-4PM",
+      "isActive": true
+    }
+  ],
+  "CalculateOrderTotals": {
+    "subtotal": 199.98,
+    "tax": 20.00,
+    "shipping": 15.00,
+    "discount": 10.00,
+    "total": 224.98,
+    "breakdown": {
+      "items": 199.98,
+      "gst": 20.00,
+      "shipping": 15.00,
+      "promoDiscount": 10.00
+    }
+  },
+  "ValidatePromoCode": {
+    "valid": true,
+    "discountAmount": 10.00,
+    "discountType": "fixed",
+    "message": "Promo code applied successfully",
+    "code": "SAVE10"
+  },
+  "CreatePaymentIntent": {
+    "clientSecret": "pi_1234567890_secret_abcdef",
+    "intentId": "pi_1234567890",
+    "status": "requires_payment_method",
+    "amount": 22498,
+    "currency": "aud"
+  },
+  "ProcessPayment": {
+    "success": true,
+    "transactionId": "txn_1234567890",
+    "orderStatus": "paid",
+    "message": "Payment processed successfully"
+  },
+  "ConfirmOrder": {
+    "success": true,
+    "trackingNumber": "TRK123456789",
+    "emailSent": true,
+    "orderId": "order_123"
+  },
+  "LoadUserProfile": {
+    "id": "user_123",
+    "email": "user@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "+61400000000",
+    "addresses": [
+      {
+        "id": "addr_123",
+        "type": "shipping",
+        "firstName": "John",
+        "lastName": "Doe",
+        "address": "123 Main St",
+        "suburb": "Sydney",
+        "postalCode": "2000",
+        "state": "NSW",
+        "country": "Australia"
+      }
+    ],
+    "preferences": {
+      "notifications": true,
+      "marketing": false,
+      "language": "en"
+    }
+  },
+  "LoadAccountDetails": {
+    "accountType": "regular",
+    "joinedDate": "2024-01-15T00:00:00Z",
+    "orderCount": 12,
+    "lastOrderDate": "2024-12-01T00:00:00Z",
+    "subscription": null,
+    "loyaltyPoints": 150
+  },
+  "UpdateUserProfile": {
+    "success": true,
+    "updatedFields": ["firstName", "phone"],
+    "message": "Profile updated successfully"
+  },
+  "LoadUserOrders": {
+    "orders": [
+      {
+        "id": "order_123",
+        "status": "delivered",
+        "total": 224.98,
+        "itemCount": 2,
+        "orderDate": "2024-12-01T10:00:00Z",
+        "deliveryDate": "2024-12-04T14:00:00Z",
+        "trackingNumber": "TRK123456789"
+      }
+    ],
+    "hasMore": true,
+    "total": 12
+  },
+  "LoadOrderDetails": {
+    "id": "order_123",
+    "status": "delivered",
+    "items": [
+      {
+        "id": "item_1",
+        "productId": "prod_1",
+        "name": "Premium Widget",
+        "quantity": 2,
+        "price": 99.99,
+        "image": "https://cdn.example.com/products/prod1_1.jpg"
+      }
+    ],
+    "statusHistory": [
+      {
+        "status": "pending",
+        "date": "2024-12-01T10:00:00Z"
+      },
+      {
+        "status": "processing",
+        "date": "2024-12-02T09:00:00Z"
+      },
+      {
+        "status": "shipped",
+        "date": "2024-12-03T11:00:00Z"
+      },
+      {
+        "status": "delivered",
+        "date": "2024-12-04T14:00:00Z"
+      }
+    ],
+    "trackingInfo": {
+      "trackingNumber": "TRK123456789",
+      "carrier": "Australia Post",
+      "estimatedDelivery": "2024-12-04T18:00:00Z"
+    },
+    "totals": {
+      "subtotal": 199.98,
+      "tax": 20.00,
+      "shipping": 15.00,
+      "total": 234.98
+    }
+  },
+  "CancelOrder": {
+    "success": true,
+    "newStatus": "cancelled",
+    "refundAmount": 234.98,
+    "message": "Order cancelled successfully",
+    "refundProcessing": "3-5 business days"
+  },
+  "SubmitTraderApplication": {
+    "applicationId": "app_123",
+    "status": "pending",
+    "reviewTimeframe": "5-7 business days",
+    "message": "Application submitted successfully"
+  },
+  "CheckTraderStatus": {
+    "isTrader": true,
+    "status": "approved",
+    "approvedDate": "2024-11-15T00:00:00Z",
+    "features": ["dashboard", "analytics", "product_management"],
+    "subscription": "premium"
+  },
+  "LoadTraderDashboard": {
+    "sales": {
+      "today": 1250.00,
+      "thisWeek": 8750.00,
+      "thisMonth": 32500.00
+    },
+    "orders": {
+      "pending": 5,
+      "processing": 12,
+      "completed": 45
+    },
+    "customers": {
+      "new": 8,
+      "total": 156
+    },
+    "revenue": {
+      "total": 125000.00,
+      "growth": 15.5
+    },
+    "trends": [
+      {
+        "date": "2024-12-01",
+        "sales": 1200.00
+      },
+      {
+        "date": "2024-12-02",
+        "sales": 1350.00
+      }
+    ],
+    "alerts": [
+      {
+        "type": "low_stock",
+        "message": "Product 'Widget X' is running low",
+        "priority": "medium"
+      }
+    ]
+  },
+  "LoadTraderProducts": {
+    "products": [
+      {
+        "id": "trader_prod_1",
+        "name": "My Product",
+        "status": "published",
+        "price": 99.99,
+        "stock": 25,
+        "sales": 45,
+        "views": 120,
+        "createdAt": "2024-11-01T00:00:00Z"
+      }
+    ],
+    "hasMore": true,
+    "total": 25
+  },
+  "LoadTraderAnalytics": {
+    "salesData": [
+      {
+        "date": "2024-12-01",
+        "sales": 1200.00,
+        "orders": 8,
+        "visitors": 45
+      }
+    ],
+    "visits": {
+      "total": 1250,
+      "unique": 890,
+      "growth": 12.5
+    },
+    "conversions": {
+      "rate": 3.2,
+      "total": 40
+    },
+    "topProducts": [
+      {
+        "id": "prod_1",
+        "name": "Premium Widget",
+        "sales": 25,
+        "revenue": 2499.75
+      }
+    ]
+  },
+  "LoadManualCategories": [
+    {
+      "id": "manual_cat_1",
+      "name": "User Guides",
+      "description": "Comprehensive user guides and tutorials",
+      "fileCount": 15,
+      "size": "25.5 MB",
+      "icon": "book",
+      "children": [
+        {
+          "id": "manual_cat_1_1",
+          "name": "Getting Started",
+          "fileCount": 5
+        }
+      ]
+    }
+  ],
+  "LoadManualFiles": {
+    "files": [
+      {
+        "id": "file_1",
+        "name": "User Manual.pdf",
+        "size": "2.5 MB",
+        "type": "pdf",
+        "modified": "2024-12-01T00:00:00Z",
+        "downloadUrl": "https://cdn.example.com/manuals/user_manual.pdf"
+      }
+    ],
+    "folders": [
+      {
+        "id": "folder_1",
+        "name": "Installation Guides",
+        "fileCount": 3
+      }
+    ],
+    "breadcrumbs": [
+      {
+        "name": "User Guides",
+        "path": "/user-guides"
+      },
+      {
+        "name": "Getting Started",
+        "path": "/user-guides/getting-started"
+      }
+    ]
+  },
+  "DownloadManualFile": {
+    "success": true,
+    "downloadUrl": "https://cdn.example.com/manuals/user_manual.pdf",
+    "expiresAt": "2024-12-17T10:30:00Z",
+    "fileSize": 2621440
+  },
+  "LoadCartCount": {
+    "count": 3,
+    "hasItems": true
+  },
+  "GetSearchSuggestions": {
+    "suggestions": [
+      "widget",
+      "gadget",
+      "tool"
+    ],
+    "popular": [
+      "smartphone",
+      "laptop",
+      "headphones"
+    ]
+  }
+}

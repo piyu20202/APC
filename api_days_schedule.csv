@@ -1,0 +1,31 @@
+Day,Date,Day_of_Week,API_Name,Endpoint,Method,Estimated_Days,Provider_Name,Deliverables,Dependencies,Notes
+1,27-10-2024,Sunday,OFF,No Work,None,0,None,None,None,4th Sunday - No work scheduled
+2,28-10-2024,Monday,Network_Setup + AppConfig,Core + /api/app/config,GET,1,AppConfigProvider,Network layer + AppConfig API,None,Foundation setup with Provider
+3,29-10-2024,Tuesday,Login + SocialLoginApple,/api/auth/login + /api/auth/social/apple,POST,1,AuthProvider,Login + Apple Sign-In,None,Authentication with Provider state
+4,30-10-2024,Wednesday,SocialLoginGoogle + RegisterUser,/api/auth/social/google + /api/auth/register,POST,1,AuthProvider,Google Sign-In + User Registration,Login API,Social auth + registration
+5,31-10-2024,Thursday,RegisterTrader + ForgotPassword,/api/auth/register-trader + /api/auth/forgot-password,POST,1,AuthProvider,Trader Registration + Password Reset,RegisterUser API,Trader signup + password recovery
+6,01-11-2024,Friday,LoadBanners + LoadCategories,/api/catalog/banners + /api/categories/featured,GET,1,CatalogProvider,Banners + Categories APIs,None,Home screen content with Provider
+7,02-11-2024,Saturday,OFF,No Work,None,0,None,None,None,2nd Saturday - No work scheduled
+8,03-11-2024,Sunday,OFF,No Work,None,0,None,None,None,4th Sunday - No work scheduled
+9,04-11-2024,Monday,LoadFeaturedProducts + LoadLatestProducts,/api/products/featured + /api/products/latest,GET,1,ProductProvider,Featured + Latest Products,LoadCategories API,Product listings with Provider
+10,05-11-2024,Tuesday,SearchProducts + GetSearchSuggestions,/api/products/search + /api/search/suggestions,GET,1,SearchProvider,Product Search + Suggestions,LoadFeaturedProducts API,Search functionality with Provider
+11,06-11-2024,Wednesday,LoadAllCategories + LoadProductsByCategory,/api/categories + /api/products,GET,1,CatalogProvider + ProductProvider,All Categories + Category Products,LoadCategories API,Category browsing with Provider
+12,07-11-2024,Thursday,LoadProductDetails + LoadProductReviews,/api/products/{id} + /api/products/{id}/reviews,GET,1,ProductProvider,Product Details + Reviews,LoadProductsByCategory API,Product detail view with Provider
+13,08-11-2024,Friday,AddToCart + LoadCartItems,/api/cart/add-item + /api/cart,POST + GET,1,CartProvider,Add to Cart + Load Cart,LoadProductDetails API,Cart functionality with Provider
+14,09-11-2024,Saturday,OFF,No Work,None,0,None,None,None,2nd Saturday - No work scheduled
+15,10-11-2024,Sunday,UpdateCartQuantity + RemoveCartItem,/api/cart/item/{itemId},PATCH + DELETE,1,CartProvider,Cart Management,LoadCartItems API,Cart item management with Provider
+16,11-11-2024,Monday,CalculateShipping + LoadCartCount,/api/checkout/calculate-shipping + /api/cart/count,POST + GET,1,CartProvider,Shipping Calculation + Cart Count,UpdateCartQuantity API,Shipping + cart count with Provider
+17,12-11-2024,Tuesday,SaveShippingAddress + LoadShippingMethods,/api/user/addresses + /api/shipping/methods,POST + GET,1,AddressProvider,Address Management + Shipping Methods,CalculateShipping API,Address + shipping with Provider
+18,13-11-2024,Wednesday,LoadPickupLocations + CalculateOrderTotals,/api/shipping/pickup-locations + /api/orders/calculate-totals,GET + POST,1,OrderProvider,Pickup Locations + Order Totals,SaveShippingAddress API,Order calculation with Provider
+19,14-11-2024,Thursday,ValidatePromoCode + CreatePaymentIntent,/api/promotions/validate + /api/payments/create-intent,POST,1,PaymentProvider,Promo Code + Payment Intent,CalculateOrderTotals API,Payment setup with Provider
+20,15-11-2024,Friday,ProcessPayment + ConfirmOrder,/api/payments/process + /api/orders/confirm,POST,1,PaymentProvider + OrderProvider,Payment Processing + Order Confirmation,CreatePaymentIntent API,Payment + order confirmation with Provider
+21,16-11-2024,Saturday,OFF,No Work,None,0,None,None,None,2nd Saturday - No work scheduled
+22,17-11-2024,Sunday,LoadUserProfile + LoadAccountDetails,/api/user/profile + /api/user/account,GET,1,UserProvider,User Profile + Account Details,ConfirmOrder API,User profile with Provider
+23,18-11-2024,Monday,UpdateUserProfile + LoadUserOrders,/api/user/profile + /api/orders,PUT + GET,1,UserProvider,Profile Update + User Orders,LoadUserProfile API,Profile management with Provider
+24,19-11-2024,Tuesday,LoadOrderDetails + CancelOrder,/api/orders/{id} + /api/orders/{id}/cancel,GET + POST,1,OrderProvider,Order Details + Cancellation,LoadUserOrders API,Order management with Provider
+25,20-11-2024,Wednesday,ResetPassword + SubmitTraderApplication,/api/user/reset-password + /api/traders/apply,POST,1,TraderProvider,Password Reset + Trader Application,UpdateUserProfile API,Trader signup with Provider
+26,21-11-2024,Thursday,CheckTraderStatus + LoadTraderDashboard,/api/traders/status + /api/traders/dashboard,GET,1,TraderProvider,Trader Status + Dashboard,SubmitTraderApplication API,Trader dashboard with Provider
+27,22-11-2024,Friday,LoadTraderProducts + LoadTraderAnalytics,/api/traders/products + /api/traders/analytics,GET,1,TraderProvider,Trader Products + Analytics,LoadTraderDashboard API,Trader analytics with Provider
+28,23-11-2024,Saturday,OFF,No Work,None,0,None,None,None,2nd Saturday - No work scheduled
+29,24-11-2024,Sunday,LoadManualCategories + LoadManualFiles,/api/manuals/categories + /api/manuals/files,GET,1,ManualProvider,Manual Categories + Files,None,Manual browsing with Provider
+30,25-11-2024,Monday,DownloadManualFile + Final_Testing,/api/manuals/download/{fileId} + Testing,GET + Testing,1,ManualProvider,Manual Download + Testing,LoadManualFiles API,Final integration + testing
