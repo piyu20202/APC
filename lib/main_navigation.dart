@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'page/home_view/home.dart';
-import 'page/cart_view/cart.dart';
-import 'page/manuals/manuals_menu.dart';
-import 'page/signin_view/signin.dart';
-import 'page/profile_page/profile_view.dart';
-import 'page/wishlist_view/wishlist.dart';
-import 'page/search_view/search.dart';
+import 'ui/screens/home_view/home.dart';
+import 'ui/screens/cart_view/cart.dart';
+import 'ui/screens/manuals/manuals_menu.dart';
+import 'ui/screens/signin_view/signin.dart';
+import 'ui/screens/profile_page/profile_view.dart';
+import 'ui/screens/wishlist_view/wishlist.dart';
+import 'ui/screens/search_view/search.dart';
 import 'services/user_role_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {

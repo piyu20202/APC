@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'page/splash_view/splash.dart';
-import 'page/checkout_page/checkout.dart';
-import 'page/checkout_page/orderpricedetail.dart';
-import 'page/checkout_page/orderplaced.dart';
-import 'page/payment_page/payment.dart';
-import 'page/manuals/manuals_menu.dart';
-import 'page/signin_view/signin.dart';
-import 'page/signup_view/signup_new.dart';
+import 'package:provider/provider.dart';
+import 'providers/auth_provider.dart';
+import 'providers/homepage_provider.dart';
+import 'ui/screens/splash_view/splash.dart';
+import 'ui/screens/checkout_page/checkout.dart';
+import 'ui/screens/checkout_page/orderpricedetail.dart';
+import 'ui/screens/checkout_page/orderplaced.dart';
+import 'ui/screens/payment_page/payment.dart';
+import 'ui/screens/manuals/manuals_menu.dart';
+import 'ui/screens/signin_view/signin.dart';
+import 'ui/screens/signup_view/signup_new.dart';
 import 'main_navigation.dart';
 
 void main() {
@@ -19,31 +22,37 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'APC Project',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        primaryColor: const Color(0xFF151D51),
-        appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
-      ),
-      home: const SplashScreen(),
-      routes: {
-        '/main': (context) => const MainNavigationScreen(),
-        '/signin': (context) => const SigninScreen(),
-        '/signup': (context) => const SignupScreen(),
-        '/checkout': (context) =>
-            const TabBarWrapper(showTabBar: true, child: CheckoutPage()),
-        '/order-price-detail': (context) => const TabBarWrapper(
-          showTabBar: true,
-          child: OrderPriceDetailPage(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => HomepageProvider()),
+      ],
+      child: MaterialApp(
+        title: 'APC Project',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          primaryColor: const Color(0xFF151D51),
+          appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
         ),
-        '/payment': (context) =>
-            const TabBarWrapper(showTabBar: true, child: PaymentPage()),
-        '/order-placed': (context) =>
-            const TabBarWrapper(showTabBar: true, child: OrderPlacedPage()),
-        '/manuals': (context) =>
-            const TabBarWrapper(showTabBar: true, child: ManualsMenuPage()),
-      },
+        home: const SplashScreen(),
+        routes: {
+          '/main': (context) => const MainNavigationScreen(),
+          '/signin': (context) => const SigninScreen(),
+          '/signup': (context) => const SignupScreen(),
+          '/checkout': (context) =>
+              const TabBarWrapper(showTabBar: true, child: CheckoutPage()),
+          '/order-price-detail': (context) => const TabBarWrapper(
+            showTabBar: true,
+            child: OrderPriceDetailPage(),
+          ),
+          '/payment': (context) =>
+              const TabBarWrapper(showTabBar: true, child: PaymentPage()),
+          '/order-placed': (context) =>
+              const TabBarWrapper(showTabBar: true, child: OrderPlacedPage()),
+          '/manuals': (context) =>
+              const TabBarWrapper(showTabBar: true, child: ManualsMenuPage()),
+        },
+      ),
     );
   }
 }
