@@ -175,12 +175,77 @@ class Category {
   final int id;
   final String name;
   final String? image;
+  final String pageOpen;
+  final List<SubCategory>? subcategories;
 
-  Category({required this.id, required this.name, this.image});
+  Category({
+    required this.id,
+    required this.name,
+    this.image,
+    this.pageOpen = '',
+    this.subcategories,
+  });
 
   factory Category.fromJson(Map<String, dynamic> json) {
     try {
       return Category(
+        id: json['id'] is int
+            ? json['id']
+            : (json['id'] != null
+                ? int.tryParse(json['id'].toString()) ?? 0
+                : 0),
+        name: json['name'] is String
+            ? json['name']
+            : json['name']?.toString() ?? '',
+        image: json['image'] is String
+            ? json['image']
+            : json['image']?.toString(),
+        pageOpen: json['page_open'] is String
+            ? json['page_open'] as String
+            : json['page_open']?.toString() ?? '',
+        subcategories: json['subcategories'] != null
+            ? (json['subcategories'] as List<dynamic>)
+                .map((item) => SubCategory.fromJson(item as Map<String, dynamic>))
+                .toList()
+            : null,
+      );
+    } catch (e) {
+      // Return a default category if parsing fails
+      return Category(id: 0, name: 'Unknown Category', image: null);
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'image': image,
+      'page_open': pageOpen,
+      'subcategories': subcategories?.map((s) => s.toJson()).toList(),
+    };
+  }
+
+  bool get hasSubcategories => subcategories != null && subcategories!.isNotEmpty;
+}
+
+class SubCategory {
+  final int id;
+  final String name;
+  final String? image;
+  final int? categoryId;
+  final List<ChildCategory>? childcategories;
+
+  SubCategory({
+    required this.id,
+    required this.name,
+    this.image,
+    this.categoryId,
+    this.childcategories,
+  });
+
+  factory SubCategory.fromJson(Map<String, dynamic> json) {
+    try {
+      return SubCategory(
         id: json['id'] is int
             ? json['id']
             : (json['id'] != null
@@ -192,16 +257,182 @@ class Category {
         image: json['image'] is String
             ? json['image']
             : json['image']?.toString(),
+        categoryId: json['category_id'] != null
+            ? (json['category_id'] is int
+                ? json['category_id']
+                : int.tryParse(json['category_id'].toString()))
+            : null,
+        childcategories: json['childcategories'] != null
+            ? (json['childcategories'] as List<dynamic>)
+                .map((item) =>
+                    ChildCategory.fromJson(item as Map<String, dynamic>))
+                .toList()
+            : null,
       );
     } catch (e) {
-      // Return a default category if parsing fails
-      return Category(id: 0, name: 'Unknown Category', image: null);
+      return SubCategory(id: 0, name: 'Unknown SubCategory', image: null);
     }
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'name': name, 'image': image};
+    return {
+      'id': id,
+      'name': name,
+      'image': image,
+      'category_id': categoryId,
+      'childcategories':
+          childcategories?.map((c) => c.toJson()).toList(),
+    };
   }
+
+  bool get hasChildcategories =>
+      childcategories != null && childcategories!.isNotEmpty;
+}
+
+class ChildCategory {
+  final int id;
+  final String name;
+  final String? image;
+  final int? subcategoryId;
+  final int? categoryId;
+  final List<SubChildCategory>? subchildcategories;
+
+  ChildCategory({
+    required this.id,
+    required this.name,
+    this.image,
+    this.subcategoryId,
+    this.categoryId,
+    this.subchildcategories,
+  });
+
+  factory ChildCategory.fromJson(Map<String, dynamic> json) {
+    try {
+      return ChildCategory(
+        id: json['id'] is int
+            ? json['id']
+            : (json['id'] != null
+                  ? int.tryParse(json['id'].toString()) ?? 0
+                  : 0),
+        name: json['name'] is String
+            ? json['name']
+            : json['name']?.toString() ?? '',
+        image: json['image'] is String
+            ? json['image']
+            : json['image']?.toString(),
+        subcategoryId: json['subcategory_id'] != null
+            ? (json['subcategory_id'] is int
+                ? json['subcategory_id']
+                : int.tryParse(json['subcategory_id'].toString()))
+            : null,
+        categoryId: json['category_id'] != null
+            ? (json['category_id'] is int
+                ? json['category_id']
+                : int.tryParse(json['category_id'].toString()))
+            : null,
+        subchildcategories: json['subchildcategories'] != null
+            ? (json['subchildcategories'] as List<dynamic>)
+                .map((item) =>
+                    SubChildCategory.fromJson(item as Map<String, dynamic>))
+                .toList()
+            : null,
+      );
+    } catch (e) {
+      return ChildCategory(id: 0, name: 'Unknown ChildCategory', image: null);
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'image': image,
+      'subcategory_id': subcategoryId,
+      'category_id': categoryId,
+      'subchildcategories':
+          subchildcategories?.map((s) => s.toJson()).toList(),
+    };
+  }
+
+  bool get hasSubchildcategories =>
+      subchildcategories != null && subchildcategories!.isNotEmpty;
+}
+
+class SubChildCategory {
+  final int id;
+  final String name;
+  final String? image;
+  final int? childcategoryId;
+  final int? subcategoryId;
+  final int? categoryId;
+  final List<SubChildCategory>? subchildcategories;
+
+  SubChildCategory({
+    required this.id,
+    required this.name,
+    this.image,
+    this.childcategoryId,
+    this.subcategoryId,
+    this.categoryId,
+    this.subchildcategories,
+  });
+
+  factory SubChildCategory.fromJson(Map<String, dynamic> json) {
+    try {
+      return SubChildCategory(
+        id: json['id'] is int
+            ? json['id']
+            : (json['id'] != null
+                  ? int.tryParse(json['id'].toString()) ?? 0
+                  : 0),
+        name: json['name'] is String
+            ? json['name']
+            : json['name']?.toString() ?? '',
+        image: json['image'] is String
+            ? json['image']
+            : json['image']?.toString(),
+        childcategoryId: json['childcategory_id'] != null
+            ? (json['childcategory_id'] is int
+                ? json['childcategory_id']
+                : int.tryParse(json['childcategory_id'].toString()))
+            : null,
+        subcategoryId: json['subcategory_id'] != null
+            ? (json['subcategory_id'] is int
+                ? json['subcategory_id']
+                : int.tryParse(json['subcategory_id'].toString()))
+            : null,
+        categoryId: json['category_id'] != null
+            ? (json['category_id'] is int
+                ? json['category_id']
+                : int.tryParse(json['category_id'].toString()))
+            : null,
+        subchildcategories: json['subchildcategories'] != null
+            ? (json['subchildcategories'] as List<dynamic>)
+                .map((item) =>
+                    SubChildCategory.fromJson(item as Map<String, dynamic>))
+                .toList()
+            : null,
+      );
+    } catch (e) {
+      return SubChildCategory(id: 0, name: 'Unknown SubChildCategory', image: null);
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'image': image,
+      'childcategory_id': childcategoryId,
+      'subcategory_id': subcategoryId,
+      'category_id': categoryId,
+      'subchildcategories':
+          subchildcategories?.map((s) => s.toJson()).toList(),
+    };
+  }
+
+  bool get hasSubchildcategories =>
+      subchildcategories != null && subchildcategories!.isNotEmpty;
 }
 
 class LatestProduct {
@@ -219,6 +450,7 @@ class LatestProduct {
   final String? isKit;
   final String? createdAt;
   final String slugUrl;
+  final String? shortDescription;
 
   LatestProduct({
     required this.id,
@@ -235,6 +467,7 @@ class LatestProduct {
     required this.isKit,
     required this.createdAt,
     required this.slugUrl,
+    this.shortDescription,
   });
 
   factory LatestProduct.fromJson(Map<String, dynamic> json) {
@@ -268,6 +501,7 @@ class LatestProduct {
       isKit: json['isKIT']?.toString(),
       createdAt: json['created_at']?.toString(),
       slugUrl: (json['slug_url'] ?? '').toString(),
+      shortDescription: json['short_description']?.toString(),
     );
   }
 
@@ -287,6 +521,7 @@ class LatestProduct {
       'isKIT': isKit,
       'created_at': createdAt,
       'slug_url': slugUrl,
+      'short_description': shortDescription,
     };
   }
 }

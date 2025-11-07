@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../categories_view/categories_grid.dart';
+import '../productlist_view/sale_products.dart';
 import '../../../main_navigation.dart';
 
 class AppDrawer extends StatefulWidget {
@@ -48,6 +49,15 @@ class _AppDrawerState extends State<AppDrawer> {
               title: 'Sale',
               onTap: () {
                 Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TabBarWrapper(
+                      showTabBar: true,
+                      child: SaleProductsScreen(),
+                    ),
+                  ),
+                );
               },
             ),
             _buildSeparator(),

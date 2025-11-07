@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../cart_view/cart.dart';
 import 'dart:async';
-import '../widget/product_card.dart';
 import '../../../main_navigation.dart';
+import '../../../data/services/product_service.dart';
+import '../../../data/models/product_details_model.dart';
 
 class DetailView extends StatefulWidget {
   const DetailView({super.key});
@@ -15,14 +17,28 @@ class _DetailViewState extends State<DetailView> {
   final PageController _imageController = PageController();
   int _currentImageIndex = 0;
   Timer? _imageTimer;
+  final ProductService _productService = ProductService();
 
-  final List<String> productImages = [
-    'assets/images/product.jpg',
-    'assets/images/product0.png',
-    'assets/images/product1.png',
-    'assets/images/product2.png',
-    'assets/images/product3.png',
-  ];
+  // Hardcoded product ID for now
+  static const int _hardcodedProductId = 1173;
+
+  // API state
+  ProductDetailsModel? _product;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  // Get product images from thumbnail
+  List<String> get productImages {
+    if (_product == null) {
+      return [];
+    }
+    // Use thumbnail as the main image
+    final thumbnail = _product!.thumbnail;
+    if (thumbnail.isEmpty) {
+      return [];
+    }
+    return [thumbnail];
+  }
 
   // Footer state
   int kitQuantity = 1;
@@ -31,7 +47,31 @@ class _DetailViewState extends State<DetailView> {
   @override
   void initState() {
     super.initState();
+    _fetchProductDetails();
     _startImageAutoSlide();
+  }
+
+  Future<void> _fetchProductDetails() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final product = await _productService.getProductDetails(
+        _hardcodedProductId,
+      );
+      setState(() {
+        _product = product;
+        totalPrice = product.price.toDouble() * kitQuantity;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -43,6 +83,7 @@ class _DetailViewState extends State<DetailView> {
 
   void _startImageAutoSlide() {
     _imageTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (productImages.isEmpty || productImages.length <= 1) return;
       if (_currentImageIndex < productImages.length - 1) {
         _currentImageIndex++;
       } else {
@@ -68,7 +109,7 @@ class _DetailViewState extends State<DetailView> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Detail Page',
+          'Product Detail',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -108,17 +149,29 @@ class _DetailViewState extends State<DetailView> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Minus button
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[400]!),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.remove,
-                                size: 14,
-                                color: Colors.grey,
+                            GestureDetector(
+                              onTap: () {
+                                if (kitQuantity > 1) {
+                                  setState(() {
+                                    kitQuantity--;
+                                    totalPrice =
+                                        (_product?.price.toDouble() ?? 0.0) *
+                                        kitQuantity;
+                                  });
+                                }
+                              },
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[400]!),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.remove,
+                                  size: 14,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -142,17 +195,27 @@ class _DetailViewState extends State<DetailView> {
                             ),
                             const SizedBox(width: 6),
                             // Plus button
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[400]!),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.add,
-                                size: 14,
-                                color: Colors.grey,
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  kitQuantity++;
+                                  totalPrice =
+                                      (_product?.price.toDouble() ?? 0.0) *
+                                      kitQuantity;
+                                });
+                              },
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[400]!),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 14,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ),
                           ],
@@ -186,7 +249,7 @@ class _DetailViewState extends State<DetailView> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '\$${totalPrice.toStringAsFixed(2)}',
+                              '\$${(_product?.price.toDouble() ?? 0.0) * kitQuantity}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -335,41 +398,86 @@ class _DetailViewState extends State<DetailView> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product Images Section
-            _buildProductImagesSection(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading product',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _fetchProductDetails,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : _product == null
+          ? const Center(child: Text('Product not found'))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Images Section
+                  _buildProductImagesSection(),
 
-            // Product Details
-            _buildProductDetails(),
+                  // Product Details
+                  _buildProductDetails(),
 
-            // Kit Includes
-            _buildKitIncludes(),
+                  // Kit Includes - only show if isKIT is "yes"
+                  if (_product!.isKIT?.toLowerCase() == 'yes')
+                    _buildKitIncludes(),
 
-            // Customise your Kit
-            _buildCustomiseYourKit(),
+                  // Customise your Kit
+                  _buildCustomiseYourKit(),
 
-            // Upgrades section
-            _buildUpgrades(),
+                  // Upgrades section
+                  _buildUpgrades(),
 
-            // Add-On Items section
-            _buildAddOnItems(),
+                  // Add-On Items section
+                  _buildAddOnItems(),
 
-            // Product Information section
-            _buildProductInformation(),
+                  // Product Information section
+                  _buildProductInformation(),
 
-            // Footer content moved into scrollable area
-            _buildScrollableFooter(),
-          ],
-        ),
-      ),
+                  // Footer content moved into scrollable area
+                  _buildScrollableFooter(),
+                ],
+              ),
+            ),
     );
   }
 
   Widget _buildProductImagesSection() {
+    final images = productImages;
+    if (images.isEmpty) {
+      return Container(
+        height: 300,
+        color: Colors.white,
+        child: const Center(
+          child: Icon(Icons.image, size: 50, color: Colors.grey),
+        ),
+      );
+    }
+
     return Container(
       height: 300,
       color: Colors.white,
@@ -384,8 +492,11 @@ class _DetailViewState extends State<DetailView> {
                   _currentImageIndex = index;
                 });
               },
-              itemCount: productImages.length,
+              itemCount: images.length,
               itemBuilder: (context, index) {
+                final imageUrl = images[index];
+                final isNetwork = imageUrl.startsWith('http');
+
                 return Container(
                   margin: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -401,20 +512,45 @@ class _DetailViewState extends State<DetailView> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      productImages[index],
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.image,
-                            size: 50,
-                            color: Colors.grey,
+                    child: isNetwork
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.image,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : Image.asset(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 );
               },
@@ -427,7 +563,7 @@ class _DetailViewState extends State<DetailView> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
-                productImages.length,
+                images.length,
                 (index) => Container(
                   width: 8,
                   height: 8,
@@ -449,8 +585,11 @@ class _DetailViewState extends State<DetailView> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: productImages.length,
+              itemCount: images.length,
               itemBuilder: (context, index) {
+                final imageUrl = images[index];
+                final isNetwork = imageUrl.startsWith('http');
+
                 return Container(
                   width: 60,
                   height: 60,
@@ -466,7 +605,45 @@ class _DetailViewState extends State<DetailView> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: Image.asset(productImages[index], fit: BoxFit.cover),
+                    child: isNetwork
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.image,
+                                size: 24,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : Image.asset(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image,
+                                  size: 24,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 );
               },
@@ -478,31 +655,35 @@ class _DetailViewState extends State<DetailView> {
   }
 
   Widget _buildProductDetails() {
+    if (_product == null) return const SizedBox.shrink();
+
+    final isInStock = _product!.outOfStock == 0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'MacBook Pro 16 M4 512 GB Space Black',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Text(
+            _product!.name,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Product SKU: APC-790-FMLA-SOL-FGEK',
-            style: TextStyle(fontSize: 14, color: Colors.black87),
+          Text(
+            'Product SKU: ${_product!.sku}',
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
           ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green,
+              color: isInStock ? Colors.green : Colors.red,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
-              'In Stock',
-              style: TextStyle(
+            child: Text(
+              isInStock ? 'In Stock' : 'Out of Stock',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -573,30 +754,35 @@ class _DetailViewState extends State<DetailView> {
                 'Kit Price: ',
                 style: TextStyle(fontSize: 14, color: Colors.black),
               ),
-              const Text(
-                '\$1,345.00',
-                style: TextStyle(
+              Text(
+                '\$${_product!.price.toStringAsFixed(2)}',
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                '\$1,575.00',
-                style: TextStyle(
-                  fontSize: 14,
-                  decoration: TextDecoration.lineThrough,
-                  color: Colors.grey[600],
+              if (_product!.previousPrice > 0) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '\$${_product!.previousPrice.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    decoration: TextDecoration.lineThrough,
+                    color: Colors.grey[600],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Image.asset(
-                'assets/images/sale.png',
-                width: 50,
-                height: 44,
-                fit: BoxFit.contain,
-              ),
+                const SizedBox(width: 8),
+                Image.asset(
+                  'assets/images/sale.png',
+                  width: 50,
+                  height: 44,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -607,9 +793,9 @@ class _DetailViewState extends State<DetailView> {
                 'Or in 4 payment of ',
                 style: TextStyle(fontSize: 14, color: Colors.grey[800]),
               ),
-              const Text(
-                '\$312.25',
-                style: TextStyle(
+              Text(
+                '\$${(_product!.price.toDouble() / 4).toStringAsFixed(2)}',
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
@@ -712,71 +898,22 @@ class _DetailViewState extends State<DetailView> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Single Swing Solar Powered Farm Gate Opener Suitable for Square Posts up to 125mm and gates up to 3.5 Metre, 250kg',
-            style: TextStyle(fontSize: 14, color: Colors.black, height: 1.4),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuggestedProducts() {
-    final suggestedProducts = [
-      {
-        'name': 'Apple MacBook Air 13-inch (M3, 8GB...)',
-        'description': 'Latest M3 chip with exceptional performance',
-        'currentPrice': '\$1000',
-        'originalPrice': '\$1200',
-        'image': 'assets/images/product1.png',
-        'onSale': true,
-      },
-      {
-        'name': 'Apple MacBook Pro 14-inch (M3 Pro, 1...)',
-        'description': 'Professional grade laptop for power users',
-        'currentPrice': '\$1815',
-        'originalPrice': '\$2000',
-        'image': 'assets/images/product2.png',
-        'onSale': true,
-      },
-    ];
-
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Suggested products',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 320,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: suggestedProducts.length,
-              itemBuilder: (context, index) {
-                final product = suggestedProducts[index];
-                return ProductCard(
-                  product: product,
-                  width: 160,
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                );
-              },
+          if (_product!.shortDescription != null &&
+              _product!.shortDescription!.isNotEmpty)
+            Text(
+              _product!.shortDescription!,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black,
+                height: 1.4,
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildScrollableFooter() {
-    int kitQuantity = 1;
-    double totalPrice = 2005.00;
-
     return Container(
       margin: const EdgeInsets.only(top: 8),
       color: Colors.white,
@@ -1775,27 +1912,6 @@ class _DetailViewState extends State<DetailView> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isSelected) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? Colors.blue : Colors.grey[600],
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isSelected ? Colors.blue : Colors.grey[600],
-          ),
-        ),
-      ],
     );
   }
 }

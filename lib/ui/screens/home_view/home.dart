@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../categories_view/categories_grid.dart';
+import '../categories_view/subcategory_page.dart';
 import '../drawer_view/drawer.dart';
 import '../widget/product_card.dart';
+import '../productlist_view/sale_products.dart';
+import '../productlist_view/productlist.dart';
 import '../signup_view/trader_upgrade_flow.dart';
 import '../cart_view/cart.dart';
 import '../../../main_navigation.dart';
@@ -11,7 +13,11 @@ import '../../../services/user_role_service.dart';
 import '../../../services/storage_service.dart';
 // import '../../../data/services/settings_service.dart'; // Not using API call for now
 import '../../../data/models/settings_model.dart';
+import '../../../data/models/homepage_model.dart';
+import '../../../data/models/categories_model.dart';
+import '../../../data/services/homepage_service.dart';
 import '../../../providers/homepage_provider.dart';
+import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
@@ -47,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // final SettingsService _settingsService = SettingsService(); // Commented out - only using cached settings
 
   // Homepage data moved to HomepageProvider
+  final HomepageService _homepageService = HomepageService();
 
   final List<Map<String, dynamic>> banners = [
     {
@@ -150,6 +157,10 @@ class _HomeScreenState extends State<HomeScreen> {
       homeProvider.loadLatestProducts().catchError((error) {
         debugPrint('CATCH ERROR loadLatestProducts: $error');
         Logger.error('Error in loadLatestProducts', error);
+      });
+      homeProvider.loadSaleProducts().catchError((error) {
+        debugPrint('CATCH ERROR loadSaleProducts: $error');
+        Logger.error('Error in loadSaleProducts', error);
       });
     });
   }
@@ -428,13 +439,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 20),
 
-              // Featured Products Section
-              _buildFeaturedProductsSection(),
-
-              const SizedBox(height: 20),
-
-              // Recent Products Section
-              _buildRecentProductsSection(),
+              // Sale Products Section
+              _buildSaleProductsSection(),
 
               const SizedBox(height: 20),
 
@@ -831,8 +837,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
               return GestureDetector(
                 onTap: () {
-                  // TODO: Navigate to category detail page
-                  Logger.info('Category tapped: ${category.name}');
+                  final name = (category.name).toLowerCase();
+                  if (name == 'sale') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TabBarWrapper(
+                          showTabBar: true,
+                          child: SaleProductsScreen(),
+                        ),
+                      ),
+                    );
+                  } else {
+                    _navigateToCategory(category);
+                  }
                 },
                 child: Container(
                   decoration: BoxDecoration(
@@ -848,28 +866,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                      // Expanded image section to fill most of the card
+                      Expanded(
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
+                          ),
                           child:
                               category.image != null &&
                                   category.image!.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: category.image!,
-                                  width: 52,
-                                  height: 52,
+                                  width: double.infinity,
                                   fit: BoxFit.cover,
-                                  placeholder: (context, url) => const SizedBox(
-                                    width: 52,
-                                    height: 52,
-                                    child: Center(
+                                  placeholder: (context, url) => Container(
+                                    width: double.infinity,
+                                    color: Colors.grey[200],
+                                    child: const Center(
                                       child: SizedBox(
                                         width: 24,
                                         height: 24,
@@ -880,29 +896,40 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   errorWidget: (context, url, error) =>
-                                      const Icon(
-                                        Icons.image,
-                                        color: Colors.grey,
-                                        size: 24,
+                                      Container(
+                                        width: double.infinity,
+                                        color: Colors.grey[300],
+                                        child: const Icon(
+                                          Icons.image,
+                                          color: Colors.grey,
+                                          size: 32,
+                                        ),
                                       ),
                                 )
-                              : const Icon(
-                                  Icons.category,
-                                  color: Colors.grey,
-                                  size: 24,
+                              : Container(
+                                  width: double.infinity,
+                                  color: Colors.grey[300],
+                                  child: const Icon(
+                                    Icons.category,
+                                    color: Colors.grey,
+                                    size: 32,
+                                  ),
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      // Category name at the bottom
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 6,
+                        ),
                         child: Text(
                           category.name,
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF151D51),
                           ),
@@ -960,8 +987,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           'image': apiProduct.thumbnail, // may be null
                           'name': apiProduct.name,
                           'sku': apiProduct.sku,
-                          // Temporary hardcoded description until API provides it
+                          // Use dynamic short_description from API, with fallback
                           'description':
+                              apiProduct.shortDescription ??
                               'Latest product — description coming soon.',
                           'price': apiProduct.price,
                           'previous_price': apiProduct.previousPrice,
@@ -1070,47 +1098,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFeaturedProductsSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Featured Products',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF151D51),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 310,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: featuredProducts.length,
-              itemBuilder: (context, index) {
-                final product = featuredProducts[index];
-                return ProductCard(
-                  product: product,
-                  width: 160,
-                  margin: const EdgeInsets.only(right: 12),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildSaleProductsSection() {
+    final homeProvider = Provider.of<HomepageProvider>(context);
+    final saleProducts = homeProvider.saleProducts.isNotEmpty
+        ? homeProvider.saleProducts
+        : null;
 
-  Widget _buildRecentProductsSection() {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1118,9 +1111,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Recent Products',
+            children: const [
+              Text(
+                'Sale Product',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -1132,18 +1125,41 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 16),
           SizedBox(
             height: 310,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                final product = products[index];
-                return ProductCard(
-                  product: product,
-                  width: 160,
-                  margin: const EdgeInsets.only(right: 12),
-                );
-              },
-            ),
+            child: homeProvider.isLoadingSaleProducts
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: saleProducts?.length ?? featuredProducts.length,
+                    itemBuilder: (context, index) {
+                      if (saleProducts != null) {
+                        final apiProduct = saleProducts[index];
+                        final mapped = {
+                          'image': apiProduct.thumbnail,
+                          'thumbnail': apiProduct.thumbnail,
+                          'name': apiProduct.name,
+                          'sku': apiProduct.sku,
+                          'price': apiProduct.price,
+                          'previous_price': apiProduct.previousPrice,
+                          'description':
+                              apiProduct.shortDescription ??
+                              'On sale — description coming soon.',
+                          'onSale': true,
+                        };
+                        return ProductCard(
+                          product: mapped,
+                          width: 160,
+                          margin: const EdgeInsets.only(right: 12),
+                        );
+                      }
+
+                      final product = featuredProducts[index];
+                      return ProductCard(
+                        product: product,
+                        width: 160,
+                        margin: const EdgeInsets.only(right: 12),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -1407,5 +1423,119 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Future<CategoryFull?> _loadFullCategoryData(int categoryId) async {
+    final cacheService = CategoriesCacheService();
+    final cached = cacheService.getCategoryById(categoryId);
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final categories = await _homepageService.getAllCategories();
+      return categories.firstWhere((cat) => cat.id == categoryId);
+    } on StateError {
+      Logger.warning('Category ID $categoryId not found in full category list');
+      return null;
+    } catch (error, stackTrace) {
+      Logger.error('Failed to load full category data', error, stackTrace);
+      return null;
+    }
+  }
+
+  Future<void> _navigateToCategory(Category category) async {
+    Logger.info(
+      'Category tapped: ${category.name} (ID: ${category.id}) - pageOpen: ${category.pageOpen}',
+    );
+
+    final normalizedPageOpen = category.pageOpen.toLowerCase();
+
+    if (normalizedPageOpen == 'product_listing_page') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TabBarWrapper(
+            showTabBar: true,
+            child: ProductListScreen(
+              categoryId: category.id,
+              title: category.name,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (normalizedPageOpen == 'landing_page') {
+      final categoryData = await _loadFullCategoryData(category.id);
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TabBarWrapper(
+            showTabBar: true,
+            child: SubCategoryPage(
+              categoryId: category.id,
+              categoryName: category.name,
+              categoryData: categoryData,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final categoryDetails = await _homepageService.getCategoryDetails(
+        category.id,
+      );
+      if (!mounted) return;
+
+      if (categoryDetails.hasSubcategories) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TabBarWrapper(
+              showTabBar: true,
+              child: SubCategoryPage(
+                categoryId: category.id,
+                categoryName: category.name,
+              ),
+            ),
+          ),
+        );
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TabBarWrapper(
+              showTabBar: true,
+              child: ProductListScreen(
+                categoryId: category.id,
+                title: category.name,
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (error, stackTrace) {
+      Logger.error('Failed to fetch category details', error, stackTrace);
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TabBarWrapper(
+            showTabBar: true,
+            child: ProductListScreen(
+              categoryId: category.id,
+              title: category.name,
+            ),
+          ),
+        ),
+      );
+    }
   }
 }

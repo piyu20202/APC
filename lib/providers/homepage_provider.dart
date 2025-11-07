@@ -10,9 +10,11 @@ class HomepageProvider extends ChangeNotifier {
   // State management
   bool _isLoading = false;
   bool _isLoadingLatestProducts = false;
+  bool _isLoadingSaleProducts = false;
   String? _errorMessage;
   HomepageModel? _homepageData;
   List<LatestProduct> _latestProducts = [];
+  List<LatestProduct> _saleProducts = [];
 
   HomepageProvider({HomepageRepository? homepageRepository})
     : _homepageRepository = homepageRepository ?? HomepageRepository();
@@ -20,9 +22,11 @@ class HomepageProvider extends ChangeNotifier {
   // Getters
   bool get isLoading => _isLoading;
   bool get isLoadingLatestProducts => _isLoadingLatestProducts;
+  bool get isLoadingSaleProducts => _isLoadingSaleProducts;
   String? get errorMessage => _errorMessage;
   HomepageModel? get homepageData => _homepageData;
   List<LatestProduct> get latestProducts => _latestProducts;
+  List<LatestProduct> get saleProducts => _saleProducts;
   List<Category> get categories => _homepageData?.categories ?? [];
   List<Partner> get partners => _homepageData?.partners ?? [];
   List<Service> get services => _homepageData?.services ?? [];
@@ -83,6 +87,34 @@ class HomepageProvider extends ChangeNotifier {
     }
   }
 
+  /// Load sale products from API
+  Future<void> loadSaleProducts() async {
+    try {
+      _isLoadingSaleProducts = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info('Provider: Loading sale products');
+      _saleProducts = await _homepageRepository.getSaleProducts();
+
+      _isLoadingSaleProducts = false;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info('Provider: Sale products loaded successfully');
+    } on ApiException catch (e) {
+      Logger.error('Provider: Failed to load sale products', e);
+      _isLoadingSaleProducts = false;
+      _errorMessage = e.message;
+      notifyListeners();
+    } catch (e) {
+      Logger.error('Provider: Unexpected error loading sale products', e);
+      _isLoadingSaleProducts = false;
+      _errorMessage = 'An unexpected error occurred';
+      notifyListeners();
+    }
+  }
+
   /// Clear error message
   void clearError() {
     _errorMessage = null;
@@ -91,6 +123,10 @@ class HomepageProvider extends ChangeNotifier {
 
   /// Refresh all homepage data
   Future<void> refresh() async {
-    await Future.wait([loadHomepageData(), loadLatestProducts()]);
+    await Future.wait([
+      loadHomepageData(),
+      loadLatestProducts(),
+      loadSaleProducts(),
+    ]);
   }
 }

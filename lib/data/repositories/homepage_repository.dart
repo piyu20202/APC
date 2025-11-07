@@ -42,4 +42,46 @@ class HomepageRepository {
       );
     }
   }
+
+  /// Get sale products
+  Future<List<LatestProduct>> getSaleProducts() async {
+    try {
+      Logger.info('Repository: Fetching sale products');
+      final products = await _homepageService.getSaleProducts();
+      Logger.info('Repository: Sale products fetched successfully');
+      return products;
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Repository: Failed to fetch sale products', e);
+      throw ApiException(
+        message: 'Failed to fetch sale products: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Search products
+  Future<List<LatestProduct>> searchProducts({
+    required String searchKeyword,
+    String? page,
+    String? perPage,
+  }) async {
+    try {
+      Logger.info('Repository: Searching products with keyword: $searchKeyword');
+      final products = await _homepageService.searchProducts(
+        searchKeyword: searchKeyword,
+        page: page,
+        perPage: perPage,
+      );
+      Logger.info('Repository: Search products fetched successfully');
+      return products;
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Repository: Failed to search products', e);
+      throw ApiException(
+        message: 'Failed to search products: ${e.toString()}',
+      );
+    }
+  }
 }

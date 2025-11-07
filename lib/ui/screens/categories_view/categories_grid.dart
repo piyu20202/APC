@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/services/homepage_service.dart';
-import '../../../data/models/homepage_model.dart';
+import '../../../data/models/categories_model.dart';
 import '../../../core/utils/logger.dart';
+import 'subcategory_page.dart';
+import '../productlist_view/productlist.dart';
+import '../widget/category_tile.dart';
 
 class CategoriesGridScreen extends StatefulWidget {
   const CategoriesGridScreen({super.key});
@@ -13,7 +15,7 @@ class CategoriesGridScreen extends StatefulWidget {
 
 class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
   final HomepageService _homepageService = HomepageService();
-  List<Category> _categories = [];
+  List<CategoryFull> _categories = [];
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -31,10 +33,10 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
 
     try {
       Logger.info('Fetching all categories for grid view');
-      final homepageData = await _homepageService.getHomepageData();
+      final categories = await _homepageService.getAllCategories();
 
       setState(() {
-        _categories = homepageData.categories;
+        _categories = categories;
         _isLoading = false;
       });
 
@@ -120,112 +122,57 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
             itemCount: _categories.length,
             itemBuilder: (context, index) {
               final category = _categories[index];
-              return GestureDetector(
-                onTap: () {
-                  // TODO: Navigate to category detail page
-                  Logger.info(
-                    'Category tapped: ${category.name} (ID: ${category.id})',
-                  );
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F8F8),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child:
-                              category.image != null &&
-                                  category.image!.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: category.image!,
-                                  width: 60,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => const SizedBox(
-                                    width: 60,
-                                    height: 60,
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) =>
-                                      Container(
-                                        width: 60,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.category,
-                                          color: Colors.grey,
-                                          size: 24,
-                                        ),
-                                      ),
-                                )
-                              : Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.category,
-                                    color: Colors.grey,
-                                    size: 24,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          category.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF151D51),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              return CategoryTile(
+                name: category.name,
+                image: category.image, // Use image for grid display
+                onTap: () => _navigateToCategory(category),
               );
             },
           ),
         ),
+      ),
+    );
+  }
+
+  void _navigateToCategory(CategoryFull category) {
+    Logger.info(
+      'Category tapped: ${category.name} (ID: ${category.id}) - pageOpen: ${category.pageOpen}',
+    );
+
+    final normalizedPageOpen = category.pageOpen.toLowerCase();
+
+    if (normalizedPageOpen == 'product_listing_page') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              ProductListScreen(categoryId: category.id, title: category.name),
+        ),
+      );
+      return;
+    }
+
+    // Default to subcategory view for landing pages and any other values when subs exist
+    if (category.subs.isNotEmpty || normalizedPageOpen == 'landing_page') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SubCategoryPage(
+            categoryId: category.id,
+            categoryName: category.name,
+            categoryData: category, // Pass the full category data
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Fallback: navigate to product listing if no subcategories available
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            ProductListScreen(categoryId: category.id, title: category.name),
       ),
     );
   }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../productlist_view/productlist.dart';
 import '../widget/product_card.dart';
 import '../../../main_navigation.dart';
+import '../../../data/repositories/homepage_repository.dart';
+import '../../../core/utils/logger.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -12,112 +14,64 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final HomepageRepository _repository = HomepageRepository();
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
+  bool _isLoading = false;
+  String? _error;
 
-  // Sample products for search
-  final List<Map<String, dynamic>> _allProducts = [
-    {
-      'name': '3m Double Ring Top Gates (2x1.5m)',
-      'sku': 'APC-RCTG-001',
-      'description':
-          'Classic Design Ring Top Gate, Satin Black Powdercoating, Robust 80x40 - 40x40 Steel + 19mm Pickets',
-      'currentPrice': '\$825.00',
-      'originalPrice': '\$999.00',
-      'image': 'assets/images/2.png',
-      'category': 'RING 3M',
-      'onSale': true,
-      'freightDelivery': true,
-    },
-    {
-      'name': '4m Double Ring Top Gates (2x2m)',
-      'sku': 'APC-RCTG-002',
-      'description':
-          'Premium Ring Top Gate Design, Black Powdercoating, Heavy Duty Steel Construction',
-      'currentPrice': '\$950.00',
-      'originalPrice': '\$1,199.00',
-      'image': 'assets/images/2.png',
-      'category': 'RING 4M',
-      'onSale': true,
-      'freightDelivery': true,
-    },
-    {
-      'name': 'Gas Automation Kit',
-      'description': 'Complete gas automation solution for gates',
-      'currentPrice': '\$89',
-      'originalPrice': '\$120',
-      'image': 'assets/images/product1.png',
-      'onSale': true,
-    },
-    {
-      'name': 'Gate & Fencing Hardware',
-      'description': 'Professional grade gate and fencing hardware',
-      'currentPrice': '\$45',
-      'originalPrice': '\$65',
-      'image': 'assets/images/product2.png',
-      'onSale': true,
-    },
-    {
-      'name': 'Brushless Electric Gate Kit',
-      'description': 'High-performance brushless electric gate system',
-      'currentPrice': '\$199',
-      'originalPrice': '\$250',
-      'image': 'assets/images/product3.png',
-      'onSale': true,
-    },
-    {
-      'name': 'Custom Made Gate',
-      'description': 'Custom designed gate solutions',
-      'currentPrice': '\$299',
-      'originalPrice': '\$350',
-      'image': 'assets/images/product4.png',
-      'onSale': true,
-    },
-    {
-      'name': 'Telescopic Linear Actuator - Heavy Duty',
-      'sku': 'APC-TLA-HD',
-      'description': 'Heavy duty linear actuator for industrial applications',
-      'currentPrice': '\$13',
-      'originalPrice': '\$42',
-      'image': 'assets/images/1.png',
-      'onSale': true,
-    },
-    {
-      'name': 'Farm Gate Opener Kit',
-      'sku': 'APC-FGO-001',
-      'description': 'Complete farm gate automation solution',
-      'currentPrice': '\$59',
-      'originalPrice': '\$79',
-      'image': 'assets/images/3.png',
-      'onSale': true,
-    },
-  ];
-
-  void _performSearch(String query) {
+  void _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() {
         _searchResults = [];
         _isSearching = false;
+        _isLoading = false;
+        _error = null;
       });
       return;
     }
 
     setState(() {
       _isSearching = true;
-      _searchResults = _allProducts.where((product) {
-        final name = product['name']?.toString().toLowerCase() ?? '';
-        final description =
-            product['description']?.toString().toLowerCase() ?? '';
-        final sku = product['sku']?.toString().toLowerCase() ?? '';
-        final category = product['category']?.toString().toLowerCase() ?? '';
-        final searchQuery = query.toLowerCase();
-
-        return name.contains(searchQuery) ||
-            description.contains(searchQuery) ||
-            sku.contains(searchQuery) ||
-            category.contains(searchQuery);
-      }).toList();
+      _isLoading = true;
+      _error = null;
     });
+
+    try {
+      Logger.info('Searching products with keyword: $query');
+      final products = await _repository.searchProducts(searchKeyword: query);
+
+      // Map API products to ProductCard expected format
+      final mappedResults = products.map((product) {
+        return {
+          'image': product.thumbnail,
+          'thumbnail': product.thumbnail,
+          'name': product.name,
+          'sku': product.sku,
+          // Use dynamic short_description from API, with fallback
+          'description':
+              product.shortDescription ?? 'Product description not available',
+          'price': product.price,
+          'previous_price': product.previousPrice,
+          'onSale':
+              product.previousPrice > 0 &&
+              product.previousPrice > product.price,
+        };
+      }).toList();
+
+      setState(() {
+        _searchResults = mappedResults;
+        _isLoading = false;
+        _error = null;
+      });
+    } catch (e) {
+      Logger.error('Failed to search products', e);
+      setState(() {
+        _searchResults = [];
+        _isLoading = false;
+        _error = 'Failed to search products. Please try again.';
+      });
+    }
   }
 
   @override
@@ -193,6 +147,44 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildSearchContent() {
     if (!_isSearching && _searchController.text.isEmpty) {
       return _buildEmptyState();
+    }
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text(
+              'Error',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _error!,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _performSearch(_searchController.text),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
     }
 
     if (_isSearching && _searchResults.isEmpty) {

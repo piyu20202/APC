@@ -69,10 +69,17 @@ class ApiClient {
   static Future<Map<String, dynamic>> get({
     required String endpoint,
     Map<String, String>? headers,
+    Map<String, String>? queryParameters,
     bool requireAuth = false,
   }) async {
     try {
-      final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
+      Uri url;
+      if (queryParameters != null && queryParameters.isNotEmpty) {
+        url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint')
+            .replace(queryParameters: queryParameters);
+      } else {
+        url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
+      }
 
       // Default headers
       final Map<String, String> defaultHeaders = {'Accept': 'application/json'};

@@ -13,6 +13,33 @@ class ApiEndpoints {
   // Latest Products endpoint
   static const String latestProducts = '/latest-products';
 
+  // Sale Products endpoint
+  static const String saleProducts = '/sale-products';
+
+  // Search Products endpoint
+  static const String searchProducts = '/search-products';
+
+  // Product Details endpoint
+  static const String productDetails = '/product-details';
+
+  // Category Details endpoint
+  static const String categoryDetails = '/category-details';
+
+  // SubCategory Details endpoint
+  static const String subcategoryDetails = '/subcategory-details';
+
+  // ChildCategory Details endpoint
+  static const String childcategoryDetails = '/childcategory-details';
+
+  // SubChildCategory Details endpoint
+  static const String subchildcategoryDetails = '/subchildcategory-details';
+
+  // Products by Category endpoint
+  static const String productsByCategory = '/products-by-category';
+
+  // All Categories endpoint
+  static const String allCategories = '/get/all_categories/';
+
   // Add more endpoints here as needed
   // static const String register = '/register';
   // static const String forgotPassword = '/forgot-password';
