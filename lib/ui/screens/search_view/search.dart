@@ -44,6 +44,7 @@ class _SearchScreenState extends State<SearchScreen> {
       // Map API products to ProductCard expected format
       final mappedResults = products.map((product) {
         return {
+          'id': product.id,
           'image': product.thumbnail,
           'thumbnail': product.thumbnail,
           'name': product.name,

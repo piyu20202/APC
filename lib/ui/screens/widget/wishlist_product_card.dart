@@ -20,13 +20,18 @@ class WishlistProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                const TabBarWrapper(showTabBar: true, child: DetailView()),
-          ),
-        );
+        final productId = product['id'] as int?;
+        if (productId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TabBarWrapper(
+                showTabBar: true,
+                child: DetailView(productId: productId),
+              ),
+            ),
+          );
+        }
       },
       child: Container(
         width: width,

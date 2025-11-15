@@ -19,7 +19,7 @@ class CategoryStructure {
 
 class HomepageService {
   // Set this to true to use dummy data for testing
-  static const bool useDummyData = true;
+  static const bool useDummyData = false;
 
   // Category name to structure mapping for dummy data
   CategoryStructure _getCategoryStructure(String categoryName) {
@@ -845,6 +845,10 @@ class HomepageService {
 
   /// Fetch products by category ID (can be category, subcategory, childcategory, or subchildcategory)
   Future<List<LatestProduct>> getProductsByCategory({
+    String? categorySlug,
+    String? categoryType,
+    int? page,
+    int? perPage,
     int? categoryId,
     int? subcategoryId,
     int? childcategoryId,
@@ -852,11 +856,13 @@ class HomepageService {
   }) async {
     try {
       Logger.info(
-        'Fetching products by category - categoryId: $categoryId, subcategoryId: $subcategoryId, childcategoryId: $childcategoryId, subchildcategoryId: $subchildcategoryId',
+        'Fetching products by category - slug: $categorySlug, type: $categoryType, '
+        'categoryId: $categoryId, subcategoryId: $subcategoryId, '
+        'childcategoryId: $childcategoryId, subchildcategoryId: $subchildcategoryId',
       );
 
       // Use dummy data for testing
-      if (useDummyData) {
+      if (useDummyData || categorySlug == null || categoryType == null) {
         await Future.delayed(const Duration(milliseconds: 500)); // Simulate API delay
         Logger.info('Using dummy data for products by category');
         return _generateDummyProducts(
@@ -867,18 +873,15 @@ class HomepageService {
         );
       }
 
-      final queryParameters = <String, String>{};
-      if (categoryId != null) {
-        queryParameters['category_id'] = categoryId.toString();
+      final queryParameters = <String, String>{
+        'category_slug': categorySlug,
+        'category_type': categoryType,
+      };
+      if (page != null) {
+        queryParameters['page'] = page.toString();
       }
-      if (subcategoryId != null) {
-        queryParameters['subcategory_id'] = subcategoryId.toString();
-      }
-      if (childcategoryId != null) {
-        queryParameters['childcategory_id'] = childcategoryId.toString();
-      }
-      if (subchildcategoryId != null) {
-        queryParameters['subchildcategory_id'] = subchildcategoryId.toString();
+      if (perPage != null) {
+        queryParameters['per_page'] = perPage.toString();
       }
 
       final response = await ApiClient.get(

@@ -30,6 +30,7 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
       {}; // Track expanded state for childs
   bool _isLoading = true;
   String? _errorMessage;
+  int? _selectedChildSubId;
 
   @override
   void initState() {
@@ -92,6 +93,8 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
           builder: (context) => ProductListScreen(
             categoryId: widget.categoryId,
             subcategoryId: subcategory.id,
+            categorySlug: subcategory.slug,
+            categoryType: 'subcategory',
             title: subcategory.name,
           ),
         ),
@@ -110,6 +113,8 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
             categoryId: widget.categoryId,
             subcategoryId: child.subcategoryId,
             childcategoryId: child.id,
+            categorySlug: child.slug,
+            categoryType: 'childcategory',
             title: child.name,
           ),
         ),
@@ -129,6 +134,8 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
           subcategoryId: child.subcategoryId,
           childcategoryId: child.id,
           subchildcategoryId: childSub.id,
+          categorySlug: childSub.slug,
+          categoryType: 'childsubcategory',
           title: childSub.name,
         ),
       ),
@@ -139,9 +146,9 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Subcategory View',
-          style: TextStyle(
+        title: Text(
+          _categoryData?.name ?? widget.categoryName,
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -473,7 +480,7 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF1976D2), // Dark blue background
+          color: const Color(0xFF003F7F), // Brand blue background
           borderRadius: BorderRadius.circular(12),
         ),
         child: Material(
@@ -483,27 +490,16 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text(
-                      child.name,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white, // White text
-                      ),
-                    ),
+              child: Center(
+                child: Text(
+                  child.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white, // White text
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.arrow_forward,
-                    size: 18,
-                    color: Colors.white, // White icon
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -519,7 +515,7 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
           // Child category button with + icon and dark blue background
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1976D2), // Dark blue background
+              color: const Color(0xFF003F7F), // Brand blue background
               borderRadius: BorderRadius.circular(12),
             ),
             child: Material(
@@ -581,7 +577,7 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E3A5F),
+          backgroundColor: const Color(0xFF003F7F),
           foregroundColor: Colors.white,
           padding: EdgeInsets.symmetric(
             vertical: isSmall ? 10 : 14,
@@ -634,14 +630,60 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
       children: childsubs.map((childSub) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: _buildViewProductsButton(
-            () => _navigateToChildSub(child, childSub),
-            label: childSub.name,
-            isPrimary: false,
-            isSmall: true,
-          ),
+          child: _buildChildSubItem(child, childSub),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildChildSubItem(
+    ChildCategoryFull child,
+    ChildSubCategoryFull childSub,
+  ) {
+    const brandBlue = Color(0xFF003F7F);
+    const highlightColor = Color(0xFFFFB800);
+    final isSelected = _selectedChildSubId == childSub.id;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isSelected ? highlightColor : brandBlue,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            setState(() {
+              _selectedChildSubId = childSub.id;
+            });
+            _navigateToChildSub(child, childSub);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    childSub.name,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? brandBlue : Colors.white,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.double_arrow,
+                  size: 20,
+                  color: isSelected ? brandBlue : Colors.white,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -25,13 +25,18 @@ class ProductCard extends StatelessWidget {
     final numPrice = _readNum(product['price'] ?? product['currentPrice']);
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                const TabBarWrapper(showTabBar: true, child: DetailView()),
-          ),
-        );
+        final productId = product['id'] as int?;
+        if (productId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TabBarWrapper(
+                showTabBar: true,
+                child: DetailView(productId: productId),
+              ),
+            ),
+          );
+        }
       },
       child: Container(
         width: width,
@@ -124,7 +129,18 @@ class ProductCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(5),
-                    child: _buildProductImage(product),
+                    child: _isOutOfStock(product)
+                        ? ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              Colors.grey,
+                              BlendMode.saturation,
+                            ),
+                            child: Opacity(
+                              opacity: 0.6,
+                              child: _buildProductImage(product),
+                            ),
+                          )
+                        : _buildProductImage(product),
                   ),
 
                   if (_hasStrikePrice(product))
@@ -157,6 +173,38 @@ class ProductCard extends StatelessWidget {
                                 letterSpacing: 0.5,
                               ),
                             ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Out of Stock Badge
+                  if (_isOutOfStock(product))
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'Out of Stock',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -246,17 +294,49 @@ class ProductCard extends StatelessWidget {
                         ],
                       ),
                       const Spacer(),
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF151D51),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.add, color: Colors.white, size: 20),
-                        ),
-                      ),
+                      _isOutOfStock(product)
+                          ? Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[400],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            )
+                          : GestureDetector(
+                              onTap: () {
+                                // Add to cart functionality (to be implemented)
+                                // For now, just navigate to cart or show message
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Product added to cart'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF151D51),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
                     ],
                   ),
                 ],
@@ -273,6 +353,17 @@ bool _hasStrikePrice(Map<String, dynamic> product) {
   final prev = _readNum(product['previous_price'] ?? product['originalPrice']);
   final price = _readNum(product['price'] ?? product['currentPrice']);
   return prev > 0 && prev > price;
+}
+
+bool _isOutOfStock(Map<String, dynamic> product) {
+  final outOfStock = product['out_of_stock'];
+  if (outOfStock == null) return false;
+  if (outOfStock is int) return outOfStock == 1;
+  if (outOfStock is bool) return outOfStock;
+  if (outOfStock is String) {
+    return outOfStock == '1' || outOfStock.toLowerCase() == 'true';
+  }
+  return false;
 }
 
 num _readNum(dynamic v) {

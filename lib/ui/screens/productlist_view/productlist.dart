@@ -9,6 +9,10 @@ class ProductListScreen extends StatefulWidget {
   final int? childcategoryId;
   final int? subchildcategoryId;
   final String? title;
+  final String? categorySlug;
+  final String? categoryType;
+  final int? page;
+  final int? perPage;
 
   const ProductListScreen({
     super.key,
@@ -17,6 +21,10 @@ class ProductListScreen extends StatefulWidget {
     this.childcategoryId,
     this.subchildcategoryId,
     this.title,
+    this.categorySlug,
+    this.categoryType,
+    this.page,
+    this.perPage,
   });
 
   @override
@@ -105,12 +113,49 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
     try {
       // If category IDs are provided, fetch from API
-      if (widget.categoryId != null ||
+      if (widget.categorySlug != null && widget.categoryType != null) {
+        Logger.info(
+          'Fetching products - slug: ${widget.categorySlug}, type: ${widget.categoryType}',
+        );
+
+        final apiProducts = await _homepageService.getProductsByCategory(
+          categorySlug: widget.categorySlug,
+          categoryType: widget.categoryType,
+          page: widget.page,
+          perPage: widget.perPage,
+          categoryId: widget.categoryId,
+          subcategoryId: widget.subcategoryId,
+          childcategoryId: widget.childcategoryId,
+          subchildcategoryId: widget.subchildcategoryId,
+        );
+
+        // Convert API products to map format for ProductCard
+        products = apiProducts.map((p) {
+          return {
+            'id': p.id,
+            'name': p.name,
+            'sku': p.sku,
+            'description': p.shortDescription ?? '',
+            'currentPrice': p.price.toString(),
+            'originalPrice': p.previousPrice.toString(),
+            'price': p.price,
+            'previous_price': p.previousPrice,
+            'image': p.thumbnail,
+            'thumbnail': p.thumbnail,
+            'category': widget.title ?? '',
+            'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
+            'freightDelivery': false,
+            'out_of_stock': p.outOfStock,
+          };
+        }).toList();
+
+        Logger.info('Loaded ${products.length} products from API');
+      } else if (widget.categoryId != null ||
           widget.subcategoryId != null ||
           widget.childcategoryId != null ||
           widget.subchildcategoryId != null) {
         Logger.info(
-          'Fetching products - categoryId: ${widget.categoryId}, subcategoryId: ${widget.subcategoryId}, childcategoryId: ${widget.childcategoryId}, subchildcategoryId: ${widget.subchildcategoryId}',
+          'Fetching products using ID fallback - categoryId: ${widget.categoryId}, subcategoryId: ${widget.subcategoryId}, childcategoryId: ${widget.childcategoryId}, subchildcategoryId: ${widget.subchildcategoryId}',
         );
 
         final apiProducts = await _homepageService.getProductsByCategory(
@@ -120,7 +165,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
           subchildcategoryId: widget.subchildcategoryId,
         );
 
-        // Convert API products to map format for ProductCard
         products = apiProducts.map((p) {
           return {
             'name': p.name,
@@ -135,10 +179,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
             'category': widget.title ?? '',
             'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
             'freightDelivery': false,
+            'out_of_stock': p.outOfStock,
           };
         }).toList();
-
-        Logger.info('Loaded ${products.length} products from API');
       } else {
         // Use dummy products if no category IDs provided
         products = List.from(_dummyProducts);

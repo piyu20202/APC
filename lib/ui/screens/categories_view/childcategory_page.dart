@@ -11,6 +11,7 @@ class ChildCategoryPage extends StatefulWidget {
   final String categoryName;
   final int subcategoryId;
   final String subcategoryName;
+  final String? subcategorySlug;
 
   const ChildCategoryPage({
     super.key,
@@ -18,6 +19,7 @@ class ChildCategoryPage extends StatefulWidget {
     required this.categoryName,
     required this.subcategoryId,
     required this.subcategoryName,
+    this.subcategorySlug,
   });
 
   @override
@@ -27,7 +29,8 @@ class ChildCategoryPage extends StatefulWidget {
 class _ChildCategoryPageState extends State<ChildCategoryPage> {
   final HomepageService _homepageService = HomepageService();
   List<ChildCategory> _childcategories = [];
-  Map<int, ChildCategory> _childCategoryDetails = {}; // Cache childcategory details with subchildcategories
+  Map<int, ChildCategory> _childCategoryDetails =
+      {}; // Cache childcategory details with subchildcategories
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -44,9 +47,12 @@ class _ChildCategoryPageState extends State<ChildCategoryPage> {
     });
 
     try {
-      Logger.info('Fetching subcategory details for ID: ${widget.subcategoryId}');
-      final subcategory =
-          await _homepageService.getSubcategoryDetails(widget.subcategoryId);
+      Logger.info(
+        'Fetching subcategory details for ID: ${widget.subcategoryId}',
+      );
+      final subcategory = await _homepageService.getSubcategoryDetails(
+        widget.subcategoryId,
+      );
 
       // Fetch full details for each childcategory to get subchildcategories
       List<ChildCategory> childcategoriesWithDetails = [];
@@ -69,7 +75,9 @@ class _ChildCategoryPageState extends State<ChildCategoryPage> {
         _isLoading = false;
       });
 
-      Logger.info('Loaded ${_childcategories.length} childcategories with details');
+      Logger.info(
+        'Loaded ${_childcategories.length} childcategories with details',
+      );
     } catch (e) {
       Logger.error('Failed to load subcategory details', e);
       setState(() {
@@ -81,8 +89,9 @@ class _ChildCategoryPageState extends State<ChildCategoryPage> {
 
   void _navigateToChildcategory(ChildCategory childcategory) {
     // Get full details if available (with subchildcategories)
-    final childcategoryDetails = _childCategoryDetails[childcategory.id] ?? childcategory;
-    
+    final childcategoryDetails =
+        _childCategoryDetails[childcategory.id] ?? childcategory;
+
     // If childcategory has subchildcategories, show them in a new page
     if (childcategoryDetails.hasSubchildcategories &&
         childcategoryDetails.subchildcategories != null) {
@@ -96,6 +105,8 @@ class _ChildCategoryPageState extends State<ChildCategoryPage> {
             subcategoryName: widget.subcategoryName,
             childcategoryId: childcategory.id,
             childcategoryName: childcategory.name,
+            subcategorySlug: widget.subcategorySlug,
+            childcategorySlug: childcategory.slug ?? childcategoryDetails.slug,
           ),
         ),
       );
@@ -108,6 +119,8 @@ class _ChildCategoryPageState extends State<ChildCategoryPage> {
             categoryId: widget.categoryId,
             subcategoryId: widget.subcategoryId,
             childcategoryId: childcategory.id,
+            categorySlug: childcategory.slug ?? childcategoryDetails.slug,
+            categoryType: 'childcategory',
             title: childcategory.name,
           ),
         ),
@@ -171,6 +184,8 @@ class _ChildCategoryPageState extends State<ChildCategoryPage> {
             builder: (context) => ProductListScreen(
               categoryId: widget.categoryId,
               subcategoryId: widget.subcategoryId,
+              categorySlug: widget.subcategorySlug,
+              categoryType: 'subcategory',
               title: widget.subcategoryName,
             ),
           ),
@@ -207,4 +222,3 @@ class _ChildCategoryPageState extends State<ChildCategoryPage> {
     );
   }
 }
-

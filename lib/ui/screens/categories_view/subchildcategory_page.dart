@@ -14,6 +14,9 @@ class SubChildCategoryPage extends StatefulWidget {
   final String childcategoryName;
   final int? parentSubchildcategoryId; // For nested subchildcategories
   final String? parentSubchildcategoryName; // For nested subchildcategories
+  final String? subcategorySlug;
+  final String? childcategorySlug;
+  final String? parentSubchildcategorySlug;
 
   const SubChildCategoryPage({
     super.key,
@@ -25,6 +28,9 @@ class SubChildCategoryPage extends StatefulWidget {
     required this.childcategoryName,
     this.parentSubchildcategoryId,
     this.parentSubchildcategoryName,
+    this.subcategorySlug,
+    this.childcategorySlug,
+    this.parentSubchildcategorySlug,
   });
 
   @override
@@ -34,7 +40,8 @@ class SubChildCategoryPage extends StatefulWidget {
 class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
   final HomepageService _homepageService = HomepageService();
   List<SubChildCategory> _subchildcategories = [];
-  Map<int, SubChildCategory> _subChildCategoryDetails = {}; // Cache subchildcategory details with nested subchildcategories
+  Map<int, SubChildCategory> _subChildCategoryDetails =
+      {}; // Cache subchildcategory details with nested subchildcategories
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -55,15 +62,21 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
 
       // If parentSubchildcategoryId is provided, fetch nested subchildcategories
       if (widget.parentSubchildcategoryId != null) {
-        Logger.info('Fetching nested subchildcategory details for ID: ${widget.parentSubchildcategoryId}');
+        Logger.info(
+          'Fetching nested subchildcategory details for ID: ${widget.parentSubchildcategoryId}',
+        );
         final parentSubchildcategory = await _homepageService
             .getSubchildcategoryDetails(widget.parentSubchildcategoryId!);
-        subchildcategoriesList = parentSubchildcategory.subchildcategories ?? [];
+        subchildcategoriesList =
+            parentSubchildcategory.subchildcategories ?? [];
       } else {
         // Otherwise, fetch subchildcategories from childcategory
-        Logger.info('Fetching childcategory details for ID: ${widget.childcategoryId}');
-        final childcategory =
-            await _homepageService.getChildcategoryDetails(widget.childcategoryId);
+        Logger.info(
+          'Fetching childcategory details for ID: ${widget.childcategoryId}',
+        );
+        final childcategory = await _homepageService.getChildcategoryDetails(
+          widget.childcategoryId,
+        );
         subchildcategoriesList = childcategory.subchildcategories ?? [];
       }
 
@@ -74,7 +87,8 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
           final subchildcategoryDetails = await _homepageService
               .getSubchildcategoryDetails(subchildcategory.id);
           subchildcategoriesWithDetails.add(subchildcategoryDetails);
-          _subChildCategoryDetails[subchildcategory.id] = subchildcategoryDetails;
+          _subChildCategoryDetails[subchildcategory.id] =
+              subchildcategoryDetails;
         } catch (e) {
           Logger.warning(
             'Failed to fetch details for subchildcategory ${subchildcategory.id}, using basic info',
@@ -88,20 +102,24 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
         _isLoading = false;
       });
 
-      Logger.info('Loaded ${_subchildcategories.length} subchildcategories with details');
+      Logger.info(
+        'Loaded ${_subchildcategories.length} subchildcategories with details',
+      );
     } catch (e) {
       Logger.error('Failed to load subchildcategory details', e);
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load sub-child categories. Please try again.';
+        _errorMessage =
+            'Failed to load sub-child categories. Please try again.';
       });
     }
   }
 
   void _navigateToSubchildcategory(SubChildCategory subchildcategory) {
     // Get full details if available (with nested subchildcategories)
-    final subchildcategoryDetails = _subChildCategoryDetails[subchildcategory.id] ?? subchildcategory;
-    
+    final subchildcategoryDetails =
+        _subChildCategoryDetails[subchildcategory.id] ?? subchildcategory;
+
     // If subchildcategory has nested subchildcategories, show them in a new page
     if (subchildcategoryDetails.hasSubchildcategories &&
         subchildcategoryDetails.subchildcategories != null) {
@@ -117,6 +135,9 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
             childcategoryName: widget.childcategoryName,
             parentSubchildcategoryId: subchildcategory.id,
             parentSubchildcategoryName: subchildcategory.name,
+            subcategorySlug: widget.subcategorySlug,
+            childcategorySlug: widget.childcategorySlug,
+            parentSubchildcategorySlug: subchildcategory.slug,
           ),
         ),
       );
@@ -130,6 +151,9 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
             subcategoryId: widget.subcategoryId,
             childcategoryId: widget.childcategoryId,
             subchildcategoryId: subchildcategory.id,
+            categorySlug:
+                subchildcategory.slug ?? widget.parentSubchildcategorySlug,
+            categoryType: 'childsubcategory',
             title: subchildcategory.name,
           ),
         ),
@@ -194,6 +218,8 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
               categoryId: widget.categoryId,
               subcategoryId: widget.subcategoryId,
               childcategoryId: widget.childcategoryId,
+              categorySlug: widget.childcategorySlug,
+              categoryType: 'childcategory',
               title: widget.childcategoryName,
             ),
           ),
@@ -230,4 +256,3 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
     );
   }
 }
-

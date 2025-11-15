@@ -984,6 +984,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         final apiProduct = displayProducts[index];
                         // Map API product to ProductCard expected map shape
                         final mapped = {
+                          'id': apiProduct.id,
                           'image': apiProduct.thumbnail, // may be null
                           'name': apiProduct.name,
                           'sku': apiProduct.sku,
@@ -1136,6 +1137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         final mapped = {
                           'image': apiProduct.thumbnail,
                           'thumbnail': apiProduct.thumbnail,
+                          'id': apiProduct.id,
                           'name': apiProduct.name,
                           'sku': apiProduct.sku,
                           'price': apiProduct.price,
@@ -1459,6 +1461,8 @@ class _HomeScreenState extends State<HomeScreen> {
             showTabBar: true,
             child: ProductListScreen(
               categoryId: category.id,
+              categorySlug: category.slug,
+              categoryType: 'category',
               title: category.name,
             ),
           ),
@@ -1514,6 +1518,8 @@ class _HomeScreenState extends State<HomeScreen> {
               showTabBar: true,
               child: ProductListScreen(
                 categoryId: category.id,
+              categorySlug: category.slug,
+              categoryType: 'category',
                 title: category.name,
               ),
             ),
@@ -1531,6 +1537,8 @@ class _HomeScreenState extends State<HomeScreen> {
             showTabBar: true,
             child: ProductListScreen(
               categoryId: category.id,
+              categorySlug: category.slug,
+              categoryType: 'category',
               title: category.name,
             ),
           ),

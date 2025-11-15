@@ -145,8 +145,12 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              ProductListScreen(categoryId: category.id, title: category.name),
+          builder: (context) => ProductListScreen(
+            categoryId: category.id,
+            categorySlug: category.slug,
+            categoryType: 'category',
+            title: category.name,
+          ),
         ),
       );
       return;
@@ -171,8 +175,12 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            ProductListScreen(categoryId: category.id, title: category.name),
+        builder: (context) => ProductListScreen(
+          categoryId: category.id,
+          categorySlug: category.slug,
+          categoryType: 'category',
+          title: category.name,
+        ),
       ),
     );
   }

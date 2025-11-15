@@ -176,6 +176,7 @@ class Category {
   final String name;
   final String? image;
   final String pageOpen;
+  final String? slug;
   final List<SubCategory>? subcategories;
 
   Category({
@@ -183,6 +184,7 @@ class Category {
     required this.name,
     this.image,
     this.pageOpen = '',
+    this.slug,
     this.subcategories,
   });
 
@@ -203,6 +205,7 @@ class Category {
         pageOpen: json['page_open'] is String
             ? json['page_open'] as String
             : json['page_open']?.toString() ?? '',
+        slug: json['slug']?.toString(),
         subcategories: json['subcategories'] != null
             ? (json['subcategories'] as List<dynamic>)
                 .map((item) => SubCategory.fromJson(item as Map<String, dynamic>))
@@ -221,6 +224,7 @@ class Category {
       'name': name,
       'image': image,
       'page_open': pageOpen,
+      'slug': slug,
       'subcategories': subcategories?.map((s) => s.toJson()).toList(),
     };
   }
@@ -233,6 +237,7 @@ class SubCategory {
   final String name;
   final String? image;
   final int? categoryId;
+  final String? slug;
   final List<ChildCategory>? childcategories;
 
   SubCategory({
@@ -240,6 +245,7 @@ class SubCategory {
     required this.name,
     this.image,
     this.categoryId,
+    this.slug,
     this.childcategories,
   });
 
@@ -262,6 +268,7 @@ class SubCategory {
                 ? json['category_id']
                 : int.tryParse(json['category_id'].toString()))
             : null,
+        slug: json['slug']?.toString(),
         childcategories: json['childcategories'] != null
             ? (json['childcategories'] as List<dynamic>)
                 .map((item) =>
@@ -280,6 +287,7 @@ class SubCategory {
       'name': name,
       'image': image,
       'category_id': categoryId,
+      'slug': slug,
       'childcategories':
           childcategories?.map((c) => c.toJson()).toList(),
     };
@@ -295,6 +303,7 @@ class ChildCategory {
   final String? image;
   final int? subcategoryId;
   final int? categoryId;
+  final String? slug;
   final List<SubChildCategory>? subchildcategories;
 
   ChildCategory({
@@ -303,6 +312,7 @@ class ChildCategory {
     this.image,
     this.subcategoryId,
     this.categoryId,
+    this.slug,
     this.subchildcategories,
   });
 
@@ -330,6 +340,7 @@ class ChildCategory {
                 ? json['category_id']
                 : int.tryParse(json['category_id'].toString()))
             : null,
+        slug: json['slug']?.toString(),
         subchildcategories: json['subchildcategories'] != null
             ? (json['subchildcategories'] as List<dynamic>)
                 .map((item) =>
@@ -349,6 +360,7 @@ class ChildCategory {
       'image': image,
       'subcategory_id': subcategoryId,
       'category_id': categoryId,
+      'slug': slug,
       'subchildcategories':
           subchildcategories?.map((s) => s.toJson()).toList(),
     };
@@ -365,6 +377,7 @@ class SubChildCategory {
   final int? childcategoryId;
   final int? subcategoryId;
   final int? categoryId;
+  final String? slug;
   final List<SubChildCategory>? subchildcategories;
 
   SubChildCategory({
@@ -374,6 +387,7 @@ class SubChildCategory {
     this.childcategoryId,
     this.subcategoryId,
     this.categoryId,
+    this.slug,
     this.subchildcategories,
   });
 
@@ -406,6 +420,7 @@ class SubChildCategory {
                 ? json['category_id']
                 : int.tryParse(json['category_id'].toString()))
             : null,
+        slug: json['slug']?.toString(),
         subchildcategories: json['subchildcategories'] != null
             ? (json['subchildcategories'] as List<dynamic>)
                 .map((item) =>
@@ -426,6 +441,7 @@ class SubChildCategory {
       'childcategory_id': childcategoryId,
       'subcategory_id': subcategoryId,
       'category_id': categoryId,
+      'slug': slug,
       'subchildcategories':
           subchildcategories?.map((s) => s.toJson()).toList(),
     };

@@ -9,6 +9,7 @@ class StorageService {
   static const String _keyUserData = 'user_data';
   static const String _keyIsLoggedIn = 'is_logged_in';
   static const String _keySettingsData = 'settings_data';
+  static const String _keyCartData = 'cart_data';
 
   /// Save login response data to SharedPreferences
   static Future<void> saveLoginData(LoginResponse response) async {
@@ -132,5 +133,37 @@ class StorageService {
   static Future<void> clearAllData() async {
     await clearLoginData();
     await clearSettings();
+    await clearCartData();
+  }
+
+  // ============ Cart Storage Methods ============
+
+  /// Save cart response data to SharedPreferences
+  static Future<void> saveCartData(Map<String, dynamic> cartResponse) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cartJson = jsonEncode(cartResponse);
+    await prefs.setString(_keyCartData, cartJson);
+  }
+
+  /// Get cart response data from SharedPreferences
+  static Future<Map<String, dynamic>?> getCartData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cartJson = prefs.getString(_keyCartData);
+
+    if (cartJson != null) {
+      try {
+        final cartMap = jsonDecode(cartJson) as Map<String, dynamic>;
+        return cartMap;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Clear cart data
+  static Future<void> clearCartData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyCartData);
   }
 }

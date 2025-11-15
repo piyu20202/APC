@@ -35,7 +35,7 @@ class ApiEndpoints {
   static const String subchildcategoryDetails = '/subchildcategory-details';
 
   // Products by Category endpoint
-  static const String productsByCategory = '/products-by-category';
+  static const String productsByCategory = '/get/category/products';
 
   // All Categories endpoint
   static const String allCategories = '/get/all_categories/';

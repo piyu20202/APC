@@ -2,11 +2,11 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/logger.dart';
-import '../models/product_details_model.dart';
+import '../models/product_detail_response.dart';
 
 class ProductService {
   /// Fetch product details from the server
-  Future<ProductDetailsModel> getProductDetails(int productId) async {
+  Future<ProductDetailResponse> getProductDetails(int productId) async {
     try {
       Logger.info('Fetching product details for product ID: $productId');
       Logger.info(
@@ -21,26 +21,27 @@ class ProductService {
       Logger.info('Product details response received');
       Logger.info('Response keys: ${response.keys.join(", ")}');
 
-      // Extract product from response
+      // Extract product from response and map to strongly typed objects
       if (response.containsKey('products') && response['products'] != null) {
         Logger.info('Product found in response');
-        final productData = response['products'];
-
-        if (productData is Map<String, dynamic>) {
-          try {
-            final product = ProductDetailsModel.fromJson(productData);
-            Logger.info('Successfully parsed product: ${product.name}');
-            return product;
-          } catch (e) {
-            Logger.error('Error parsing product details', e);
-            throw ApiException(
-              message: 'Failed to parse product details: ${e.toString()}',
-            );
-          }
-        } else {
-          Logger.warning('Product data is not a Map: ${productData.runtimeType}');
+        try {
+          final productDetail = ProductDetailResponse.fromJson(response);
+          Logger.info('Successfully parsed product: ${productDetail.product.name}');
+          Logger.info(
+            'Kit includes (one/two): ${productDetail.kitIncludesOne.length} / ${productDetail.kitIncludesTwo.length}',
+          );
+          Logger.info(
+            'Qty upgrade products: ${productDetail.qtyUpgradeProducts.length}',
+          );
+          Logger.info(
+            'Upgrade products: ${productDetail.upgradeProducts.length}',
+          );
+          return productDetail;
+        } catch (e, stackTrace) {
+          Logger.error('Error parsing product details response', e);
+          Logger.error('Stack trace', null, stackTrace);
           throw ApiException(
-            message: 'Invalid product data format',
+            message: 'Failed to parse product details: ${e.toString()}',
           );
         }
       } else {

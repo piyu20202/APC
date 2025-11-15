@@ -94,6 +94,7 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
       itemBuilder: (context, index) {
         final p = _products[index];
         final mapped = {
+          'id': p.id,
           'image': p.thumbnail,
           'thumbnail': p.thumbnail,
           'name': p.name,
