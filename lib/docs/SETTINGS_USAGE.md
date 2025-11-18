@@ -45,6 +45,7 @@ if (settings != null) {
   final favicon = settings.generalSettings.favicon;
   final title = settings.generalSettings.title;
   final headerPhone = settings.generalSettings.headerPhone;
+final defaultImage = settings.generalSettings.defaultImage;
   
   // Access page settings
   final contactEmail = settings.pageSettings.contactEmail;
@@ -77,6 +78,7 @@ class GeneralSettings {
   String title;
   String copyright;
   String headerPhone;
+  String defaultImage;
 }
 
 class PageSettings {

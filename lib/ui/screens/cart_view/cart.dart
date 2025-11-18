@@ -62,9 +62,16 @@ class _CartPageState extends State<CartPage> {
     });
 
     try {
+      final settings = await StorageService.getSettings();
+      final defaultImageUrl = settings?.generalSettings.defaultImage;
       final cartResponse =
           await StorageService.getCartData() ?? _mockCartResponse;
-      final parsedItems = _parseCartResponse(cartResponse);
+      final baseImageUrl = cartResponse['base_url_image'] as String?;
+      final parsedItems = _parseCartResponse(
+        cartResponse,
+        baseImageUrl: baseImageUrl,
+        defaultImageUrl: defaultImageUrl,
+      );
 
       setState(() {
         cartItems = parsedItems;
@@ -85,8 +92,10 @@ class _CartPageState extends State<CartPage> {
   }
 
   List<Map<String, dynamic>> _parseCartResponse(
-    Map<String, dynamic> cartResponse,
-  ) {
+    Map<String, dynamic> cartResponse, {
+    String? baseImageUrl,
+    String? defaultImageUrl,
+  }) {
     final cartMap = cartResponse['cart'];
     if (cartMap is! Map<String, dynamic>) {
       return [];
@@ -102,13 +111,22 @@ class _CartPageState extends State<CartPage> {
       final kitItems = _mapKitItems(value['kitCustomiseDetails']);
       final unitPrice = (value['price'] as num?)?.toDouble() ?? 0.0;
       final qty = (value['qty'] as num?)?.toInt() ?? 1;
+      final thumbnail = productDetails['thumbnail'] as String?;
+      final photo = productDetails['photo'] as String?;
+      final resolvedImage = _resolveProductImage(
+        baseImageUrl: baseImageUrl,
+        thumbnail: thumbnail,
+        photo: photo,
+        defaultImageUrl: defaultImageUrl,
+      );
 
       parsedItems.add({
         'id': entry.key,
         'type': kitItems.isNotEmpty ? 'kit' : 'single',
         'name': productDetails['name'] ?? '',
         'sku': productDetails['sku'] ?? '',
-        'image': productDetails['photo'],
+        'image': resolvedImage,
+        'defaultImage': defaultImageUrl,
         'price': unitPrice,
         'quantity': qty,
         'kitItems': kitItems,
@@ -159,6 +177,42 @@ class _CartPageState extends State<CartPage> {
       0,
       (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 0),
     );
+  }
+
+  String? _resolveProductImage({
+    String? baseImageUrl,
+    String? thumbnail,
+    String? photo,
+    String? defaultImageUrl,
+  }) {
+    final sanitizedBase = (baseImageUrl?.isNotEmpty ?? false)
+        ? baseImageUrl!.trim()
+        : null;
+    final sanitizedThumbnail = (thumbnail?.isNotEmpty ?? false)
+        ? thumbnail!.trim()
+        : null;
+    final sanitizedPhoto = (photo?.isNotEmpty ?? false) ? photo!.trim() : null;
+    if (sanitizedThumbnail != null) {
+      if (sanitizedThumbnail.startsWith('http')) {
+        return sanitizedThumbnail;
+      }
+      if (sanitizedBase != null) {
+        final normalizedBase = sanitizedBase.endsWith('/')
+            ? sanitizedBase.substring(0, sanitizedBase.length - 1)
+            : sanitizedBase;
+        final normalizedThumb = sanitizedThumbnail.startsWith('/')
+            ? sanitizedThumbnail.substring(1)
+            : sanitizedThumbnail;
+        return '$normalizedBase/$normalizedThumb';
+      }
+    }
+    if (sanitizedPhoto != null) {
+      return sanitizedPhoto;
+    }
+    if (defaultImageUrl != null && defaultImageUrl.isNotEmpty) {
+      return defaultImageUrl;
+    }
+    return null;
   }
 
   double _calculateSubtotal() {
@@ -461,6 +515,8 @@ class _CartPageState extends State<CartPage> {
 }
 
 const Map<String, dynamic> _mockCartResponse = {
+  'base_url_image':
+      'https://gurgaonit.com/apc_production_dev/assets/images/thumbnails',
   'cart': {
     '1364_1763365707': {
       'item_id': '1364_1763365707',
@@ -510,6 +566,7 @@ const Map<String, dynamic> _mockCartResponse = {
             'Build Your Own Electric Gate Kit with APC Proteous 500 FEATURE RICH AC to 24V DC Extra Heavy Duty FEATURE RICH Automatic Sliding Gate Kit with Encoder System',
         'price': 795,
         'photo': 'assets/images/product.jpg',
+        'thumbnail': '1673928881RL5c8o9k.jpg',
       },
     },
   },

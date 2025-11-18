@@ -43,6 +43,7 @@ class GeneralSettings {
   final String title;
   final String copyright;
   final String headerPhone;
+  final String defaultImage;
 
   GeneralSettings({
     required this.logo,
@@ -50,6 +51,7 @@ class GeneralSettings {
     required this.title,
     required this.copyright,
     required this.headerPhone,
+    required this.defaultImage,
   });
 
   factory GeneralSettings.fromJson(Map<String, dynamic> json) {
@@ -59,6 +61,7 @@ class GeneralSettings {
       title: json['title'] as String? ?? '',
       copyright: json['copyright'] as String? ?? '',
       headerPhone: json['header_phone'] as String? ?? '',
+      defaultImage: json['default_image'] as String? ?? '',
     );
   }
 
@@ -69,6 +72,7 @@ class GeneralSettings {
       'title': title,
       'copyright': copyright,
       'header_phone': headerPhone,
+      'default_image': defaultImage,
     };
   }
 }

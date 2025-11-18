@@ -369,18 +369,36 @@ class _CartItemCardState extends State<CartItemCard>
 
   Widget _buildProductImage() {
     final imagePath = widget.item['image'] as String?;
+    final fallbackImage = widget.item['defaultImage'] as String?;
+
+    Widget buildNetworkImage(String url, {String? fallbackUrl}) {
+      return Image.network(
+        url,
+        width: double.infinity,
+        height: 80,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          if (fallbackUrl != null &&
+              fallbackUrl.isNotEmpty &&
+              fallbackUrl != url) {
+            return Image.network(
+              fallbackUrl,
+              width: double.infinity,
+              height: 80,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error2, stackTrace2) {
+                return _buildPlaceholderImage();
+              },
+            );
+          }
+          return _buildPlaceholderImage();
+        },
+      );
+    }
 
     if (imagePath != null && imagePath.isNotEmpty) {
       if (imagePath.startsWith('http')) {
-        return Image.network(
-          imagePath,
-          width: double.infinity,
-          height: 80,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildPlaceholderImage();
-          },
-        );
+        return buildNetworkImage(imagePath, fallbackUrl: fallbackImage);
       } else if (imagePath.startsWith('assets/')) {
         return Image.asset(
           imagePath,
@@ -392,6 +410,10 @@ class _CartItemCardState extends State<CartItemCard>
           },
         );
       }
+    }
+
+    if (fallbackImage != null && fallbackImage.isNotEmpty) {
+      return buildNetworkImage(fallbackImage);
     }
 
     return _buildPlaceholderImage();
