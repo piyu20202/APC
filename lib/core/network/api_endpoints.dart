@@ -40,6 +40,9 @@ class ApiEndpoints {
   // All Categories endpoint
   static const String allCategories = '/get/all_categories/';
 
+  // Cart endpoints
+  static const String addCartProducts = '/user/cart/add-products';
+
   // Add more endpoints here as needed
   // static const String register = '/register';
   // static const String forgotPassword = '/forgot-password';

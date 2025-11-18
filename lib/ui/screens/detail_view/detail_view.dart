@@ -7,6 +7,7 @@ import 'package:flutter_html/flutter_html.dart';
 import '../cart_view/cart.dart';
 import '../../../main_navigation.dart';
 import '../../../data/services/product_service.dart';
+import '../../../data/services/cart_service.dart';
 import '../../../data/models/product_details_model.dart';
 import '../../../data/models/product_detail_response.dart';
 import '../../../services/storage_service.dart';
@@ -25,6 +26,7 @@ class _DetailViewState extends State<DetailView> {
   int _currentImageIndex = 0;
   Timer? _imageTimer;
   final ProductService _productService = ProductService();
+  final CartService _cartService = CartService();
 
   static const String _productImageBaseUrl =
       'https://www.gurgaonit.com/apc_production_dev/assets/images/products/';
@@ -39,6 +41,7 @@ class _DetailViewState extends State<DetailView> {
   List<GalleryItem> _gallery = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isAddingToCart = false;
 
   // Footer state
   int kitQuantity = 1;
@@ -151,10 +154,17 @@ class _DetailViewState extends State<DetailView> {
   /// Calculate price of selected upgrade (main or sub-product)
   double _calculateUpgradePrice() {
     final upgradeData = getSelectedUpgradeData();
-    if (upgradeData != null) {
-      return (upgradeData['price'] as num).toDouble();
+    if (upgradeData == null) {
+      return 0.0;
     }
-    return 0.0;
+
+    final isUpgrade = (upgradeData['isUpgrade'] as bool?) ?? false;
+    if (!isUpgrade) {
+      // Base selections should not change the kit price
+      return 0.0;
+    }
+
+    return (upgradeData['price'] as num?)?.toDouble() ?? 0.0;
   }
 
   /// Calculate total price of all selected add-on items (qty * unit_price for each)
@@ -428,17 +438,7 @@ class _DetailViewState extends State<DetailView> {
                             const SizedBox(width: 8),
                             // Add to Cart Button
                             GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const TabBarWrapper(
-                                      showTabBar: true,
-                                      child: CartPage(),
-                                    ),
-                                  ),
-                                );
-                              },
+                              onTap: _isAddingToCart ? null : _handleAddToCart,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
@@ -448,25 +448,37 @@ class _DetailViewState extends State<DetailView> {
                                   color: Colors.orange,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.shopping_cart,
-                                      color: Colors.white,
-                                      size: 14,
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Cart',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
+                                child: _isAddingToCart
+                                    ? const SizedBox(
+                                        height: 16,
+                                        width: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                        ),
+                                      )
+                                    : const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.shopping_cart,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Cart',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
-                                ),
                               ),
                             ),
                           ],
@@ -1501,15 +1513,17 @@ class _DetailViewState extends State<DetailView> {
                           ),
                           const SizedBox(height: 6),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Quantity: ',
+                                'Quantity:',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF151D51),
                                 ),
                               ),
+                              const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,
@@ -1535,7 +1549,6 @@ class _DetailViewState extends State<DetailView> {
                                       final formattedExtra = _formatCurrency(
                                         optionExtra,
                                       );
-                                      // Don't show "+$0.00" in dropdown if price is 0
                                       final displayText = optionExtra == 0.0
                                           ? '$qty'
                                           : '$qty (+\$$formattedExtra)';
@@ -1552,24 +1565,24 @@ class _DetailViewState extends State<DetailView> {
                                       setState(() {
                                         _selectedQtyForCustomise[item.id] =
                                             value;
-                                        // Price will update automatically via _calculateFinalPrice()
                                       });
                                     },
                                   ),
                                 ),
                               ),
-                              // Only show price if it's greater than 0
-                              if (extraCost > 0) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  '+\$${_formatCurrency(extraCost)}',
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  '+\$${_formatCurrency(extraCost)} (extra qty)',
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.green[700],
+                                    fontSize: 11,
+                                    color: extraCost > 0
+                                        ? Colors.green[700]
+                                        : Colors.black38,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ],
+                              ),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -1746,20 +1759,18 @@ class _DetailViewState extends State<DetailView> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                Text(
+                  'Base Price: \$${item.price.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Row(
                   children: [
-                    // Only show "Add. Price" if price is greater than 0
-                    if (item.price > 0)
-                      Text(
-                        'Add. Price: (+\$${_formatCurrency(item.price)})',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green,
-                        ),
-                      ),
-                    const Spacer(),
                     Text(
                       'Qty: ${item.productBaseQuantity}',
                       style: const TextStyle(
@@ -1899,19 +1910,17 @@ class _DetailViewState extends State<DetailView> {
                   ),
                 ),
                 const SizedBox(height: 6),
+                Text(
+                  'Base Price: \$${subProduct.price.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Row(
                   children: [
-                    // Only show "Add. Price" if price is greater than 0
-                    if (subProduct.price > 0)
-                      Text(
-                        'Add. Price: (+\$${_formatCurrency(subProduct.price)})',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green,
-                        ),
-                      ),
-                    const Spacer(),
                     Text(
                       'Qty: ${subProduct.productBaseQuantity}',
                       style: const TextStyle(
@@ -2219,6 +2228,7 @@ class _DetailViewState extends State<DetailView> {
         'id': subProduct.id,
         'qty': subProduct.productBaseQuantity,
         'price': subProduct.price,
+        'isUpgrade': true,
       };
     }
 
@@ -2227,6 +2237,7 @@ class _DetailViewState extends State<DetailView> {
       'id': upgradeProduct.id,
       'qty': upgradeProduct.productBaseQuantity,
       'price': upgradeProduct.price,
+      'isUpgrade': false,
     };
   }
 
@@ -2258,29 +2269,31 @@ class _DetailViewState extends State<DetailView> {
     // Get customise kit items data
     final customiseData = getCustomiseKitData();
     final customItemsIds = customiseData
-        .map((item) => item['id'].toString())
-        .join(',');
+        .map((item) => item['id'])
+        .toList(growable: false);
     final customItemsQtys = customiseData
-        .map((item) => item['qty'].toString())
-        .join(',');
+        .map((item) => item['qty'])
+        .toList(growable: false);
 
     // Get upgrade items data
     final upgradeData = getSelectedUpgradeData();
-    final upgradeItemsId = upgradeData != null
-        ? upgradeData['id'].toString()
-        : '';
-    final upgradeItemsPrice = upgradeData != null
-        ? upgradeData['price'].toString()
-        : '';
+    final List<int> upgradeItemsId = [];
+    final List<String> upgradeItemsType = [];
+    if (upgradeData != null) {
+      upgradeItemsId.add(upgradeData['id'] as int);
+      upgradeItemsType.add(
+        (upgradeData['isUpgrade'] as bool?) == true ? 'upgrade' : 'base',
+      );
+    }
 
     // Get add-on items data
     final addOnData = getSelectedAddOnData();
     final addonItemsIds = addOnData
-        .map((item) => item['id'].toString())
-        .join(',');
-    final addonItemsPrices = addOnData
-        .map((item) => (item['price'] as num).toString())
-        .join(',');
+        .map((item) => item['id'])
+        .toList(growable: false);
+    final addonItemsQtys = addOnData
+        .map((item) => item['qty'])
+        .toList(growable: false);
 
     // Calculate addon_price: Total of all selected add-on items (qty * unit_price for each)
     final addonPrice = _calculateAddOnTotal();
@@ -2297,27 +2310,67 @@ class _DetailViewState extends State<DetailView> {
           _product?.id ??
           0, // product id which price is $1195 (the main kit product)
       'qty': kitQuantity, // same $1195 product quantity
-      'price': kitPrice, // same $1195 product price
-      'iskit': isKit, // already have when product detail page fetch
-      'unit_price': kitPrice, // same $1195 product price
+      'price': kitPrice.toStringAsFixed(2), // same $1195 product price
+      'isKit': isKit, // already have when product detail page fetch
+      'unit_price': kitPrice.toStringAsFixed(2), // same $1195 product price
       'final_price': finalPrice.toStringAsFixed(2), // Total of all components
       'addon_price': addonPrice.toStringAsFixed(
         2,
       ), // Total of Add-On Items only
-      'custom_items_id':
-          customItemsIds, // ids from customise kit items separated by comma
-      'custom_items_qty':
-          customItemsQtys, // qtys from customise kit items separated by comma
-      'upgrade_items_id':
-          upgradeItemsId, // id for upgrade item separated by comma
-      'upgrade_items_price':
-          upgradeItemsPrice, // price from upgrade item separated by comma
-      'addon_items_id':
-          addonItemsIds, // ids from addon items separated by comma
-      'addon_items_price':
-          addonItemsPrices, // prices from addon items separated by comma
+      'custom_items_id': customItemsIds, // ids for customise kit items
+      'custom_items_qty': customItemsQtys, // qtys for customise kit items
+      'upgrade_items_id': upgradeItemsId, // ids for upgrade items
+      'upgrade_items_type': upgradeItemsType, // upgrade/base flags
+      'addon_items_id': addonItemsIds, // ids from addon items
+      'addon_items_qty': addonItemsQtys, // qtys from addon items
+      'addon_items_price': '', // keep empty string per API requirement
       'old_cart': oldCartJson, // Previous cart response as JSON string
     };
+  }
+
+  Future<void> _handleAddToCart() async {
+    if (_isAddingToCart) return;
+    setState(() {
+      _isAddingToCart = true;
+    });
+
+    try {
+      final payload = await getAllKitCustomizationData();
+      final prettyPayload = const JsonEncoder.withIndent('  ').convert(payload);
+      debugPrint('Add-to-cart payload:\n$prettyPayload');
+
+      final response = await _cartService.addProducts(payload);
+      final prettyResponse = const JsonEncoder.withIndent(
+        '  ',
+      ).convert(response);
+      debugPrint('Add-to-cart response:\n$prettyResponse');
+
+      await StorageService.saveCartData(response);
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              const TabBarWrapper(showTabBar: true, child: CartPage()),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Add-to-cart failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Unable to add to cart: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAddingToCart = false;
+        });
+      } else {
+        _isAddingToCart = false;
+      }
+    }
   }
 
   Widget _buildProductInformation() {

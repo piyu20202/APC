@@ -58,6 +58,10 @@ class _CartItemCardState extends State<CartItemCard>
 
   @override
   Widget build(BuildContext context) {
+    final unitPrice = (widget.item['price'] as num?)?.toDouble() ?? 0.0;
+    final quantity = (widget.item['quantity'] as num?)?.toInt() ?? 1;
+    final subtotal = unitPrice * quantity;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -99,27 +103,9 @@ class _CartItemCardState extends State<CartItemCard>
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(5),
-                      child: Image.asset(
-                        widget.item['image'] ?? '',
-                        width: double.infinity,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Center(
-                            child: Icon(
-                              Icons.image,
-                              color: Colors.grey[400],
-                              size: 40,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: _buildProductImage(),
                 ),
               ),
               const SizedBox(width: 12),
@@ -194,6 +180,8 @@ class _CartItemCardState extends State<CartItemCard>
                                         );
                                     final String nameStr =
                                         (kit['name']?.toString() ?? '');
+                                    final String skuStr =
+                                        (kit['sku']?.toString() ?? '');
                                     final int qty = (kit['qty'] as int?) ?? 1;
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
@@ -223,14 +211,34 @@ class _CartItemCardState extends State<CartItemCard>
                                           ),
                                           const SizedBox(width: 8),
                                           Expanded(
-                                            child: Text(
-                                              nameStr,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Color(0xFF151D51),
-                                              ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  nameStr,
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF151D51),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                if (skuStr.isNotEmpty)
+                                                  Text(
+                                                    'SKU: $skuStr',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ),
                                           const SizedBox(width: 8),
@@ -255,20 +263,49 @@ class _CartItemCardState extends State<CartItemCard>
 
                     // Price section
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '\$${(widget.item['price'] as num?)?.toStringAsFixed(2) ?? '0.00'}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Unit Price (GST Incl.)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                '\$${unitPrice.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Sub Total (GST Incl.)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '\$${subtotal.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF151D51),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
 
                         // Quantity Controls
@@ -293,7 +330,7 @@ class _CartItemCardState extends State<CartItemCard>
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              widget.item['quantity'].toString(),
+                              quantity.toString(),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -326,6 +363,45 @@ class _CartItemCardState extends State<CartItemCard>
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProductImage() {
+    final imagePath = widget.item['image'] as String?;
+
+    if (imagePath != null && imagePath.isNotEmpty) {
+      if (imagePath.startsWith('http')) {
+        return Image.network(
+          imagePath,
+          width: double.infinity,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildPlaceholderImage();
+          },
+        );
+      } else if (imagePath.startsWith('assets/')) {
+        return Image.asset(
+          imagePath,
+          width: double.infinity,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildPlaceholderImage();
+          },
+        );
+      }
+    }
+
+    return _buildPlaceholderImage();
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      color: Colors.grey[200],
+      child: Center(
+        child: Icon(Icons.image, color: Colors.grey[400], size: 40),
       ),
     );
   }
