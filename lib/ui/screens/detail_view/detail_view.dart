@@ -8,6 +8,7 @@ import '../cart_view/cart.dart';
 import '../../../main_navigation.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/cart_service.dart';
+import '../../../core/network/api_endpoints.dart';
 import '../../../data/models/product_details_model.dart';
 import '../../../data/models/product_detail_response.dart';
 import '../../../services/storage_service.dart';
@@ -2302,15 +2303,21 @@ class _DetailViewState extends State<DetailView> {
     final finalPrice = _calculateFinalPrice();
 
     // Get old_cart from SharedPreferences (empty string if no previous cart)
-    final oldCartData = await StorageService.getCartData();
-    final oldCartJson = oldCartData != null ? jsonEncode(oldCartData) : '';
+    final storedCartResponse = await StorageService.getCartData();
+    dynamic oldCartPayload = '';
+    if (storedCartResponse != null) {
+      final cartEntries = storedCartResponse['cart'];
+      if (cartEntries is Map<String, dynamic>) {
+        oldCartPayload = cartEntries;
+      }
+    }
 
     return {
       'id':
           _product?.id ??
           0, // product id which price is $1195 (the main kit product)
       'qty': kitQuantity, // same $1195 product quantity
-      'price': kitPrice.toStringAsFixed(2), // same $1195 product price
+      'price': kitPrice, // same $1195 product price as numeric
       'isKit': isKit, // already have when product detail page fetch
       'unit_price': kitPrice.toStringAsFixed(2), // same $1195 product price
       'final_price': finalPrice.toStringAsFixed(2), // Total of all components
@@ -2321,10 +2328,11 @@ class _DetailViewState extends State<DetailView> {
       'custom_items_qty': customItemsQtys, // qtys for customise kit items
       'upgrade_items_id': upgradeItemsId, // ids for upgrade items
       'upgrade_items_type': upgradeItemsType, // upgrade/base flags
+      'upgrade_items_price': '', // not used but keep placeholder
       'addon_items_id': addonItemsIds, // ids from addon items
       'addon_items_qty': addonItemsQtys, // qtys from addon items
       'addon_items_price': '', // keep empty string per API requirement
-      'old_cart': oldCartJson, // Previous cart response as JSON string
+      'old_cart': oldCartPayload,
     };
   }
 
@@ -2337,6 +2345,9 @@ class _DetailViewState extends State<DetailView> {
     try {
       final payload = await getAllKitCustomizationData();
       final prettyPayload = const JsonEncoder.withIndent('  ').convert(payload);
+      final requestUrl =
+          '${ApiEndpoints.baseUrl}${ApiEndpoints.addCartProducts}';
+      debugPrint('Add-to-cart URL: $requestUrl');
       debugPrint('Add-to-cart payload:\n$prettyPayload');
 
       final response = await _cartService.addProducts(payload);

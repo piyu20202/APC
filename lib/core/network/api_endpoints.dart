@@ -42,6 +42,7 @@ class ApiEndpoints {
 
   // Cart endpoints
   static const String addCartProducts = '/user/cart/add-products';
+  static const String removeCartProducts = '/user/cart/remove-products';
 
   // Add more endpoints here as needed
   // static const String register = '/register';

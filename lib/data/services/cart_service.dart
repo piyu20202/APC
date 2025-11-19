@@ -5,9 +5,7 @@ import '../../core/utils/logger.dart';
 
 class CartService {
   /// Call /user/cart/add-products with the prepared payload
-  Future<Map<String, dynamic>> addProducts(
-    Map<String, dynamic> payload,
-  ) async {
+  Future<Map<String, dynamic>> addProducts(Map<String, dynamic> payload) async {
     try {
       Logger.info('Calling add-products API');
       final response = await ApiClient.post(
@@ -26,5 +24,30 @@ class CartService {
       rethrow;
     }
   }
-}
 
+  /// Call /user/cart/remove-products to delete an item from the cart
+  Future<Map<String, dynamic>> removeProduct({
+    required int productId,
+    required String oldCartJson,
+  }) async {
+    final body = {'id': productId, 'old_cart': oldCartJson};
+
+    try {
+      Logger.info('Calling remove-products API for item $productId');
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.removeCartProducts,
+        body: body,
+        contentType: 'application/json',
+        requireAuth: false,
+      );
+      Logger.info('Remove-products response keys: ${response.keys.join(", ")}');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e, stackTrace) {
+      Logger.error('Failed to call remove-products API', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
+}

@@ -1172,9 +1172,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // Use services from API if available
     final homeProvider = Provider.of<HomepageProvider>(context);
     final services = homeProvider.services;
-    Logger.info(
-      'Building Services section - services count: ${services.length}',
-    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1312,7 +1309,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // Use partners from API if available
     final homeProvider = Provider.of<HomepageProvider>(context);
     final partners = homeProvider.partners;
-    Logger.info('Building Brands section - partners count: ${partners.length}');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1518,8 +1514,8 @@ class _HomeScreenState extends State<HomeScreen> {
               showTabBar: true,
               child: ProductListScreen(
                 categoryId: category.id,
-              categorySlug: category.slug,
-              categoryType: 'category',
+                categorySlug: category.slug,
+                categoryType: 'category',
                 title: category.name,
               ),
             ),

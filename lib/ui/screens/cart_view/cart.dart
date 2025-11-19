@@ -18,6 +18,8 @@ class _CartPageState extends State<CartPage> {
   String? _errorMessage;
   double? _serverReportedTotal;
   int? _serverReportedQty;
+  Map<String, dynamic>? _lastCartResponse;
+  final Set<String> _deletingItems = {};
 
   @override
   void initState() {
@@ -74,6 +76,7 @@ class _CartPageState extends State<CartPage> {
       );
 
       setState(() {
+        _lastCartResponse = cartResponse;
         cartItems = parsedItems;
         _serverReportedTotal = (cartResponse['totalPrice'] as num?)?.toDouble();
         _serverReportedQty = cartResponse['totalQty'] as int?;
@@ -89,6 +92,102 @@ class _CartPageState extends State<CartPage> {
         });
       }
     }
+  }
+
+  Future<void> _handleDeleteItem({
+    required String? cartKey,
+    required int index,
+  }) async {
+    if (cartKey == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to delete this item.')),
+        );
+      }
+      return;
+    }
+    if (_deletingItems.contains(cartKey)) {
+      return;
+    }
+
+    final confirmed = await _showDeleteConfirmation();
+    if (!confirmed) {
+      return;
+    }
+
+    setState(() {
+      _deletingItems.add(cartKey);
+    });
+
+    try {
+      setState(() {
+        cartItems.removeAt(index);
+        _serverReportedTotal = _calculateSubtotal();
+        _serverReportedQty = _calculateTotalQuantity();
+      });
+
+      await _persistCartSnapshot(cartKeyToRemove: cartKey);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Unable to remove item: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingItems.remove(cartKey);
+        });
+      } else {
+        _deletingItems.remove(cartKey);
+      }
+    }
+  }
+
+  Future<bool> _showDeleteConfirmation() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Remove item?'),
+            content: const Text(
+              'Are you sure you want to remove this item from your cart?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text(
+                  'Remove',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _persistCartSnapshot({required String cartKeyToRemove}) async {
+    final updatedResponse = _lastCartResponse != null
+        ? Map<String, dynamic>.from(_lastCartResponse!)
+        : <String, dynamic>{};
+
+    final cartMap = Map<String, dynamic>.from(
+      (updatedResponse['cart'] as Map<String, dynamic>?) ?? {},
+    );
+    cartMap.remove(cartKeyToRemove);
+
+    updatedResponse['cart'] = cartMap;
+    updatedResponse['totalQty'] =
+        _serverReportedQty ?? _calculateTotalQuantity();
+    updatedResponse['totalPrice'] =
+        _serverReportedTotal ?? _calculateSubtotal();
+
+    _lastCartResponse = updatedResponse;
+    await StorageService.saveCartData(updatedResponse);
   }
 
   List<Map<String, dynamic>> _parseCartResponse(
@@ -122,6 +221,7 @@ class _CartPageState extends State<CartPage> {
 
       parsedItems.add({
         'id': entry.key,
+        'productId': productDetails['id'],
         'type': kitItems.isNotEmpty ? 'kit' : 'single',
         'name': productDetails['name'] ?? '',
         'sku': productDetails['sku'] ?? '',
@@ -342,6 +442,7 @@ class _CartPageState extends State<CartPage> {
                   itemCount: cartItems.length,
                   itemBuilder: (context, index) {
                     final item = cartItems[index];
+                    final cartKey = item['id'] as String?;
                     return CartItemCard(
                       item: item,
                       index: index,
@@ -362,11 +463,11 @@ class _CartPageState extends State<CartPage> {
                         });
                       },
                       onDelete: () {
-                        setState(() {
-                          cartItems.removeAt(index);
-                          _serverReportedTotal = null;
-                          _serverReportedQty = null;
-                        });
+                        if (cartKey != null &&
+                            _deletingItems.contains(cartKey)) {
+                          return;
+                        }
+                        _handleDeleteItem(cartKey: cartKey, index: index);
                       },
                     );
                   },
