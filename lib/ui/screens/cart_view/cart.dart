@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:apcproject/data/services/cart_service.dart';
 import 'package:apcproject/services/storage_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../drawer_view/drawer.dart';
 import '../widget/cart_item_card.dart';
@@ -12,6 +16,7 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
+  final CartService _cartService = CartService();
   List<Map<String, dynamic>> cartItems = [];
   double deliveryCost = 0.0;
   bool _isLoading = true;
@@ -20,6 +25,11 @@ class _CartPageState extends State<CartPage> {
   int? _serverReportedQty;
   Map<String, dynamic>? _lastCartResponse;
   final Set<String> _deletingItems = {};
+  bool _isCheckoutSubmitting = false;
+  final List<int> _removedProductIds = [];
+  final List<String> _removedCartItemIds = [];
+  final Map<String, int> _quantityChanges = {};
+  final Map<String, double> _unitPrices = {};
 
   @override
   void initState() {
@@ -80,6 +90,12 @@ class _CartPageState extends State<CartPage> {
         cartItems = parsedItems;
         _serverReportedTotal = (cartResponse['totalPrice'] as num?)?.toDouble();
         _serverReportedQty = cartResponse['totalQty'] as int?;
+        _unitPrices
+          ..clear()
+          ..addAll(_deriveUnitPriceMap(parsedItems));
+        _quantityChanges.clear();
+        _removedProductIds.clear();
+        _removedCartItemIds.clear();
       });
     } catch (e) {
       setState(() {
@@ -115,6 +131,13 @@ class _CartPageState extends State<CartPage> {
       return;
     }
 
+    final productId = (index < cartItems.length)
+        ? (cartItems[index]['productId'] as num?)?.toInt()
+        : null;
+    final itemId = (index < cartItems.length)
+        ? cartItems[index]['itemId'] as String?
+        : null;
+
     setState(() {
       _deletingItems.add(cartKey);
     });
@@ -125,6 +148,17 @@ class _CartPageState extends State<CartPage> {
         _serverReportedTotal = _calculateSubtotal();
         _serverReportedQty = _calculateTotalQuantity();
       });
+
+      if (productId != null && !_removedProductIds.contains(productId)) {
+        _removedProductIds.add(productId);
+      }
+      if (itemId != null) {
+        if (!_removedCartItemIds.contains(itemId)) {
+          _removedCartItemIds.add(itemId);
+        }
+        _quantityChanges.remove(itemId);
+        _unitPrices.remove(itemId);
+      }
 
       await _persistCartSnapshot(cartKeyToRemove: cartKey);
     } catch (e) {
@@ -207,6 +241,7 @@ class _CartPageState extends State<CartPage> {
       if (value is! Map<String, dynamic>) continue;
 
       final productDetails = value['item'] as Map<String, dynamic>? ?? {};
+      final itemId = (value['item_id'] ?? entry.key).toString();
       final kitItems = _mapKitItems(value['kitCustomiseDetails']);
       final unitPrice = (value['price'] as num?)?.toDouble() ?? 0.0;
       final qty = (value['qty'] as num?)?.toInt() ?? 1;
@@ -221,6 +256,7 @@ class _CartPageState extends State<CartPage> {
 
       parsedItems.add({
         'id': entry.key,
+        'itemId': itemId,
         'productId': productDetails['id'],
         'type': kitItems.isNotEmpty ? 'kit' : 'single',
         'name': productDetails['name'] ?? '',
@@ -277,6 +313,149 @@ class _CartPageState extends State<CartPage> {
       0,
       (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 0),
     );
+  }
+
+  Map<String, double> _deriveUnitPriceMap(List<Map<String, dynamic>> items) {
+    final map = <String, double>{};
+    for (final item in items) {
+      final itemId = item['itemId'] as String?;
+      if (itemId != null) {
+        map[itemId] = (item['price'] as num?)?.toDouble() ?? 0.0;
+      }
+    }
+    return map;
+  }
+
+  void _recordQuantityChange(String itemId, int delta) {
+    if (delta == 0) {
+      return;
+    }
+    final updatedValue = (_quantityChanges[itemId] ?? 0) + delta;
+    if (updatedValue == 0) {
+      _quantityChanges.remove(itemId);
+    } else {
+      _quantityChanges[itemId] = updatedValue;
+    }
+  }
+
+  Future<Map<String, dynamic>> _buildUpdatePayload() async {
+    dynamic oldCartPayload = '';
+
+    Map<String, dynamic>? storedCartResponse =
+        await StorageService.getCartData();
+    storedCartResponse ??= _lastCartResponse;
+
+    if (storedCartResponse != null) {
+      final cartEntries = storedCartResponse['cart'];
+      if (cartEntries is Map<String, dynamic>) {
+        oldCartPayload = cartEntries;
+      }
+    }
+
+    final removeProductActions = _removedCartItemIds
+        .map((id) => {'id': id})
+        .toList();
+
+    final List<Map<String, dynamic>> increaseProductActions = [];
+    final List<Map<String, dynamic>> decreaseProductActions = [];
+
+    _quantityChanges.forEach((itemId, qtyChange) {
+      final unitPrice = _unitPrices[itemId] ?? 0.0;
+      if (qtyChange > 0) {
+        increaseProductActions.add({
+          'id': itemId,
+          'qty': qtyChange,
+          'price': unitPrice,
+        });
+      } else if (qtyChange < 0) {
+        decreaseProductActions.add({
+          'id': itemId,
+          'qty': qtyChange.abs(),
+          'price': unitPrice,
+        });
+      }
+    });
+
+    return {
+      'old_cart': oldCartPayload,
+      'actions': {
+        'remove_product': removeProductActions,
+        'increase_product': increaseProductActions,
+        'decrease_product': decreaseProductActions,
+      },
+    };
+  }
+
+  Future<void> _handleCheckout() async {
+    if (_isCheckoutSubmitting) {
+      return;
+    }
+
+    setState(() {
+      _isCheckoutSubmitting = true;
+    });
+
+    try {
+      final payload = await _buildUpdatePayload();
+
+      // Log POST body
+      final prettyPayload = const JsonEncoder.withIndent('  ').convert(payload);
+      debugPrint('=== CHECKOUT - POST BODY ===');
+      debugPrint(prettyPayload);
+      debugPrint('===========================');
+
+      final response = await _cartService.updateCart(payload);
+
+      // Log API response
+      final prettyResponse = const JsonEncoder.withIndent(
+        '  ',
+      ).convert(response);
+      debugPrint('=== CHECKOUT - API RESPONSE ===');
+      debugPrint(prettyResponse);
+      debugPrint('==============================');
+
+      await StorageService.saveCartData(response);
+
+      final settings = await StorageService.getSettings();
+      final defaultImageUrl = settings?.generalSettings.defaultImage;
+      final baseImageUrl = response['base_url_image'] as String?;
+      final refreshedItems = _parseCartResponse(
+        response,
+        baseImageUrl: baseImageUrl,
+        defaultImageUrl: defaultImageUrl,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _lastCartResponse = response;
+        cartItems = refreshedItems;
+        _serverReportedTotal = (response['totalPrice'] as num?)?.toDouble();
+        _serverReportedQty = response['totalQty'] as int?;
+        _unitPrices
+          ..clear()
+          ..addAll(_deriveUnitPriceMap(refreshedItems));
+        _quantityChanges.clear();
+        _removedProductIds.clear();
+        _removedCartItemIds.clear();
+      });
+
+      if (!mounted) return;
+      Navigator.pushNamed(context, '/checkout');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Unable to update cart: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckoutSubmitting = false;
+        });
+      } else {
+        _isCheckoutSubmitting = false;
+      }
+    }
   }
 
   String? _resolveProductImage({
@@ -447,20 +626,34 @@ class _CartPageState extends State<CartPage> {
                       item: item,
                       index: index,
                       onQuantityDecrease: () {
-                        if (item['quantity'] > 1) {
+                        final itemId = cartItems[index]['itemId'] as String?;
+                        final currentQty =
+                            (cartItems[index]['quantity'] as num?)?.toInt() ??
+                            1;
+                        if (currentQty > 1) {
                           setState(() {
-                            cartItems[index]['quantity']--;
+                            cartItems[index]['quantity'] = currentQty - 1;
                             _serverReportedTotal = null;
                             _serverReportedQty = null;
                           });
+                          if (itemId != null) {
+                            _recordQuantityChange(itemId, -1);
+                          }
                         }
                       },
                       onQuantityIncrease: () {
+                        final itemId = cartItems[index]['itemId'] as String?;
+                        final currentQty =
+                            (cartItems[index]['quantity'] as num?)?.toInt() ??
+                            0;
                         setState(() {
-                          cartItems[index]['quantity']++;
+                          cartItems[index]['quantity'] = currentQty + 1;
                           _serverReportedTotal = null;
                           _serverReportedQty = null;
                         });
+                        if (itemId != null) {
+                          _recordQuantityChange(itemId, 1);
+                        }
                       },
                       onDelete: () {
                         if (cartKey != null &&
@@ -501,24 +694,32 @@ class _CartPageState extends State<CartPage> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  // Navigate to checkout page
-                  Navigator.pushNamed(context, '/checkout');
-                },
+                onPressed: _isCheckoutSubmitting ? null : _handleCheckout,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF151D51),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Checkout',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _isCheckoutSubmitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        'Checkout',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ),

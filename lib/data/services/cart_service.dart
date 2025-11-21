@@ -50,4 +50,25 @@ class CartService {
       rethrow;
     }
   }
+
+  /// Call /user/cart/update with the pending cart changes
+  Future<Map<String, dynamic>> updateCart(Map<String, dynamic> payload) async {
+    try {
+      Logger.info('Calling update-cart API');
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.updateCart,
+        body: payload,
+        contentType: 'application/json',
+        requireAuth: false,
+      );
+      Logger.info('Update-cart response keys: ${response.keys.join(", ")}');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e, stackTrace) {
+      Logger.error('Failed to call update-cart API', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
 }
