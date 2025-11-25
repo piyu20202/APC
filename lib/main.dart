@@ -39,18 +39,12 @@ class MyApp extends StatelessWidget {
           '/main': (context) => const MainNavigationScreen(),
           '/signin': (context) => const SigninScreen(),
           '/signup': (context) => const SignupScreen(),
-          '/checkout': (context) =>
-              const TabBarWrapper(showTabBar: true, child: CheckoutPage()),
-          '/order-price-detail': (context) => const TabBarWrapper(
-            showTabBar: true,
-            child: OrderPriceDetailPage(),
-          ),
-          '/payment': (context) =>
-              const TabBarWrapper(showTabBar: true, child: PaymentPage()),
-          '/order-placed': (context) =>
-              const TabBarWrapper(showTabBar: true, child: OrderPlacedPage()),
-          '/manuals': (context) =>
-              const TabBarWrapper(showTabBar: true, child: ManualsMenuPage()),
+          '/checkout': (context) => const CheckoutPage(),
+          '/order-price-detail': (context) =>
+              const OrderPriceDetailPage(),
+          '/payment': (context) => const PaymentPage(),
+          '/order-placed': (context) => const OrderPlacedPage(),
+          '/manuals': (context) => const ManualsMenuPage(),
         },
       ),
     );

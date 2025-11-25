@@ -7,8 +7,6 @@ import '../widget/product_card.dart';
 import '../productlist_view/sale_products.dart';
 import '../productlist_view/productlist.dart';
 import '../signup_view/trader_upgrade_flow.dart';
-import '../cart_view/cart.dart';
-import '../../../main_navigation.dart';
 import '../../../services/user_role_service.dart';
 import '../../../services/storage_service.dart';
 // import '../../../data/services/settings_service.dart'; // Not using API call for now
@@ -19,13 +17,15 @@ import '../../../data/services/homepage_service.dart';
 import '../../../providers/homepage_provider.dart';
 import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
+import '../../../services/navigation_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSearchTap;
+  final int cartCount;
 
-  const HomeScreen({super.key, this.onSearchTap});
+  const HomeScreen({super.key, this.onSearchTap, this.cartCount = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -72,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Map<String, dynamic>> products = [
     {
+      'id': 1001,
       'image': 'assets/images/1.png',
       'name': 'Telescopic Linear Actuator - Heavy Duty',
       'sku': 'APC-TLA-HD',
@@ -81,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'onSale': true,
     },
     {
+      'id': 1002,
       'image': 'assets/images/2.png',
       'name': 'Robust Cast Alloy Casing Kit',
       'sku': 'APC-RCAK-001',
@@ -90,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'onSale': true,
     },
     {
+      'id': 1003,
       'image': 'assets/images/3.png',
       'name': 'Farm Gate Opener Kit',
       'sku': 'APC-FGO-001',
@@ -102,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Map<String, dynamic>> featuredProducts = [
     {
+      'id': 2001,
       'image': 'assets/images/product1.png',
       'name': 'Gas Automation Kit',
       'description': 'Complete gas automation solution for gates',
@@ -110,6 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'onSale': true,
     },
     {
+      'id': 2002,
       'image': 'assets/images/product2.png',
       'name': 'Gate & Fencing Hardware',
       'description': 'Professional grade gate and fencing hardware',
@@ -118,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'onSale': true,
     },
     {
+      'id': 2003,
       'image': 'assets/images/product3.png',
       'name': 'Brushless Electric Gate Kit',
       'description': 'High-performance brushless electric gate system',
@@ -126,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'onSale': true,
     },
     {
+      'id': 2004,
       'image': 'assets/images/product4.png',
       'name': 'Custom Made Gate',
       'description': 'Custom designed gate solutions',
@@ -251,6 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cartCount = widget.cartCount;
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
@@ -330,9 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          if (widget.onSearchTap != null) {
-                            widget.onSearchTap!();
-                          }
+                          NavigationService.instance.switchToTab(1);
                         },
                         child: Container(
                           height: 40,
@@ -367,17 +373,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Cart Icon
                     GestureDetector(
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const TabBarWrapper(
-                              showTabBar: true,
-                              child: CartPage(),
-                            ),
-                          ),
-                        );
+                        NavigationService.instance.switchToTab(3);
                       },
                       child: Stack(
+                        clipBehavior: Clip.none,
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
@@ -391,25 +390,26 @@ class _HomeScreenState extends State<HomeScreen> {
                               size: 20,
                             ),
                           ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Text(
-                                '13',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
+                          if (cartCount > 0)
+                            Positioned(
+                              top: -2,
+                              right: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '$cartCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -682,10 +682,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TabBarWrapper(
-                          showTabBar: true,
-                          child: CategoriesGridScreen(),
-                        ),
+                        builder: (context) => const CategoriesGridScreen(),
                       ),
                     );
                   },
@@ -772,10 +769,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TabBarWrapper(
-                          showTabBar: true,
-                          child: CategoriesGridScreen(),
-                        ),
+                        builder: (context) => const CategoriesGridScreen(),
                       ),
                     );
                   },
@@ -842,10 +836,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TabBarWrapper(
-                          showTabBar: true,
-                          child: SaleProductsScreen(),
-                        ),
+                        builder: (context) => const SaleProductsScreen(),
                       ),
                     );
                   } else {
@@ -1453,14 +1444,11 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => TabBarWrapper(
-            showTabBar: true,
-            child: ProductListScreen(
-              categoryId: category.id,
-              categorySlug: category.slug,
-              categoryType: 'category',
-              title: category.name,
-            ),
+          builder: (context) => ProductListScreen(
+            categoryId: category.id,
+            categorySlug: category.slug,
+            categoryType: 'category',
+            title: category.name,
           ),
         ),
       );
@@ -1474,13 +1462,10 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => TabBarWrapper(
-            showTabBar: true,
-            child: SubCategoryPage(
-              categoryId: category.id,
-              categoryName: category.name,
-              categoryData: categoryData,
-            ),
+          builder: (context) => SubCategoryPage(
+            categoryId: category.id,
+            categoryName: category.name,
+            categoryData: categoryData,
           ),
         ),
       );
@@ -1497,12 +1482,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => TabBarWrapper(
-              showTabBar: true,
-              child: SubCategoryPage(
-                categoryId: category.id,
-                categoryName: category.name,
-              ),
+            builder: (context) => SubCategoryPage(
+              categoryId: category.id,
+              categoryName: category.name,
             ),
           ),
         );
@@ -1510,14 +1492,11 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => TabBarWrapper(
-              showTabBar: true,
-              child: ProductListScreen(
-                categoryId: category.id,
-                categorySlug: category.slug,
-                categoryType: 'category',
-                title: category.name,
-              ),
+            builder: (context) => ProductListScreen(
+              categoryId: category.id,
+              categorySlug: category.slug,
+              categoryType: 'category',
+              title: category.name,
             ),
           ),
         );
@@ -1529,14 +1508,11 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => TabBarWrapper(
-            showTabBar: true,
-            child: ProductListScreen(
-              categoryId: category.id,
-              categorySlug: category.slug,
-              categoryType: 'category',
-              title: category.name,
-            ),
+          builder: (context) => ProductListScreen(
+            categoryId: category.id,
+            categorySlug: category.slug,
+            categoryType: 'category',
+            title: category.name,
           ),
         ),
       );

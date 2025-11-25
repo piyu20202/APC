@@ -40,6 +40,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   // Dummy products for fallback
   final List<Map<String, dynamic>> _dummyProducts = [
     {
+      'id': 3001,
       'name': '3m Double Ring Top Gates (2x1.5m)',
       'sku': 'APC-RCTG-001',
       'description':
@@ -52,6 +53,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       'freightDelivery': true,
     },
     {
+      'id': 3002,
       'name': '4m Double Ring Top Gates (2x2m)',
       'sku': 'APC-RCTG-002',
       'description':
@@ -64,6 +66,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       'freightDelivery': true,
     },
     {
+      'id': 3003,
       'name': '3m Single Ring Top Gate',
       'sku': 'APC-RCTG-003',
       'description':
@@ -76,6 +79,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       'freightDelivery': true,
     },
     {
+      'id': 3004,
       'name': '5m Double Ring Top Gates (2.5x2m)',
       'description':
           'Large Scale Ring Top Gate, Industrial Grade Steel, Professional Installation Ready',
@@ -87,6 +91,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       'freightDelivery': true,
     },
     {
+      'id': 3005,
       'name': '2m Ring Top Gate Kit',
       'description':
           'Complete Gate Kit with Hardware, Easy Installation, Residential Grade',
@@ -263,7 +268,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.45,
+        childAspectRatio: 0.5,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),

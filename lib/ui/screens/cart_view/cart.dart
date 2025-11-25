@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:apcproject/data/services/cart_service.dart';
 import 'package:apcproject/services/storage_service.dart';
+import 'package:apcproject/services/navigation_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../drawer_view/drawer.dart';
 import '../widget/cart_item_card.dart';
@@ -34,6 +34,11 @@ class _CartPageState extends State<CartPage> {
   @override
   void initState() {
     super.initState();
+    NavigationService.instance.registerCartItemsRefresher(() {
+      if (mounted) {
+        _loadCartItems();
+      }
+    });
     _loadCartItems();
   }
 
@@ -76,8 +81,20 @@ class _CartPageState extends State<CartPage> {
     try {
       final settings = await StorageService.getSettings();
       final defaultImageUrl = settings?.generalSettings.defaultImage;
-      final cartResponse =
-          await StorageService.getCartData() ?? _mockCartResponse;
+      final cartResponse = await StorageService.getCartData();
+      if (cartResponse == null) {
+        setState(() {
+          _lastCartResponse = null;
+          cartItems = [];
+          _serverReportedTotal = 0;
+          _serverReportedQty = 0;
+          _unitPrices.clear();
+          _quantityChanges.clear();
+          _removedProductIds.clear();
+          _removedCartItemIds.clear();
+        });
+        return;
+      }
       final baseImageUrl = cartResponse['base_url_image'] as String?;
       final parsedItems = _parseCartResponse(
         cartResponse,
@@ -222,6 +239,8 @@ class _CartPageState extends State<CartPage> {
 
     _lastCartResponse = updatedResponse;
     await StorageService.saveCartData(updatedResponse);
+    NavigationService.instance.refreshCartCount();
+    NavigationService.instance.refreshCartItems();
   }
 
   List<Map<String, dynamic>> _parseCartResponse(
@@ -309,10 +328,16 @@ class _CartPageState extends State<CartPage> {
   }
 
   int _calculateTotalQuantity() {
-    return cartItems.fold(
-      0,
-      (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 0),
-    );
+    return cartItems.fold(0, (sum, item) {
+      final quantity = item['quantity'];
+      if (quantity is num) {
+        return sum + quantity.round();
+      }
+      if (quantity is String) {
+        return sum + (int.tryParse(quantity) ?? 0);
+      }
+      return sum;
+    });
   }
 
   Map<String, double> _deriveUnitPriceMap(List<Map<String, dynamic>> items) {
@@ -415,6 +440,8 @@ class _CartPageState extends State<CartPage> {
       debugPrint('==============================');
 
       await StorageService.saveCartData(response);
+      NavigationService.instance.refreshCartCount();
+      NavigationService.instance.refreshCartItems();
 
       final settings = await StorageService.getSettings();
       final defaultImageUrl = settings?.generalSettings.defaultImage;
@@ -603,7 +630,7 @@ class _CartPageState extends State<CartPage> {
 
   Widget _buildCartWithItems() {
     final subtotal = _serverReportedTotal ?? _calculateSubtotal();
-    final totalQty = _serverReportedQty ?? _calculateTotalQuantity();
+    final totalQty = _calculateTotalQuantity();
     final total = subtotal + deliveryCost;
 
     return Column(
@@ -816,62 +843,3 @@ class _CartPageState extends State<CartPage> {
   }
 }
 
-const Map<String, dynamic> _mockCartResponse = {
-  'base_url_image':
-      'https://gurgaonit.com/apc_production_dev/assets/images/thumbnails',
-  'cart': {
-    '1364_1763365707': {
-      'item_id': '1364_1763365707',
-      'qty': 2,
-      'price': 795,
-      'productItemType': 'kit',
-      'kitCustomiseDetails': {
-        '1382': {
-          'kit_primaryID': 6016,
-          'productName':
-              'APC Proteous 500 Italian Made FEATURE RICH Sliding Gate Motor',
-          'productBaseQuantity': 1,
-          'minimumBaseQuantity': 1,
-        },
-        '1885': {
-          'kit_primaryID': 10964,
-          'productName':
-              'Concrete In Plate for Proteous Siding Gate Motor P500 and P450',
-          'productBaseQuantity': 1,
-          'minimumBaseQuantity': 1,
-        },
-        '210': {
-          'kit_primaryID': 5759,
-          'productName': 'APC Four Button Keyring Remote',
-          'productBaseQuantity': 2,
-          'minimumBaseQuantity': 2,
-        },
-        '1914': {
-          'kit_primaryID': 11225,
-          'productName':
-              'Gear Rack Nylon Coated With Steel Core, Strong and Quiet - (1m Pack  - 2 x 50 CM) Made in Italy by Stagnoli',
-          'productBaseQuantity': 4,
-          'minimumBaseQuantity': 4,
-        },
-        '1630': {
-          'kit_primaryID': 8092,
-          'productName':
-              'Two FREE Sunvisor Remote Controls (Promotion) with every Electric Gate Automation Kit order.',
-          'productBaseQuantity': 2,
-          'minimumBaseQuantity': 2,
-        },
-      },
-      'item': {
-        'id': 1364,
-        'sku': 'APC-P500-DC-KB',
-        'name':
-            'Build Your Own Electric Gate Kit with APC Proteous 500 FEATURE RICH AC to 24V DC Extra Heavy Duty FEATURE RICH Automatic Sliding Gate Kit with Encoder System',
-        'price': 795,
-        'photo': 'assets/images/product.jpg',
-        'thumbnail': '1673928881RL5c8o9k.jpg',
-      },
-    },
-  },
-  'totalQty': 2,
-  'totalPrice': 1590,
-};

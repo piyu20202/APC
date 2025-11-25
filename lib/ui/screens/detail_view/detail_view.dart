@@ -4,10 +4,10 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
-import '../cart_view/cart.dart';
-import '../../../main_navigation.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/cart_service.dart';
+import '../../../data/services/cart_payload_builder.dart';
+import '../../../services/navigation_service.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../data/models/product_details_model.dart';
 import '../../../data/models/product_detail_response.dart';
@@ -141,55 +141,24 @@ class _DetailViewState extends State<DetailView> {
   String _formatCurrency(num value) => value.toStringAsFixed(2);
 
   /// Calculate total extra cost from all customise kit items
-  double _calculateCustomiseKitTotal() {
-    double total = 0.0;
-    for (final item in _qtyUpgradeProducts) {
-      final selectedQty =
-          _selectedQtyForCustomise[item.id] ?? item.productBaseQuantity;
-      final extraCost = _calculateExtraCost(item, selectedQty);
-      total += extraCost;
-    }
-    return total;
+  CartPayloadBuilder? _createPayloadBuilder() {
+    if (_product == null) return null;
+    return CartPayloadBuilder(
+      product: _product!,
+      qtyUpgradeProducts: _qtyUpgradeProducts,
+      upgradeProducts: _upgradeProducts,
+      addonProducts: _addonProducts,
+      kitQuantity: kitQuantity,
+      selectedQtyForCustomise: _selectedQtyForCustomise,
+      selectedUpgradeIndex: _selectedUpgradeIndex,
+      selectedSubProductIndex: _selectedSubProductIndex,
+      addOnSelections: _addOnSelections,
+      addOnQuantities: _addOnQuantities,
+    );
   }
 
-  /// Calculate price of selected upgrade (main or sub-product)
-  double _calculateUpgradePrice() {
-    final upgradeData = getSelectedUpgradeData();
-    if (upgradeData == null) {
-      return 0.0;
-    }
-
-    final isUpgrade = (upgradeData['isUpgrade'] as bool?) ?? false;
-    if (!isUpgrade) {
-      // Base selections should not change the kit price
-      return 0.0;
-    }
-
-    return (upgradeData['price'] as num?)?.toDouble() ?? 0.0;
-  }
-
-  /// Calculate total price of all selected add-on items (qty * unit_price for each)
-  double _calculateAddOnTotal() {
-    double total = 0.0;
-    for (int i = 0; i < _addonProducts.length; i++) {
-      if (i < _addOnSelections.length && _addOnSelections[i]) {
-        final item = _addonProducts[i];
-        final qty = i < _addOnQuantities.length ? _addOnQuantities[i] : 1;
-        total += qty * item.unitPrice;
-      }
-    }
-    return total;
-  }
-
-  /// Calculate final price: Basic Kit + Customise Total + Upgrade Price + Add-On Total
-  double _calculateFinalPrice() {
-    final kitPrice = _product?.price.toDouble() ?? 0.0;
-    final basicKitPrice = kitPrice * kitQuantity;
-    final customiseTotal = _calculateCustomiseKitTotal();
-    final upgradePrice = _calculateUpgradePrice();
-    final addOnTotal = _calculateAddOnTotal();
-    return basicKitPrice + customiseTotal + upgradePrice + addOnTotal;
-  }
+  double _calculateFinalPrice() =>
+      _createPayloadBuilder()?.calculateFinalPrice() ?? 0.0;
 
   @override
   void initState() {
@@ -2198,142 +2167,21 @@ class _DetailViewState extends State<DetailView> {
 
   // Helper methods to get tracked data for API submission
 
-  /// Get all customise kit items with id, qty, and price
-  List<Map<String, dynamic>> getCustomiseKitData() {
-    return _qtyUpgradeProducts.map((item) {
-      final selectedQty =
-          _selectedQtyForCustomise[item.id] ?? item.productBaseQuantity;
-      final extraCost = _calculateExtraCost(item, selectedQty);
-      // Calculate total price: base price (if any) + extra cost
-      final totalPrice = item.price + extraCost;
+  List<Map<String, dynamic>> getCustomiseKitData() =>
+      _createPayloadBuilder()?.getCustomiseKitData() ?? [];
 
-      return {'id': item.id, 'qty': selectedQty, 'price': totalPrice};
-    }).toList();
-  }
+  Map<String, dynamic>? getSelectedUpgradeData() =>
+      _createPayloadBuilder()?.getSelectedUpgradeData();
 
-  /// Get selected upgrade product data (main or sub-product) with id, qty, and price
-  Map<String, dynamic>? getSelectedUpgradeData() {
-    if (_selectedUpgradeIndex < 0 ||
-        _selectedUpgradeIndex >= _upgradeProducts.length) {
-      return null;
-    }
+  List<Map<String, dynamic>> getSelectedAddOnData() =>
+      _createPayloadBuilder()?.getSelectedAddOnData() ?? [];
 
-    final upgradeProduct = _upgradeProducts[_selectedUpgradeIndex];
-    final selectedSubIndex = _selectedSubProductIndex[upgradeProduct.id] ?? -1;
-
-    // If sub-product is selected
-    if (selectedSubIndex >= 0 &&
-        selectedSubIndex < upgradeProduct.subProducts.length) {
-      final subProduct = upgradeProduct.subProducts[selectedSubIndex];
-      return {
-        'id': subProduct.id,
-        'qty': subProduct.productBaseQuantity,
-        'price': subProduct.price,
-        'isUpgrade': true,
-      };
-    }
-
-    // Main product is selected
-    return {
-      'id': upgradeProduct.id,
-      'qty': upgradeProduct.productBaseQuantity,
-      'price': upgradeProduct.price,
-      'isUpgrade': false,
-    };
-  }
-
-  /// Get all selected add-on items with id, qty, and price
-  List<Map<String, dynamic>> getSelectedAddOnData() {
-    final List<Map<String, dynamic>> selectedAddOns = [];
-
-    for (int i = 0; i < _addonProducts.length; i++) {
-      if (i < _addOnSelections.length && _addOnSelections[i]) {
-        final item = _addonProducts[i];
-        final qty = i < _addOnQuantities.length ? _addOnQuantities[i] : 1;
-
-        selectedAddOns.add({
-          'id': item.id,
-          'qty': qty,
-          'price': item.unitPrice,
-        });
-      }
-    }
-
-    return selectedAddOns;
-  }
-
-  /// Get all kit customization data for API submission in the required format
   Future<Map<String, dynamic>> getAllKitCustomizationData() async {
-    final kitPrice = _product?.price.toDouble() ?? 0.0;
-    final isKit = _product?.isKIT ?? '';
-
-    // Get customise kit items data
-    final customiseData = getCustomiseKitData();
-    final customItemsIds = customiseData
-        .map((item) => item['id'])
-        .toList(growable: false);
-    final customItemsQtys = customiseData
-        .map((item) => item['qty'])
-        .toList(growable: false);
-
-    // Get upgrade items data
-    final upgradeData = getSelectedUpgradeData();
-    final List<int> upgradeItemsId = [];
-    final List<String> upgradeItemsType = [];
-    if (upgradeData != null) {
-      upgradeItemsId.add(upgradeData['id'] as int);
-      upgradeItemsType.add(
-        (upgradeData['isUpgrade'] as bool?) == true ? 'upgrade' : 'base',
-      );
+    final builder = _createPayloadBuilder();
+    if (builder == null) {
+      return {};
     }
-
-    // Get add-on items data
-    final addOnData = getSelectedAddOnData();
-    final addonItemsIds = addOnData
-        .map((item) => item['id'])
-        .toList(growable: false);
-    final addonItemsQtys = addOnData
-        .map((item) => item['qty'])
-        .toList(growable: false);
-
-    // Calculate addon_price: Total of all selected add-on items (qty * unit_price for each)
-    final addonPrice = _calculateAddOnTotal();
-
-    // Calculate final_price: Basic Kit + Customise Total + Upgrade Price + Add-On Total
-    final finalPrice = _calculateFinalPrice();
-
-    // Get old_cart from SharedPreferences (empty string if no previous cart)
-    final storedCartResponse = await StorageService.getCartData();
-    dynamic oldCartPayload = '';
-    if (storedCartResponse != null) {
-      final cartEntries = storedCartResponse['cart'];
-      if (cartEntries is Map<String, dynamic>) {
-        oldCartPayload = cartEntries;
-      }
-    }
-
-    return {
-      'id':
-          _product?.id ??
-          0, // product id which price is $1195 (the main kit product)
-      'qty': kitQuantity, // same $1195 product quantity
-      'price': kitPrice, // same $1195 product price as numeric
-      'isKit': isKit, // already have when product detail page fetch
-      'unit_price': kitPrice.toStringAsFixed(2), // same $1195 product price
-      'final_price': finalPrice.toStringAsFixed(2), // Total of all components
-      'addon_price': addonPrice.toStringAsFixed(
-        2,
-      ), // Total of Add-On Items only
-      'custom_items_id': customItemsIds, // ids for customise kit items
-      'custom_items_qty': customItemsQtys, // qtys for customise kit items
-      'upgrade_items_id': upgradeItemsId, // ids for upgrade items
-      'upgrade_items_type': upgradeItemsType, // upgrade/base flags
-      'upgrade_items_price': '', // not used but keep placeholder
-      'addon_items_id': addonItemsIds, // ids from addon items
-      'addon_items_qty': addonItemsQtys, // qtys from addon items
-      'addon_items_price': '', // keep empty string per API requirement
-      'old_cart': oldCartPayload,
-    };
+    return builder.buildPayload();
   }
 
   Future<void> _handleAddToCart() async {
@@ -2357,15 +2205,12 @@ class _DetailViewState extends State<DetailView> {
       debugPrint('Add-to-cart response:\n$prettyResponse');
 
       await StorageService.saveCartData(response);
+      NavigationService.instance.refreshCartCount();
+      NavigationService.instance.refreshCartItems();
 
       if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              const TabBarWrapper(showTabBar: true, child: CartPage()),
-        ),
-      );
+      NavigationService.instance.switchToTab(3);
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       debugPrint('Add-to-cart failed: $e');
       if (mounted) {

@@ -861,9 +861,8 @@ class HomepageService {
         'childcategoryId: $childcategoryId, subchildcategoryId: $subchildcategoryId',
       );
 
-      // Use dummy data for testing
-      if (useDummyData || categorySlug == null || categoryType == null) {
-        await Future.delayed(const Duration(milliseconds: 500)); // Simulate API delay
+      if (useDummyData) {
+        await Future.delayed(const Duration(milliseconds: 500));
         Logger.info('Using dummy data for products by category');
         return _generateDummyProducts(
           categoryId: categoryId,
@@ -873,15 +872,34 @@ class HomepageService {
         );
       }
 
-      final queryParameters = <String, String>{
-        'category_slug': categorySlug,
-        'category_type': categoryType,
-      };
+      final queryParameters = <String, String>{};
+      if (categorySlug != null && categorySlug.isNotEmpty) {
+        queryParameters['category_slug'] = categorySlug;
+      }
+      if (categoryType != null && categoryType.isNotEmpty) {
+        queryParameters['category_type'] = categoryType;
+      }
+      if (categoryId != null) {
+        queryParameters['category_id'] = categoryId.toString();
+      }
+      if (subcategoryId != null) {
+        queryParameters['subcategory_id'] = subcategoryId.toString();
+      }
+      if (childcategoryId != null) {
+        queryParameters['childcategory_id'] = childcategoryId.toString();
+      }
+      if (subchildcategoryId != null) {
+        queryParameters['subchildcategory_id'] = subchildcategoryId.toString();
+      }
       if (page != null) {
         queryParameters['page'] = page.toString();
       }
       if (perPage != null) {
         queryParameters['per_page'] = perPage.toString();
+      }
+
+      if (queryParameters.isEmpty) {
+        throw ApiException(message: 'No category identifier provided');
       }
 
       final response = await ApiClient.get(

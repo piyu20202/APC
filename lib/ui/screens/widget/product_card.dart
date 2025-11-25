@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../detail_view/detail_view.dart';
-import '../../../main_navigation.dart';
+import '../../../data/services/product_service.dart';
+import '../../../data/services/cart_service.dart';
+import '../../../data/services/cart_payload_builder.dart';
+import '../../../services/storage_service.dart';
+import '../../../services/navigation_service.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final Map<String, dynamic> product;
   final double? width;
   final double? height;
@@ -18,7 +22,17 @@ class ProductCard extends StatelessWidget {
   });
 
   @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  final ProductService _productService = ProductService();
+  final CartService _cartService = CartService();
+  bool _isQuickAdding = false;
+
+  @override
   Widget build(BuildContext context) {
+    final product = widget.product;
     final numPrev = _readNum(
       product['previous_price'] ?? product['originalPrice'],
     );
@@ -30,19 +44,15 @@ class ProductCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => TabBarWrapper(
-                showTabBar: true,
-                child: DetailView(productId: productId),
-              ),
+              builder: (context) => DetailView(productId: productId),
             ),
           );
         }
       },
       child: Container(
-        width: width,
-        height: height,
-        margin: margin,
-        constraints: const BoxConstraints(minHeight: 280),
+        width: widget.width,
+        height: widget.height,
+        margin: widget.margin,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -56,6 +66,7 @@ class ProductCard extends StatelessWidget {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top row: Discount badge (left) and Wishlist icon (right)
@@ -311,16 +322,9 @@ class ProductCard extends StatelessWidget {
                               ),
                             )
                           : GestureDetector(
-                              onTap: () {
-                                // Add to cart functionality (to be implemented)
-                                // For now, just navigate to cart or show message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Product added to cart'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              },
+                              onTap: _isQuickAdding
+                                  ? null
+                                  : () => _handleQuickAdd(context),
                               child: Container(
                                 width: 36,
                                 height: 36,
@@ -328,12 +332,24 @@ class ProductCard extends StatelessWidget {
                                   color: const Color(0xFF151D51),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.add,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
+                                child: Center(
+                                  child: _isQuickAdding
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.add,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
                                 ),
                               ),
                             ),
@@ -346,6 +362,66 @@ class ProductCard extends StatelessWidget {
         ),
       ),
     );
+  }
+  Future<void> _handleQuickAdd(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final productId = widget.product['id'] as int?;
+    if (productId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Product identifier missing')),
+      );
+      return;
+    }
+    setState(() {
+      _isQuickAdding = true;
+    });
+
+    try {
+      final detailResponse = await _productService.getProductDetails(productId);
+      final builder = CartPayloadBuilder(
+        product: detailResponse.product,
+        qtyUpgradeProducts: detailResponse.qtyUpgradeProducts,
+        upgradeProducts: detailResponse.upgradeProducts,
+        addonProducts: detailResponse.addonProducts,
+        kitQuantity: 1,
+        selectedQtyForCustomise: {
+          for (final item in detailResponse.qtyUpgradeProducts)
+            item.id: item.productBaseQuantity,
+        },
+        selectedUpgradeIndex: -1,
+        selectedSubProductIndex: {
+          for (final upgrade in detailResponse.upgradeProducts) upgrade.id: -1,
+        },
+        addOnSelections: List<bool>.filled(
+          detailResponse.addonProducts.length,
+          false,
+        ),
+        addOnQuantities: List<int>.filled(
+          detailResponse.addonProducts.length,
+          1,
+        ),
+      );
+      final payload = await builder.buildPayload();
+      final response = await _cartService.addProducts(payload);
+      await StorageService.saveCartData(response);
+      NavigationService.instance.refreshCartCount();
+      NavigationService.instance.refreshCartItems();
+
+      NavigationService.instance.switchToTab(3);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Unable to add to cart: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isQuickAdding = false;
+        });
+      } else {
+        _isQuickAdding = false;
+      }
+    }
   }
 }
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../productlist_view/productlist.dart';
 import '../widget/product_card.dart';
-import '../../../main_navigation.dart';
 import '../../../data/repositories/homepage_repository.dart';
 import '../../../core/utils/logger.dart';
 
@@ -222,10 +221,7 @@ class _SearchScreenState extends State<SearchScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const TabBarWrapper(
-                    showTabBar: true,
-                    child: ProductListScreen(),
-                  ),
+                  builder: (context) => const ProductListScreen(),
                 ),
               );
             },

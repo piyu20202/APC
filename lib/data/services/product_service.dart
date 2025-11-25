@@ -9,14 +9,27 @@ class ProductService {
   Future<ProductDetailResponse> getProductDetails(int productId) async {
     try {
       Logger.info('Fetching product details for product ID: $productId');
-      Logger.info(
-        'Full URL: ${ApiEndpoints.baseUrl}${ApiEndpoints.productDetails}/$productId',
-      );
 
-      final response = await ApiClient.get(
-        endpoint: '${ApiEndpoints.productDetails}/$productId',
-        requireAuth: false,
-      );
+      Map<String, dynamic> response;
+      try {
+        Logger.info(
+          'Full URL: ${ApiEndpoints.baseUrl}${ApiEndpoints.productDetails}?product_id=$productId',
+        );
+        response = await ApiClient.get(
+          endpoint: ApiEndpoints.productDetails,
+          queryParameters: {'product_id': productId.toString()},
+          requireAuth: false,
+        );
+      } on ApiException catch (primaryError) {
+        Logger.warning(
+          'Primary product details request failed (${primaryError.statusCode}). '
+          'Falling back to legacy path format.',
+        );
+        response = await ApiClient.get(
+          endpoint: '${ApiEndpoints.productDetails}/$productId',
+          requireAuth: false,
+        );
+      }
 
       Logger.info('Product details response received');
       Logger.info('Response keys: ${response.keys.join(", ")}');

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../detail_view/detail_view.dart';
-import '../../../main_navigation.dart';
 
 class WishlistProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
@@ -25,10 +24,7 @@ class WishlistProductCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => TabBarWrapper(
-                showTabBar: true,
-                child: DetailView(productId: productId),
-              ),
+              builder: (context) => DetailView(productId: productId),
             ),
           );
         }
