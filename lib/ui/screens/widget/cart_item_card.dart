@@ -81,14 +81,21 @@ class _CartItemCardState extends State<CartItemCard>
         children: [
           // Top-right delete button
           Positioned(
-            top: 6,
-            right: 6,
+            top: 4,
+            right: 4,
             child: GestureDetector(
               onTap: widget.onDelete,
-              child: Icon(
-                Icons.delete_outline,
-                color: Colors.red[400],
-                size: 20,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.delete_outline,
+                  color: Colors.red[600],
+                  size: 26,
+                ),
               ),
             ),
           ),

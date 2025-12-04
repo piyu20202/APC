@@ -286,7 +286,8 @@ class _SearchScreenState extends State<SearchScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.45,
+              // Slightly taller cards to reduce empty white space
+              childAspectRatio: 0.48,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),

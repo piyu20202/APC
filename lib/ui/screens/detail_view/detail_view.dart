@@ -28,6 +28,9 @@ class _DetailViewState extends State<DetailView> {
   Timer? _imageTimer;
   final ProductService _productService = ProductService();
   final CartService _cartService = CartService();
+  final ScrollController _scrollController = ScrollController();
+  bool _showScrollIndicator = true;
+  bool _scrollListenerAttached = false;
 
   static const String _productImageBaseUrl =
       'https://www.gurgaonit.com/apc_production_dev/assets/images/products/';
@@ -56,10 +59,12 @@ class _DetailViewState extends State<DetailView> {
 
   bool get _isKitProduct => (_product?.isKIT?.toLowerCase() ?? '') == 'yes';
 
-  bool get _shouldShowUpgradesSection =>
-      _isKitProduct &&
-      _qtyUpgradeProducts.any((item) => item.isUpgradeQty) &&
-      _upgradeProducts.isNotEmpty;
+  /// Determines if the Upgrades section should be shown at all.
+  ///
+  /// We always show the section for kit products, even if there are
+  /// no upgrade items, so that we can explicitly tell the user that
+  /// no upgrades are available for this kit.
+  bool get _shouldShowUpgradesSection => _isKitProduct;
 
   List<String> get productImages {
     final List<String> images = [];
@@ -166,6 +171,23 @@ class _DetailViewState extends State<DetailView> {
     _fetchProductDetails();
   }
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    final currentScroll = position.pixels;
+
+    // Show indicator if near top (within 200px) and there's more content to scroll
+    final shouldShow = currentScroll < 200 && maxScroll > 100;
+
+    if (shouldShow != _showScrollIndicator) {
+      setState(() {
+        _showScrollIndicator = shouldShow;
+      });
+    }
+  }
+
   Future<void> _fetchProductDetails() async {
     setState(() {
       _isLoading = true;
@@ -221,6 +243,19 @@ class _DetailViewState extends State<DetailView> {
           _startImageAutoSlide();
         }
       }
+
+      // Attach scroll listener after data is loaded
+      if (mounted && !_scrollListenerAttached) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              _scrollController.hasClients &&
+              !_scrollListenerAttached) {
+            _scrollController.addListener(_onScroll);
+            _scrollListenerAttached = true;
+            _onScroll();
+          }
+        });
+      }
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -233,6 +268,8 @@ class _DetailViewState extends State<DetailView> {
   void dispose() {
     _imageTimer?.cancel();
     _imageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -582,31 +619,98 @@ class _DetailViewState extends State<DetailView> {
             )
           : _product == null
           ? const Center(child: Text('Product not found'))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Product Images Section
-                  _buildProductImagesSection(),
+          : Stack(
+              children: [
+                SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(bottom: 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Product Images Section
+                      _buildProductImagesSection(),
 
-                  // Product Details
-                  _buildProductDetails(),
+                      // Product Details
+                      _buildProductDetails(),
 
-                  if (_isKitProduct) ...[
-                    _buildKitIncludes(),
-                    _buildCustomiseYourKit(),
-                    if (_shouldShowUpgradesSection) _buildUpgrades(),
-                    if (_addonProducts.isNotEmpty) _buildAddOnItems(),
-                  ],
+                      if (_isKitProduct) ...[
+                        _buildKitIncludes(),
+                        _buildCustomiseYourKit(),
+                        if (_shouldShowUpgradesSection) _buildUpgrades(),
+                        if (_addonProducts.isNotEmpty) _buildAddOnItems(),
+                      ],
 
-                  // Product Information section
-                  _buildProductInformation(),
+                      // Product Information section
+                      _buildProductInformation(),
 
-                  // Footer content moved into scrollable area
-                  _buildScrollableFooter(),
-                ],
-              ),
+                      // Footer content moved into scrollable area
+                      _buildScrollableFooter(),
+                    ],
+                  ),
+                ),
+                // Scroll Indicator
+                AnimatedOpacity(
+                  opacity: _showScrollIndicator ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: _showScrollIndicator
+                      ? Positioned(
+                          bottom: 20,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: GestureDetector(
+                              onTap: () {
+                                if (_scrollController.hasClients) {
+                                  _scrollController.animateTo(
+                                    _scrollController.position.maxScrollExtent *
+                                        0.3,
+                                    duration: const Duration(milliseconds: 500),
+                                    curve: Curves.easeOut,
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.75),
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Scroll for more',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.keyboard_arrow_down,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ),
     );
   }
@@ -615,7 +719,7 @@ class _DetailViewState extends State<DetailView> {
     final images = productImages;
     if (images.isEmpty) {
       return Container(
-        height: 300,
+        height: 250,
         color: Colors.white,
         child: const Center(
           child: Icon(Icons.image, size: 50, color: Colors.grey),
@@ -624,7 +728,7 @@ class _DetailViewState extends State<DetailView> {
     }
 
     return Container(
-      height: 300,
+      height: 250,
       color: Colors.white,
       child: Column(
         children: [
@@ -644,8 +748,8 @@ class _DetailViewState extends State<DetailView> {
 
                 return Container(
                   margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                    horizontal: 8,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
@@ -661,50 +765,58 @@ class _DetailViewState extends State<DetailView> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      color: Colors.white,
-                      child: Center(
-                        child: isNetwork
-                            ? CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => Container(
-                                  color: Colors.grey[200],
-                                  child: const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
+                      width: double.infinity,
+                      height: double.infinity,
+                      color: Colors.grey[100],
+                      child: isNetwork
+                          ? CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                width: double.infinity,
+                                height: double.infinity,
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
                                   ),
                                 ),
-                                errorWidget: (context, url, error) => Container(
-                                  padding: const EdgeInsets.all(16),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                width: double.infinity,
+                                height: double.infinity,
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image,
+                                  size: 48,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            )
+                          : Image.asset(
+                              imageUrl,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: double.infinity,
+                                  height: double.infinity,
                                   color: Colors.grey[200],
                                   child: const Icon(
                                     Icons.image,
                                     size: 48,
                                     color: Colors.grey,
                                   ),
-                                ),
-                              )
-                            : Image.asset(
-                                imageUrl,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    padding: const EdgeInsets.all(16),
-                                    color: Colors.grey[200],
-                                    child: const Icon(
-                                      Icons.image,
-                                      size: 48,
-                                      color: Colors.grey,
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
+                                );
+                              },
+                            ),
                     ),
                   ),
                 );
@@ -714,7 +826,7 @@ class _DetailViewState extends State<DetailView> {
 
           // Image Indicators
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
@@ -736,8 +848,8 @@ class _DetailViewState extends State<DetailView> {
 
           // Thumbnail Images
           Container(
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            height: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: images.length,
@@ -745,62 +857,84 @@ class _DetailViewState extends State<DetailView> {
                 final imageUrl = images[index];
                 final isNetwork = imageUrl.startsWith('http');
 
-                return Container(
-                  width: 60,
-                  height: 60,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _currentImageIndex == index
-                          ? Colors.blue
-                          : Colors.grey[300]!,
-                      width: 2,
+                return GestureDetector(
+                  onTap: () {
+                    _imageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _currentImageIndex == index
+                            ? Colors.blue
+                            : Colors.grey[300]!,
+                        width: 2,
+                      ),
                     ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: isNetwork
-                        ? CachedNetworkImage(
-                            imageUrl: imageUrl,
-                            fit: BoxFit.contain,
-                            placeholder: (context, url) => Container(
-                              color: Colors.grey[200],
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        color: Colors.grey[100],
+                        child: isNetwork
+                            ? CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  color: Colors.grey[200],
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => Container(
-                              padding: const EdgeInsets.all(8),
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                Icons.image,
-                                size: 24,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          )
-                        : Image.asset(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                padding: const EdgeInsets.all(8),
-                                color: Colors.grey[200],
-                                child: const Icon(
-                                  Icons.image,
-                                  size: 24,
-                                  color: Colors.grey,
+                                errorWidget: (context, url, error) => Container(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  color: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.image,
+                                    size: 24,
+                                    color: Colors.grey,
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
+                              )
+                            : Image.asset(
+                                imageUrl,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    color: Colors.grey[200],
+                                    child: const Icon(
+                                      Icons.image,
+                                      size: 24,
+                                      color: Colors.grey,
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
                   ),
                 );
               },
@@ -1175,81 +1309,96 @@ class _DetailViewState extends State<DetailView> {
       return const SizedBox.shrink();
     }
 
+    // Calculate total items for max height calculation
+    final totalItems =
+        customiseData.length + (hasUpgrade ? 1 : 0) + addOnData.length;
+    // Set max height based on number of items (max 4-5 items visible, then scroll)
+    // Each item is approximately 20-24px (text height + padding), so 5 items = ~120px
+    final maxHeight = totalItems > 4 ? 120.0 : null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         border: Border(top: BorderSide(color: Colors.grey[300]!)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Customise your Kit Summary
-          if (hasCustomise) ...[
-            ...customiseData.map((item) {
-              final itemData = _qtyUpgradeProducts.firstWhere(
-                (p) => p.id == item['id'],
-                orElse: () => _qtyUpgradeProducts.first,
-              );
-              final price = (item['price'] as num).toDouble();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  'Customise: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(price)}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.green,
-                    height: 1.2,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList(),
-          ],
+      child: ConstrainedBox(
+        constraints: maxHeight != null
+            ? BoxConstraints(maxHeight: maxHeight)
+            : const BoxConstraints(),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Customise your Kit Summary
+              if (hasCustomise) ...[
+                ...customiseData.map((item) {
+                  final itemData = _qtyUpgradeProducts.firstWhere(
+                    (p) => p.id == item['id'],
+                    orElse: () => _qtyUpgradeProducts.first,
+                  );
+                  final price = (item['price'] as num).toDouble();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'Customise: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(price)}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.green,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ],
 
-          // Upgrades Summary
-          if (upgradeData != null && (upgradeData['price'] as num) > 0) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}, Price: \$${_formatCurrency((upgradeData['price'] as num).toDouble())}',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.green,
-                  height: 1.2,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-
-          // Add-On Items Summary
-          if (hasAddOn) ...[
-            ...addOnData.map((item) {
-              final itemData = _addonProducts.firstWhere(
-                (p) => p.id == item['id'],
-                orElse: () => _addonProducts.first,
-              );
-              final totalPrice =
-                  (item['qty'] as int) * (item['price'] as num).toDouble();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  'Add-On: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(totalPrice)}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.green,
-                    height: 1.2,
+              // Upgrades Summary
+              if (upgradeData != null && (upgradeData['price'] as num) > 0) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}, Price: \$${_formatCurrency((upgradeData['price'] as num).toDouble())}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.green,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              );
-            }).toList(),
-          ],
-        ],
+              ],
+
+              // Add-On Items Summary
+              if (hasAddOn) ...[
+                ...addOnData.map((item) {
+                  final itemData = _addonProducts.firstWhere(
+                    (p) => p.id == item['id'],
+                    orElse: () => _addonProducts.first,
+                  );
+                  final totalPrice =
+                      (item['qty'] as int) * (item['price'] as num).toDouble();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'Add-On: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(totalPrice)}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.green,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1578,9 +1727,14 @@ class _DetailViewState extends State<DetailView> {
   }
 
   Widget _buildUpgrades() {
+    // Only relevant for kit products
     if (!_shouldShowUpgradesSection) {
       return const SizedBox.shrink();
     }
+
+    final hasUpgradeData =
+        _qtyUpgradeProducts.any((item) => item.isUpgradeQty) &&
+        _upgradeProducts.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -1591,33 +1745,40 @@ class _DetailViewState extends State<DetailView> {
         children: [
           _buildSectionHeader('Upgrades are available for following items'),
           const SizedBox(height: 12),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _upgradeProducts.length,
-            itemBuilder: (context, index) {
-              final item = _upgradeProducts[index];
-              final selectedSubIndex = _selectedSubProductIndex[item.id] ?? -1;
+          if (!hasUpgradeData)
+            Text(
+              'No upgrades are available for this kit.',
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _upgradeProducts.length,
+              itemBuilder: (context, index) {
+                final item = _upgradeProducts[index];
+                final selectedSubIndex =
+                    _selectedSubProductIndex[item.id] ?? -1;
 
-              return Column(
-                children: [
-                  _buildUpgradeProductCard(item, index, selectedSubIndex),
-                  if (item.subProducts.isNotEmpty)
-                    ...item.subProducts.asMap().entries.map((entry) {
-                      final subIndex = entry.key;
-                      final subProduct = entry.value;
-                      return _buildSubProductCard(
-                        item,
-                        index,
-                        subProduct,
-                        subIndex,
-                        selectedSubIndex,
-                      );
-                    }).toList(),
-                ],
-              );
-            },
-          ),
+                return Column(
+                  children: [
+                    _buildUpgradeProductCard(item, index, selectedSubIndex),
+                    if (item.subProducts.isNotEmpty)
+                      ...item.subProducts.asMap().entries.map((entry) {
+                        final subIndex = entry.key;
+                        final subProduct = entry.value;
+                        return _buildSubProductCard(
+                          item,
+                          index,
+                          subProduct,
+                          subIndex,
+                          selectedSubIndex,
+                        );
+                      }).toList(),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );

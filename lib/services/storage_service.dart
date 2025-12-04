@@ -10,6 +10,8 @@ class StorageService {
   static const String _keyIsLoggedIn = 'is_logged_in';
   static const String _keySettingsData = 'settings_data';
   static const String _keyCartData = 'cart_data';
+  static const String _keyCheckoutData = 'checkout_data';
+  static const String _keyOrderData = 'order_data';
 
   /// Save login response data to SharedPreferences
   static Future<void> saveLoginData(LoginResponse response) async {
@@ -129,13 +131,6 @@ class StorageService {
     await prefs.remove(_keySettingsData);
   }
 
-  /// Clear all data including login and settings (complete logout)
-  static Future<void> clearAllData() async {
-    await clearLoginData();
-    await clearSettings();
-    await clearCartData();
-  }
-
   // ============ Cart Storage Methods ============
 
   /// Save cart response data to SharedPreferences
@@ -165,5 +160,78 @@ class StorageService {
   static Future<void> clearCartData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyCartData);
+  }
+
+  // ============ Checkout Storage Methods ============
+
+  /// Save checkout form data to SharedPreferences
+  static Future<void> saveCheckoutData(
+    Map<String, dynamic> checkoutData,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final checkoutJson = jsonEncode(checkoutData);
+    await prefs.setString(_keyCheckoutData, checkoutJson);
+  }
+
+  /// Get checkout form data from SharedPreferences
+  static Future<Map<String, dynamic>?> getCheckoutData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final checkoutJson = prefs.getString(_keyCheckoutData);
+
+    if (checkoutJson != null) {
+      try {
+        final checkoutMap = jsonDecode(checkoutJson) as Map<String, dynamic>;
+        return checkoutMap;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Clear checkout data
+  static Future<void> clearCheckoutData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyCheckoutData);
+  }
+
+  // ============ Order Storage Methods ============
+
+  /// Save order response data to SharedPreferences
+  static Future<void> saveOrderData(Map<String, dynamic> orderResponse) async {
+    final prefs = await SharedPreferences.getInstance();
+    final orderJson = jsonEncode(orderResponse);
+    await prefs.setString(_keyOrderData, orderJson);
+  }
+
+  /// Get order response data from SharedPreferences
+  static Future<Map<String, dynamic>?> getOrderData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final orderJson = prefs.getString(_keyOrderData);
+
+    if (orderJson != null) {
+      try {
+        final orderMap = jsonDecode(orderJson) as Map<String, dynamic>;
+        return orderMap;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Clear stored order data
+  static Future<void> clearOrderData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyOrderData);
+  }
+
+  /// Clear all data including login, settings, cart, checkout and order (complete logout)
+  static Future<void> clearAllData() async {
+    await clearLoginData();
+    await clearSettings();
+    await clearCartData();
+    await clearCheckoutData();
+    await clearOrderData();
   }
 }

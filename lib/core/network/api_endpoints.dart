@@ -45,6 +45,14 @@ class ApiEndpoints {
   static const String removeCartProducts = '/user/cart/remove-products';
   static const String updateCart = '/user/cart/update';
 
+  // Order endpoints
+  static const String storeOrder = '/user/store/order';
+
+  // Payment endpoints (CyberSource)
+  static const String createPaymentIntent = '/user/payment/create-intent';
+  static const String processPayment = '/user/payment/process';
+  static const String verifyPaymentStatus = '/user/payment/verify-status';
+
   // Add more endpoints here as needed
   // static const String register = '/register';
   // static const String forgotPassword = '/forgot-password';

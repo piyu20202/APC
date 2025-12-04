@@ -33,10 +33,6 @@ class _ProductCardState extends State<ProductCard> {
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    final numPrev = _readNum(
-      product['previous_price'] ?? product['originalPrice'],
-    );
-    final numPrice = _readNum(product['price'] ?? product['currentPrice']);
     return GestureDetector(
       onTap: () {
         final productId = product['id'] as int?;
@@ -66,44 +62,15 @@ class _ProductCardState extends State<ProductCard> {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: Discount badge (left) and Wishlist icon (right)
+            // Top row: Wishlist icon (right only)
             Padding(
               padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if ((product['onSale'] == true) ||
-                      (numPrev > 0 && numPrev > numPrice))
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        'Discount',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  else
-                    const SizedBox.shrink(),
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
@@ -131,27 +98,32 @@ class _ProductCardState extends State<ProductCard> {
             // Product Image
             Container(
               height: 120,
+              width: double.infinity,
               margin: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(5),
               ),
               child: Stack(
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(5),
-                    child: _isOutOfStock(product)
-                        ? ColorFiltered(
-                            colorFilter: ColorFilter.mode(
-                              Colors.grey,
-                              BlendMode.saturation,
-                            ),
-                            child: Opacity(
-                              opacity: 0.6,
-                              child: _buildProductImage(product),
-                            ),
-                          )
-                        : _buildProductImage(product),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 120,
+                      child: _isOutOfStock(product)
+                          ? ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                Colors.grey,
+                                BlendMode.saturation,
+                              ),
+                              child: Opacity(
+                                opacity: 0.6,
+                                child: _buildProductImage(product),
+                              ),
+                            )
+                          : _buildProductImage(product),
+                    ),
                   ),
 
                   if (_hasStrikePrice(product))
@@ -226,9 +198,10 @@ class _ProductCardState extends State<ProductCard> {
 
             // Product Details
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Fixed-height SKU row (1 line space reserved)
                   SizedBox(
@@ -248,12 +221,13 @@ class _ProductCardState extends State<ProductCard> {
                   const SizedBox(height: 2),
                   // Fixed-height Title (2 lines)
                   SizedBox(
-                    height: 36,
+                    height: 40,
                     child: Text(
                       product['name'] ?? '',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
+                        height: 1.2,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -262,7 +236,7 @@ class _ProductCardState extends State<ProductCard> {
                   const SizedBox(height: 2),
                   // Fixed-height Description (2 lines)
                   SizedBox(
-                    height: 37,
+                    height: 36,
                     child: Text(
                       product['description'] ?? '',
                       style: TextStyle(
@@ -274,7 +248,7 @@ class _ProductCardState extends State<ProductCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Row(
                     children: [
                       Column(
@@ -314,10 +288,9 @@ class _ProductCardState extends State<ProductCard> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Center(
-                                child: Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 20,
+                                child: Text(
+                                  '🛒',
+                                  style: TextStyle(fontSize: 20),
                                 ),
                               ),
                             )
@@ -341,14 +314,13 @@ class _ProductCardState extends State<ProductCard> {
                                             strokeWidth: 2,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
+                                                  Colors.white,
+                                                ),
                                           ),
                                         )
-                                      : const Icon(
-                                          Icons.add,
-                                          color: Colors.white,
-                                          size: 20,
+                                      : const Text(
+                                          '🛒',
+                                          style: TextStyle(fontSize: 20),
                                         ),
                                 ),
                               ),
@@ -363,6 +335,7 @@ class _ProductCardState extends State<ProductCard> {
       ),
     );
   }
+
   Future<void> _handleQuickAdd(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final productId = widget.product['id'] as int?;
@@ -467,16 +440,25 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       imageUrl:
           'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
       width: double.infinity,
-      height: 112,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
+      height: 120,
+      fit: BoxFit.contain,
+      placeholder: (context, url) => Container(
+        width: double.infinity,
+        height: 120,
+        color: Colors.grey[200],
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
       ),
-      errorWidget: (context, url, error) => _imageFallback(),
+      errorWidget: (context, url, error) => Container(
+        width: double.infinity,
+        height: 120,
+        child: _imageFallback(),
+      ),
     );
   }
 
@@ -485,22 +467,31 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     return CachedNetworkImage(
       imageUrl: thumb,
       width: double.infinity,
-      height: 112,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
+      height: 120,
+      fit: BoxFit.contain,
+      placeholder: (context, url) => Container(
+        width: double.infinity,
+        height: 120,
+        color: Colors.grey[200],
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
       ),
       errorWidget: (context, url, error) => CachedNetworkImage(
         imageUrl:
             'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
         width: double.infinity,
-        height: 112,
-        fit: BoxFit.cover,
-        errorWidget: (context, url, error) => _imageFallback(),
+        height: 120,
+        fit: BoxFit.contain,
+        errorWidget: (context, url, error) => Container(
+          width: double.infinity,
+          height: 120,
+          child: _imageFallback(),
+        ),
       ),
     );
   }
@@ -508,9 +499,10 @@ Widget _buildProductImage(Map<String, dynamic> product) {
   return Image.asset(
     thumb,
     width: double.infinity,
-    height: 112,
-    fit: BoxFit.cover,
-    errorBuilder: (context, error, stackTrace) => _imageFallback(),
+    height: 120,
+    fit: BoxFit.contain,
+    errorBuilder: (context, error, stackTrace) =>
+        Container(width: double.infinity, height: 120, child: _imageFallback()),
   );
 }
 

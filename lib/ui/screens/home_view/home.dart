@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../categories_view/categories_grid.dart';
 import '../categories_view/subcategory_page.dart';
 import '../drawer_view/drawer.dart';
 import '../widget/product_card.dart';
@@ -19,6 +18,7 @@ import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
 import '../../../services/navigation_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
@@ -271,13 +271,52 @@ class _HomeScreenState extends State<HomeScreen> {
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
+          overflow: TextOverflow.visible,
         ),
+        titleSpacing: 0,
+        centerTitle: false,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          // Phone Call Button
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () async {
+              final phoneNumber =
+                  _settings?.generalSettings.headerPhone.isNotEmpty == true
+                  ? _settings!.generalSettings.headerPhone
+                  : _settings?.pageSettings.phone.isNotEmpty == true
+                  ? _settings!.pageSettings.phone
+                  : null;
+
+              if (phoneNumber != null) {
+                final uri = Uri.parse('tel:$phoneNumber');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Unable to make phone call'),
+                      ),
+                    );
+                  }
+                }
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Phone number not available')),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.phone, color: Colors.black, size: 22),
+            tooltip: 'Call Us',
+          ),
           // Trader upgrade button (only for non-traders)
           if (!_isTrader)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 8, left: 4),
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 8),
                 child: ElevatedButton.icon(
@@ -646,12 +685,8 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    final displayCategories = categories.take(5).toList();
-    final totalItemCount =
-        displayCategories.length + 1; // +1 for "See All" button
-
-    // If no categories, just show the "See All" button
-    if (displayCategories.isEmpty) {
+    // Show all categories - NO "See All" button, NO limit
+    if (categories.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
@@ -666,71 +701,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.9,
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text(
+                  'No categories available',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
               ),
-              itemCount: 1,
-              itemBuilder: (context, index) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CategoriesGridScreen(),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F8F8),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Colors.black,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(height: 0),
-                        const Text(
-                          'See all categories',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF151D51),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
             ),
           ],
         ),
@@ -760,67 +738,10 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSpacing: 12,
               childAspectRatio: 0.9,
             ),
-            itemCount: totalItemCount,
+            itemCount: categories.length, // ALL categories - no limit
             itemBuilder: (context, index) {
-              // "See All" button as the last item
-              if (index == displayCategories.length) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CategoriesGridScreen(),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F8F8),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Colors.black,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(height: 0),
-                        const Text(
-                          'See all categories',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF151D51),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              // Regular category items from API
-              final category = displayCategories[index];
+              // All category items from API - no "See All" button
+              final category = categories[index];
 
               // Debug: Log category data
               if (index == 0) {

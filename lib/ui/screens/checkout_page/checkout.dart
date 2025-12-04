@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:apcproject/services/storage_service.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../data/models/user_model.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -28,7 +33,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // Shipping method
   String _shippingMethod = 'Ship to Address';
   String? _selectedPickupLocation;
-  bool _createAccount = false;
+
+  // Login status
+  bool _isLoggedIn = false;
+  UserModel? _loggedInUser;
+  bool _isLoadingUserData = true;
 
   // States list
   final List<String> _states = [
@@ -42,6 +51,53 @@ class _CheckoutPageState extends State<CheckoutPage> {
     'ACT',
   ];
   String _selectedState = 'VIC';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginAndPrefillForm();
+  }
+
+  /// Check login status and pre-fill form with logged-in user data
+  Future<void> _checkLoginAndPrefillForm() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    _isLoggedIn = authProvider.isLoggedIn;
+
+    if (!_isLoggedIn) {
+      // User is not logged in - redirect to login
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Please login to continue checkout',
+          toastLength: Toast.LENGTH_SHORT,
+        );
+        Navigator.pushReplacementNamed(context, '/signin');
+      }
+      return;
+    }
+
+    // User is logged in - get user data and pre-fill form
+    _loggedInUser = authProvider.currentUser;
+
+    if (_loggedInUser != null) {
+      setState(() {
+        _nameController.text = _loggedInUser!.name;
+        _emailController.text = _loggedInUser!.email;
+        _mobileController.text = _loggedInUser!.phone;
+        _areaCodeController.text = _loggedInUser!.areaCode ?? '+61';
+        _landlineController.text = _loggedInUser!.landline ?? '';
+        _unitController.text = _loggedInUser!.unitApartmentNo ?? '';
+        _addressController.text = _loggedInUser!.address ?? '';
+        _suburbController.text = _loggedInUser!.city ?? '';
+        _postCodeController.text = _loggedInUser!.zip ?? '';
+        _selectedState = _loggedInUser!.state ?? 'VIC';
+        _isLoadingUserData = false;
+      });
+    } else {
+      setState(() {
+        _isLoadingUserData = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -63,6 +119,29 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading while checking login status
+    if (_isLoadingUserData) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF8F8F8),
+          elevation: 0,
+          title: const Text(
+            'Order Price Details',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          iconTheme: const IconThemeData(color: Colors.black),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -98,9 +177,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 _buildOrderNoteSection(),
                 const SizedBox(height: 24),
 
-                // Account Creation
-                _buildAccountCreationSection(),
-                const SizedBox(height: 32),
+                // Account Creation Section - REMOVED for mobile
+                // (Mobile users must be logged in, so account creation not needed)
 
                 // Continue Button
                 _buildContinueButton(),
@@ -273,7 +351,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    value: '+61',
+                    value: _areaCodeController.text.isNotEmpty
+                        ? _areaCodeController.text
+                        : '+61',
                     decoration: const InputDecoration(
                       labelText: 'Area Code',
                       border: OutlineInputBorder(),
@@ -286,7 +366,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       DropdownMenuItem(value: '+44', child: Text('+44')),
                     ],
                     onChanged: (value) {
-                      _areaCodeController.text = value!;
+                      setState(() {
+                        _areaCodeController.text = value!;
+                      });
                     },
                   ),
                 ),
@@ -459,81 +541,49 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildAccountCreationSection() {
-    return Card(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CheckboxListTile(
-              title: const Text(
-                'Create an account to track your future orders online.',
-              ),
-              value: _createAccount,
-              onChanged: (value) {
-                setState(() {
-                  _createAccount = value!;
-                });
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            if (_createAccount) ...[
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Enter Password*',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                validator: (value) {
-                  if (_createAccount && (value == null || value.isEmpty)) {
-                    return 'Please enter a password';
-                  }
-                  if (_createAccount && value!.length < 6) {
-                    return 'Password must be at least 6 characters';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm Password*',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                validator: (value) {
-                  if (_createAccount && (value == null || value.isEmpty)) {
-                    return 'Please confirm your password';
-                  }
-                  if (_createAccount && value != _passwordController.text) {
-                    return 'Passwords do not match';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildContinueButton() {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          // Navigate to order price detail page without validation
-          Navigator.pushNamed(context, '/order-price-detail');
+        onPressed: () async {
+          // Validate form
+          if (_formKey.currentState!.validate()) {
+            // Double-check user is logged in (defensive check)
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            if (!authProvider.isLoggedIn) {
+              Fluttertoast.showToast(
+                msg: 'Please login to continue',
+                toastLength: Toast.LENGTH_SHORT,
+              );
+              Navigator.pushReplacementNamed(context, '/signin');
+              return;
+            }
+
+            // Save checkout form data (no account creation needed for mobile)
+            final checkoutData = {
+              'shipping_method': _shippingMethod,
+              'pickup_location': _selectedPickupLocation,
+              'name': _nameController.text.trim(),
+              'email': _emailController.text.trim(),
+              'mobile': _mobileController.text.trim(),
+              'company': _companyController.text.trim(),
+              'area_code': _areaCodeController.text.trim(),
+              'landline': _landlineController.text.trim(),
+              'unit': _unitController.text.trim(),
+              'address': _addressController.text.trim(),
+              'suburb': _suburbController.text.trim(),
+              'state': _selectedState,
+              'post_code': _postCodeController.text.trim(),
+              'order_note': _orderNoteController.text.trim(),
+            };
+
+            await StorageService.saveCheckoutData(checkoutData);
+
+            // Navigate to order price detail page
+            if (mounted) {
+              Navigator.pushNamed(context, '/order-price-detail');
+            }
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),

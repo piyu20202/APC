@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import '../../../providers/auth_provider.dart';
 import '../forgotpassword_view/forgotpassword.dart';
 import '../../../data/services/settings_service.dart';
@@ -95,6 +96,79 @@ class _SigninScreenState extends State<SigninScreen> {
     }
   }
 
+  /// Handle Facebook login
+  Future<void> _handleFacebookLogin() async {
+    try {
+      // Trigger Facebook login
+      final LoginResult result = await FacebookAuth.instance.login();
+      
+      if (result.status == LoginStatus.success) {
+        // Get user data from Facebook
+        final userData = await FacebookAuth.instance.getUserData();
+        
+        Logger.info('Facebook login successful: ${userData.toString()}');
+        
+        // TODO: Send Facebook token to your backend API
+        // You'll need to implement this in AuthProvider similar to regular login
+        // Example:
+        // final success = await authProvider.loginWithFacebook(
+        //   accessToken: result.accessToken?.tokenString ?? '',
+        //   email: userData['email'],
+        //   name: userData['name'],
+        // );
+        
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Facebook login successful!',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+          
+          // Navigate to main screen after successful login
+          // Uncomment when backend integration is ready:
+          // Navigator.pushReplacementNamed(context, '/main');
+        }
+      } else if (result.status == LoginStatus.cancelled) {
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Facebook login cancelled',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.orange,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+        }
+      } else {
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Facebook login failed. Please try again.',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+        }
+      }
+    } catch (e) {
+      Logger.error('Facebook login error', e);
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Error: ${e.toString()}',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -119,7 +193,29 @@ class _SigninScreenState extends State<SigninScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
+                  // Logo - Responsive sizing
+                  Center(
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.4, // 40% of screen width
+                        maxHeight: MediaQuery.of(context).size.height * 0.15, // 15% of screen height
+                      ),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback if image fails to load
+                          return Icon(
+                            Icons.image,
+                            size: 80,
+                            color: Colors.grey,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
                   // Title
                   const Text(
                     'Sign In',
@@ -272,31 +368,48 @@ class _SigninScreenState extends State<SigninScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.apple,
-                                size: 24,
-                                color: Colors.black,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Apple',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                        child: GestureDetector(
+                          onTap: _handleFacebookLogin,
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFF1877F2), // Facebook blue color
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'f',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Roboto',
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Facebook',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

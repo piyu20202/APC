@@ -1,34 +1,639 @@
 import 'package:flutter/material.dart';
+import 'package:apcproject/services/storage_service.dart';
+import 'package:apcproject/data/services/payment_service.dart';
+import 'package:apcproject/core/exceptions/api_exception.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:provider/provider.dart';
+import 'package:apcproject/providers/auth_provider.dart';
 
-class PaymentPage extends StatelessWidget {
-  const PaymentPage({super.key});
+class PaymentPage extends StatefulWidget {
+  final Map<String, dynamic>? arguments;
+
+  const PaymentPage({super.key, this.arguments});
+
+  @override
+  State<PaymentPage> createState() => _PaymentPageState();
+}
+
+class _PaymentPageState extends State<PaymentPage> {
+  final PaymentService _paymentService = PaymentService();
+  bool _isLoading = true;
+  bool _isProcessing = false;
+  Map<String, dynamic>? _orderData;
+  String? _orderNumber;
+  double? _amount;
+  String? _currency;
+
+  // Payment form controllers
+  final _cardNumberController = TextEditingController();
+  final _expiryController = TextEditingController();
+  final _cvvController = TextEditingController();
+  final _cardholderNameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePayment();
+  }
+
+  @override
+  void dispose() {
+    _cardNumberController.dispose();
+    _expiryController.dispose();
+    _cvvController.dispose();
+    _cardholderNameController.dispose();
+    super.dispose();
+  }
+
+  /// Initialize payment by loading order data and creating payment intent
+  Future<void> _initializePayment() async {
+    try {
+      debugPrint('=== PAYMENT PAGE INITIALIZATION ===');
+
+      // Get order data from storage
+      final orderData = await StorageService.getOrderData();
+      debugPrint(
+        'Order data from storage: ${orderData != null ? "Found" : "Not found"}',
+      );
+
+      if (orderData == null) {
+        debugPrint('ERROR: Order data is null');
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Order data not found. Please try again.',
+            toastLength: Toast.LENGTH_LONG,
+          );
+          // Don't pop immediately, show error and let user see it
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      debugPrint('Order data keys: ${orderData.keys.join(", ")}');
+      setState(() {
+        _orderData = orderData;
+      });
+
+      // Extract order details from API response
+      // Response structure: { "order": { "order_number": "...", "pay_amount": 100 }, ... }
+      final order = orderData['order'] as Map<String, dynamic>?;
+      debugPrint('Order object: ${order != null ? "Found" : "Not found"}');
+
+      if (order != null) {
+        debugPrint('Order keys: ${order.keys.join(", ")}');
+      }
+
+      final orderNumber = order?['order_number'] as String?;
+      debugPrint('Order number: $orderNumber');
+
+      // Use 'pay_amount' instead of 'total' based on API response
+      // Try multiple possible field names
+      final payAmount = order?['pay_amount'] as num?;
+      final totalAmount = order?['total'] as num?;
+      final amount = (payAmount ?? totalAmount)?.toDouble() ?? 0.0;
+
+      debugPrint(
+        'Pay amount: $payAmount, Total: $totalAmount, Final amount: $amount',
+      );
+
+      if (orderNumber == null || orderNumber.isEmpty) {
+        debugPrint('ERROR: Order number is null or empty');
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Invalid order number. Please try again.',
+            toastLength: Toast.LENGTH_LONG,
+          );
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Validate amount - allow 0 for now, just log warning
+      if (amount <= 0) {
+        debugPrint('WARNING: Payment amount is 0 or negative: $amount');
+        // Don't block navigation, just show warning
+      }
+
+      setState(() {
+        _orderNumber = orderNumber;
+        _amount = amount > 0 ? amount : 0.0;
+        _currency = 'AUD';
+      });
+
+      debugPrint(
+        'Creating payment intent for order: $orderNumber, amount: ${amount > 0 ? amount : 0.0}',
+      );
+
+      // Create payment intent (even if amount is 0, for testing)
+      try {
+        await _paymentService.createPaymentIntent(
+          orderNumber: orderNumber,
+          amount: amount > 0 ? amount : 0.0,
+          currency: 'AUD',
+        );
+        debugPrint('Payment intent created successfully');
+      } catch (e) {
+        debugPrint('Error creating payment intent: $e');
+        // Don't block the UI, just log the error
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      debugPrint('=== PAYMENT PAGE INITIALIZATION COMPLETE ===');
+    } on ApiException catch (e) {
+      if (mounted) {
+        if (e.statusCode == 401) {
+          final authProvider = Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          );
+          await authProvider.logout();
+          Fluttertoast.showToast(
+            msg: 'Session expired. Please login again.',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/signin',
+            (route) => false,
+          );
+        } else {
+          Fluttertoast.showToast(
+            msg: e.message,
+            toastLength: Toast.LENGTH_LONG,
+          );
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Failed to initialize payment. Please try again.',
+          toastLength: Toast.LENGTH_LONG,
+        );
+        Navigator.pop(context);
+      }
+      debugPrint('Error initializing payment: $e');
+    }
+  }
+
+  /// Handle payment submission
+  Future<void> _handlePayment() async {
+    if (!_formKey.currentState!.validate() || _isProcessing) {
+      return;
+    }
+
+    if (_orderNumber == null || _amount == null) {
+      Fluttertoast.showToast(
+        msg: 'Payment data is incomplete. Please try again.',
+        toastLength: Toast.LENGTH_LONG,
+      );
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      // Format card number (remove spaces)
+      final cardNumber = _cardNumberController.text.replaceAll(' ', '');
+
+      // Format expiry date (MM/YY)
+      final expiryParts = _expiryController.text.split('/');
+      if (expiryParts.length != 2) {
+        throw Exception('Invalid expiry date format');
+      }
+
+      // Build payment data for CyberSource
+      final paymentData = {
+        'card_number': cardNumber,
+        'expiry_month': expiryParts[0].padLeft(2, '0'),
+        'expiry_year': '20${expiryParts[1]}', // Convert YY to YYYY
+        'cvv': _cvvController.text,
+        'cardholder_name': _cardholderNameController.text,
+        'amount': _amount,
+        'currency': _currency ?? 'AUD',
+      };
+
+      // Process payment
+      final response = await _paymentService.processPayment(
+        orderNumber: _orderNumber!,
+        paymentData: paymentData,
+      );
+
+      // Check payment success
+      final success = response['success'] as bool? ?? false;
+      final transactionId = response['transaction_id'] as String?;
+      final message = response['message'] as String? ?? 'Payment processed';
+
+      if (success && transactionId != null) {
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Payment successful!',
+            toastLength: Toast.LENGTH_SHORT,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+          );
+
+          // Navigate to order success page
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/order-placed',
+            (route) => false,
+          );
+        }
+      } else {
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: message,
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+        }
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        if (e.statusCode == 401) {
+          final authProvider = Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          );
+          await authProvider.logout();
+          Fluttertoast.showToast(
+            msg: 'Session expired. Please login again.',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/signin',
+            (route) => false,
+          );
+        } else {
+          Fluttertoast.showToast(
+            msg: e.message,
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Payment failed. Please try again.',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+      debugPrint('Error processing payment: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
+    }
+  }
+
+  /// Format card number with spaces
+  String _formatCardNumber(String value) {
+    final cleaned = value.replaceAll(' ', '');
+    final buffer = StringBuffer();
+    for (int i = 0; i < cleaned.length; i++) {
+      if (i > 0 && i % 4 == 0) {
+        buffer.write(' ');
+      }
+      buffer.write(cleaned[i]);
+    }
+    return buffer.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
+      resizeToAvoidBottomInset: true, // Fix keyboard visibility
       appBar: AppBar(
-        title: const Text('Payment'),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8F8F8),
         elevation: 0,
-        foregroundColor: Colors.black,
+        title: const Text(
+          'Payment',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.payment, size: 100, color: Colors.amber),
-            SizedBox(height: 20),
-            Text(
-              'Payment Page',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16.0,
+                  right: 16.0,
+                  top: 16.0,
+                  bottom:
+                      MediaQuery.of(context).viewInsets.bottom +
+                      16.0, // Add keyboard padding
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Order Summary Card
+                      _buildOrderSummaryCard(),
+                      const SizedBox(height: 24),
+
+                      // Payment Details Card
+                      _buildPaymentDetailsCard(),
+                      const SizedBox(height: 24),
+
+                      // Security Notice
+                      _buildSecurityNotice(),
+                      const SizedBox(height: 24),
+
+                      // Submit Payment Button
+                      _buildSubmitButton(),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            SizedBox(height: 10),
-            Text(
-              'This is where payment processing would happen',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+    );
+  }
+
+  Widget _buildOrderSummaryCard() {
+    final order = _orderData?['order'] as Map<String, dynamic>?;
+    final orderNumber = order?['order_number'] as String? ?? 'N/A';
+    // Use pay_amount/total from order, fallback to _amount
+    double total = 0.0;
+    final dynamic payAmountRaw = order?['pay_amount'];
+    final dynamic totalRaw = order?['total'];
+
+    if (payAmountRaw is num) {
+      total = payAmountRaw.toDouble();
+    } else if (totalRaw is num) {
+      total = totalRaw.toDouble();
+    } else if (_amount != null) {
+      total = _amount!;
+    }
+
+    return Card(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Order Summary',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Order Number:', style: TextStyle(fontSize: 14)),
+                Text(
+                  orderNumber,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Total Amount:',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '\$${total.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber[700],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentDetailsCard() {
+    return Card(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Payment Details',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+
+            // Card Number
+            TextFormField(
+              controller: _cardNumberController,
+              decoration: const InputDecoration(
+                labelText: 'Card Number',
+                hintText: '1234 5678 9012 3456',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.credit_card),
+              ),
+              keyboardType: TextInputType.number,
+              maxLength: 19, // 16 digits + 3 spaces
+              onChanged: (value) {
+                final formatted = _formatCardNumber(value);
+                if (formatted != value) {
+                  _cardNumberController.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.collapsed(
+                      offset: formatted.length,
+                    ),
+                  );
+                }
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter card number';
+                }
+                final cleaned = value.replaceAll(' ', '');
+                if (cleaned.length < 13 || cleaned.length > 19) {
+                  return 'Invalid card number';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Cardholder Name
+            TextFormField(
+              controller: _cardholderNameController,
+              decoration: const InputDecoration(
+                labelText: 'Cardholder Name',
+                hintText: 'John Doe',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
+              textCapitalization: TextCapitalization.words,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter cardholder name';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Expiry and CVV Row
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _expiryController,
+                    decoration: const InputDecoration(
+                      labelText: 'Expiry (MM/YY)',
+                      hintText: '12/25',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                    ),
+                    keyboardType: TextInputType.number,
+                    maxLength: 5,
+                    onChanged: (value) {
+                      if (value.length == 2 && !value.contains('/')) {
+                        _expiryController.value = TextEditingValue(
+                          text: '$value/',
+                          selection: TextSelection.collapsed(offset: 3),
+                        );
+                      }
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      final parts = value.split('/');
+                      if (parts.length != 2) {
+                        return 'Invalid format';
+                      }
+                      final month = int.tryParse(parts[0]);
+                      final year = int.tryParse(parts[1]);
+                      if (month == null ||
+                          year == null ||
+                          month < 1 ||
+                          month > 12) {
+                        return 'Invalid date';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextFormField(
+                    controller: _cvvController,
+                    decoration: const InputDecoration(
+                      labelText: 'CVV',
+                      hintText: '123',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock),
+                    ),
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    obscureText: true,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      if (value.length < 3) {
+                        return 'Invalid CVV';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSecurityNotice() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock, color: Colors.blue[700], size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Your payment information is encrypted and secure.',
+              style: TextStyle(color: Colors.blue[900], fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isProcessing ? null : _handlePayment,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF002e5b),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: _isProcessing
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+                'PAY NOW',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }

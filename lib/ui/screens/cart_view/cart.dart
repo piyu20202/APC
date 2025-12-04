@@ -425,9 +425,9 @@ class _CartPageState extends State<CartPage> {
 
       // Log POST body
       final prettyPayload = const JsonEncoder.withIndent('  ').convert(payload);
-      debugPrint('=== CHECKOUT - POST BODY ===');
+      debugPrint('************checkout post body start************');
       debugPrint(prettyPayload);
-      debugPrint('===========================');
+      debugPrint('*************checkout post body end***********');
 
       final response = await _cartService.updateCart(payload);
 
@@ -842,4 +842,3 @@ class _CartPageState extends State<CartPage> {
     );
   }
 }
-

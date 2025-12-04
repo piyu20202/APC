@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../../../services/storage_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -14,48 +13,17 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    // Check if user is logged in and has settings data
+    // Navigate to login screen after splash delay
     _checkLoginStatus();
   }
 
   Future<void> _checkLoginStatus() async {
-    try {
-      // Check if user is logged in
-      final isLoggedIn = await StorageService.isLoggedIn();
-
-      if (isLoggedIn) {
-        // Check if settings data exists
-        final settings = await StorageService.getSettings();
-
-        if (settings != null) {
-          // User is logged in and has settings - redirect to home
-          if (mounted) {
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/main');
-              }
-            });
-          }
-          return;
-        }
-      }
-
-      // User not logged in or no settings - go to signin
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/signin');
-        }
-      });
-    } catch (e) {
-      // On error, go to signin
+    // Always navigate to login screen for fresh login
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, '/signin');
-          }
-        });
+        Navigator.pushReplacementNamed(context, '/signin');
       }
-    }
+    });
   }
 
   @override
