@@ -78,6 +78,60 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Register with email, password, phone, and name
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String phone,
+    required String name,
+  }) async {
+    try {
+      // Set loading state
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info('Provider: Starting registration process');
+
+      // Call repository
+      final response = await _authRepository.register(
+        email: email,
+        password: password,
+        phone: phone,
+        name: name,
+      );
+
+      // Update state
+      _loginResponse = response;
+      _currentUser = response.user;
+
+      // Save login data to SharedPreferences
+      await StorageService.saveLoginData(response);
+
+      // Reset loading state
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info(
+        'Provider: Registration successful for user ${_currentUser?.name}',
+      );
+      return true;
+    } on ApiException catch (e) {
+      Logger.error('Provider: Registration failed', e);
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      Logger.error('Provider: Unexpected error', e);
+      _isLoading = false;
+      _errorMessage = 'An unexpected error occurred';
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Logout user
   Future<void> logout() async {
     Logger.info('Provider: Logging out user');
@@ -92,5 +146,107 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  /// Social login with Facebook or Google
+  Future<bool> socialLogin({
+    required String provider,
+    required String accessToken,
+    String? email,
+    String? name,
+    String? phone,
+  }) async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info('Provider: Starting social login process');
+
+      final response = await _authRepository.socialLogin(
+        provider: provider,
+        accessToken: accessToken,
+        email: email,
+        name: name,
+        phone: phone,
+      );
+
+      _loginResponse = response;
+      _currentUser = response.user;
+
+      await StorageService.saveLoginData(response);
+
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info(
+        'Provider: Social login successful for user ${_currentUser?.name}',
+      );
+      return true;
+    } on ApiException catch (e) {
+      Logger.error('Provider: Social login failed', e);
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      Logger.error('Provider: Unexpected error', e);
+      _isLoading = false;
+      _errorMessage = 'An unexpected error occurred';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Social register with Facebook or Google
+  Future<bool> socialRegister({
+    required String provider,
+    required String accessToken,
+    String? email,
+    String? name,
+    String? phone,
+  }) async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info('Provider: Starting social registration process');
+
+      final response = await _authRepository.socialRegister(
+        provider: provider,
+        accessToken: accessToken,
+        email: email,
+        name: name,
+        phone: phone,
+      );
+
+      _loginResponse = response;
+      _currentUser = response.user;
+
+      await StorageService.saveLoginData(response);
+
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+
+      Logger.info(
+        'Provider: Social registration successful for user ${_currentUser?.name}',
+      );
+      return true;
+    } on ApiException catch (e) {
+      Logger.error('Provider: Social registration failed', e);
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      Logger.error('Provider: Unexpected error', e);
+      _isLoading = false;
+      _errorMessage = 'An unexpected error occurred';
+      notifyListeners();
+      return false;
+    }
   }
 }

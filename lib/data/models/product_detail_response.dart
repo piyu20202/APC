@@ -143,6 +143,7 @@ class QtyUpgradeProduct {
   final String photo;
   final String upgradeShortDescription;
   final double price;
+  final int outOfStock;
 
   const QtyUpgradeProduct({
     required this.id,
@@ -158,6 +159,7 @@ class QtyUpgradeProduct {
     required this.photo,
     required this.upgradeShortDescription,
     required this.price,
+    required this.outOfStock,
   });
 
   factory QtyUpgradeProduct.fromJson(Map<String, dynamic> json) {
@@ -175,6 +177,7 @@ class QtyUpgradeProduct {
       photo: _asString(json['photo']),
       upgradeShortDescription: _asString(json['upgradeShortDescription']),
       price: _asDouble(json['price']),
+      outOfStock: _asInt(json['out_of_stock']),
     );
   }
 }
@@ -190,6 +193,7 @@ class UpgradeProduct {
   final String photo;
   final String upgradeShortDescription;
   final double price;
+  final int outOfStock;
   final List<SubProduct> subProducts;
 
   const UpgradeProduct({
@@ -203,6 +207,7 @@ class UpgradeProduct {
     required this.photo,
     required this.upgradeShortDescription,
     required this.price,
+    required this.outOfStock,
     required this.subProducts,
   });
 
@@ -218,6 +223,7 @@ class UpgradeProduct {
       photo: _asString(json['photo']),
       upgradeShortDescription: _asString(json['upgradeShortDescription']),
       price: _asDouble(json['price']),
+      outOfStock: _asInt(json['out_of_stock']),
       subProducts: _asList(json['sub_products'])
           .map((item) => SubProduct.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -235,6 +241,7 @@ class SubProduct {
   final String photo;
   final String upgradeShortDescription;
   final double price;
+  final int outOfStock;
 
   const SubProduct({
     required this.id,
@@ -246,6 +253,7 @@ class SubProduct {
     required this.photo,
     required this.upgradeShortDescription,
     required this.price,
+    required this.outOfStock,
   });
 
   factory SubProduct.fromJson(Map<String, dynamic> json) {
@@ -259,6 +267,7 @@ class SubProduct {
       photo: _asString(json['photo']),
       upgradeShortDescription: _asString(json['upgradeShortDescription']),
       price: _asDouble(json['price']),
+      outOfStock: _asInt(json['out_of_stock']),
     );
   }
 }
@@ -273,6 +282,7 @@ class AddonProduct {
   final String upgradeShortDescription;
   final double unitPrice;
   final double? originalPrice;
+  final int outOfStock;
 
   const AddonProduct({
     required this.id,
@@ -284,6 +294,7 @@ class AddonProduct {
     required this.upgradeShortDescription,
     required this.unitPrice,
     this.originalPrice,
+    required this.outOfStock,
   });
 
   factory AddonProduct.fromJson(Map<String, dynamic> json) {
@@ -299,6 +310,7 @@ class AddonProduct {
       originalPrice: json['previous_price'] != null
           ? _asDouble(json['previous_price'])
           : null,
+      outOfStock: _asInt(json['out_of_stock']),
     );
   }
 }

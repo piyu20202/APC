@@ -5,6 +5,10 @@ class ApiEndpoints {
 
   // Authentication endpoints
   static const String login = '/login';
+  static const String register = '/user/register';
+  static const String forgotPassword = '/forgot';
+  static const String socialLogin = '/social/login';
+  static const String socialRegister = '/social/register';
 
   // Settings endpoints
   static const String settings = '/settings';
@@ -44,6 +48,7 @@ class ApiEndpoints {
   static const String addCartProducts = '/user/cart/add-products';
   static const String removeCartProducts = '/user/cart/remove-products';
   static const String updateCart = '/user/cart/update';
+  static const String applyCoupon = '/user/cart/coupon/apply';
 
   // Order endpoints
   static const String storeOrder = '/user/store/order';
@@ -51,6 +56,7 @@ class ApiEndpoints {
   // Payment endpoints (CyberSource)
   static const String createPaymentIntent = '/user/payment/create-intent';
   static const String processPayment = '/user/payment/process';
+  static const String processGooglePay = '/user/payment/process-google-pay';
   static const String verifyPaymentStatus = '/user/payment/verify-status';
 
   // Add more endpoints here as needed

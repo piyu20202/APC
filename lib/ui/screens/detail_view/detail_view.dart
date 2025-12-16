@@ -11,7 +11,9 @@ import '../../../services/navigation_service.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../data/models/product_details_model.dart';
 import '../../../data/models/product_detail_response.dart';
+import '../../../data/models/settings_model.dart';
 import '../../../services/storage_service.dart';
+import '../../../core/exceptions/api_exception.dart';
 
 class DetailView extends StatefulWidget {
   final int productId;
@@ -47,6 +49,9 @@ class _DetailViewState extends State<DetailView> {
   String? _errorMessage;
   bool _isAddingToCart = false;
 
+  // Settings state
+  SettingsModel? _settings;
+
   // Footer state
   int kitQuantity = 1;
 
@@ -56,6 +61,8 @@ class _DetailViewState extends State<DetailView> {
       {}; // upgradeProductId -> subProductIndex (-1 means main product selected)
   List<bool> _addOnSelections = [];
   List<int> _addOnQuantities = [];
+  bool _hasUserManuallySelectedUpgrade =
+      false; // Track if user manually selected upgrade
 
   bool get _isKitProduct => (_product?.isKIT?.toLowerCase() ?? '') == 'yes';
 
@@ -256,9 +263,25 @@ class _DetailViewState extends State<DetailView> {
           }
         });
       }
+    } on ApiException catch (e) {
+      setState(() {
+        // Show user-friendly error message
+        if (e.statusCode == 500) {
+          _errorMessage = 'Server error. Please try again later.';
+        } else if (e.statusCode == 404) {
+          _errorMessage = 'Product not found.';
+        } else if (e.statusCode == 401) {
+          _errorMessage = 'Unauthorized. Please check your credentials.';
+        } else {
+          _errorMessage = e.message.isNotEmpty
+              ? e.message
+              : 'Failed to load product details. Please try again.';
+        }
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = 'An unexpected error occurred. Please try again.';
         _isLoading = false;
       });
     }
@@ -445,17 +468,32 @@ class _DetailViewState extends State<DetailView> {
                             const SizedBox(width: 8),
                             // Add to Cart Button
                             GestureDetector(
-                              onTap: _isAddingToCart ? null : _handleAddToCart,
+                              onTap:
+                                  (_isAddingToCart ||
+                                      (_product?.outOfStock ?? 0) == 1)
+                                  ? null
+                                  : _handleAddToCart,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange,
+                                  color: (_product?.outOfStock ?? 0) == 1
+                                      ? Colors.grey[400]
+                                      : Colors.orange,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: _isAddingToCart
+                                child: (_product?.outOfStock ?? 0) == 1
+                                    ? const Text(
+                                        'OUT OF STOCK',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : _isAddingToCart
                                     ? const SizedBox(
                                         height: 16,
                                         width: 16,
@@ -510,8 +548,8 @@ class _DetailViewState extends State<DetailView> {
                         const SizedBox(width: 6),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
+                          children: [
+                            const Text(
                               'Have Questions?',
                               style: TextStyle(
                                 fontSize: 11,
@@ -519,7 +557,7 @@ class _DetailViewState extends State<DetailView> {
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            Text(
+                            const Text(
                               'Talk to the Experts',
                               style: TextStyle(
                                 fontSize: 10,
@@ -527,8 +565,8 @@ class _DetailViewState extends State<DetailView> {
                               ),
                             ),
                             Text(
-                              '1800 694 283',
-                              style: TextStyle(
+                              _settings?.pageSettings.phone ?? '1800 694 283',
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.black,
                                 fontWeight: FontWeight.bold,
@@ -982,62 +1020,75 @@ class _DetailViewState extends State<DetailView> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.yellow[600],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.local_shipping,
-                      color: Colors.green[800],
-                      size: 16,
+          // Shipping Display Section (conditional)
+          if ((_product?.showFreeShippingIcon ?? 0) == 1 ||
+              (_product?.showFreightCostIcon ?? 0) == 1)
+            Row(
+              children: [
+                // FREE Shipping Badge
+                if ((_product?.showFreeShippingIcon ?? 0) == 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'FREE',
-                      style: TextStyle(
-                        color: Colors.green[800],
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    decoration: BoxDecoration(
+                      color: Colors.yellow[600],
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Shipping',
-                      style: TextStyle(
-                        color: Colors.green[800],
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Row(
-                children: [
-                  Icon(Icons.local_shipping, color: Colors.red, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Freight Delivery',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_shipping,
+                          color: Colors.green[800],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'FREE',
+                          style: TextStyle(
+                            color: Colors.green[800],
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Shipping',
+                          style: TextStyle(
+                            color: Colors.green[800],
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.info_outline, color: Colors.red, size: 14),
-                ],
-              ),
-            ],
-          ),
+                // Spacing between badges
+                if ((_product?.showFreeShippingIcon ?? 0) == 1 &&
+                    (_product?.showFreightCostIcon ?? 0) == 1)
+                  const SizedBox(width: 12),
+                // Freight Delivery Icon
+                if ((_product?.showFreightCostIcon ?? 0) == 1)
+                  Row(
+                    children: [
+                      Icon(Icons.local_shipping, color: Colors.red, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Freight Delivery',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.info_outline, color: Colors.red, size: 14),
+                    ],
+                  ),
+              ],
+            ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1205,12 +1256,48 @@ class _DetailViewState extends State<DetailView> {
   }
 
   Widget _buildScrollableFooter() {
+    // Only show the "Your Customised Kit Includes" section if there are actual user selections
+    if (!_isKitProduct) {
+      return const SizedBox.shrink();
+    }
+
+    final customiseData = getCustomiseKitData();
+    final upgradeData = getSelectedUpgradeData();
+    final addOnData = getSelectedAddOnData();
+
+    // Check if there's anything to show - only items that user actually selected/changed
+    // For customise: only show if quantity was changed from base
+    final hasCustomise = customiseData.any((item) {
+      final itemData = _qtyUpgradeProducts.firstWhere(
+        (p) => p.id == item['id'],
+        orElse: () => _qtyUpgradeProducts.first,
+      );
+      final selectedQty = item['qty'] as int;
+      final baseQty = itemData.productBaseQuantity;
+      return selectedQty > baseQty;
+    });
+
+    // For upgrade: only show if user manually selected an upgrade (not default auto-selection)
+    final hasUpgrade =
+        _hasUserManuallySelectedUpgrade &&
+        upgradeData != null &&
+        (upgradeData['isUpgrade'] as bool? ?? false) &&
+        (upgradeData['price'] as num) > 0;
+
+    // For add-on: only show if user actually selected add-ons
+    final hasAddOn = addOnData.isNotEmpty;
+
+    // Only show section if user has made selections
+    if (!hasCustomise && !hasUpgrade && !hasAddOn) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       margin: const EdgeInsets.only(top: 8),
       color: Colors.white,
       child: Column(
         children: [
-          // Kit Summary Section
+          // Kit Summary Section - Only shows when user makes selections
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1230,63 +1317,138 @@ class _DetailViewState extends State<DetailView> {
                 ),
                 const SizedBox(height: 12),
 
-                // Kit Items
-                Row(
-                  children: [
-                    Container(
-                      width: 16,
-                      height: 16,
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        color: Colors.white,
-                        size: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Upgraded to 24v 40 Watts Solar Panel With Solar Panel Post & Bracket',
-                        style: TextStyle(fontSize: 13, color: Colors.green),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                // Customise your Kit Items (only if user changed quantities)
+                if (hasCustomise) ...[
+                  ...customiseData
+                      .where((item) {
+                        final itemData = _qtyUpgradeProducts.firstWhere(
+                          (p) => p.id == item['id'],
+                          orElse: () => _qtyUpgradeProducts.first,
+                        );
+                        final selectedQty = item['qty'] as int;
+                        final baseQty = itemData.productBaseQuantity;
+                        // Only show if quantity was changed from base
+                        return selectedQty > baseQty;
+                      })
+                      .map((item) {
+                        final itemData = _qtyUpgradeProducts.firstWhere(
+                          (p) => p.id == item['id'],
+                          orElse: () => _qtyUpgradeProducts.first,
+                        );
+                        final selectedQty = item['qty'] as int;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Customise: ${itemData.name} - Qty: $selectedQty',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      })
+                      .toList(),
+                ],
 
-                Row(
-                  children: [
-                    Container(
-                      width: 16,
-                      height: 16,
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        color: Colors.white,
-                        size: 12,
-                      ),
+                // Upgrade Items (only if user selected an upgrade)
+                if (hasUpgrade) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: const BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Add On 1x Universal Galvanized Farm Gate Bracket ( Suitable with',
-                        style: TextStyle(fontSize: 13, color: Colors.green),
+                  ),
+                ],
+
+                // Add-On Items (only if user added add-ons)
+                if (hasAddOn) ...[
+                  ...addOnData.map((item) {
+                    final itemData = _addonProducts.firstWhere(
+                      (p) => p.id == item['id'],
+                      orElse: () => _addonProducts.first,
+                    );
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 16,
+                            height: 16,
+                            decoration: const BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Add-On: ${itemData.name} - Qty: ${item['qty']}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
+                    );
+                  }).toList(),
+                ],
               ],
             ),
           ),
 
           // Dynamic Summary Section
-          if (_isKitProduct) _buildDynamicSummary(),
+          _buildDynamicSummary(),
 
           // Bottom padding for scroll
           const SizedBox(height: 40),
@@ -1300,9 +1462,26 @@ class _DetailViewState extends State<DetailView> {
     final upgradeData = getSelectedUpgradeData();
     final addOnData = getSelectedAddOnData();
 
-    // Check if there's anything to show
-    final hasCustomise = customiseData.isNotEmpty;
-    final hasUpgrade = upgradeData != null && (upgradeData['price'] as num) > 0;
+    // Check if there's anything to show - only items that user actually selected/changed
+    // For customise: only show if quantity was changed from base
+    final hasCustomise = customiseData.any((item) {
+      final itemData = _qtyUpgradeProducts.firstWhere(
+        (p) => p.id == item['id'],
+        orElse: () => _qtyUpgradeProducts.first,
+      );
+      final selectedQty = item['qty'] as int;
+      final baseQty = itemData.productBaseQuantity;
+      return selectedQty > baseQty;
+    });
+
+    // For upgrade: only show if user manually selected an upgrade (not default auto-selection)
+    final hasUpgrade =
+        _hasUserManuallySelectedUpgrade &&
+        upgradeData != null &&
+        (upgradeData['isUpgrade'] as bool? ?? false) &&
+        (upgradeData['price'] as num) > 0;
+
+    // For add-on: only show if user actually selected add-ons
     final hasAddOn = addOnData.isNotEmpty;
 
     if (!hasCustomise && !hasUpgrade && !hasAddOn) {
@@ -1333,30 +1512,42 @@ class _DetailViewState extends State<DetailView> {
             children: [
               // Customise your Kit Summary
               if (hasCustomise) ...[
-                ...customiseData.map((item) {
-                  final itemData = _qtyUpgradeProducts.firstWhere(
-                    (p) => p.id == item['id'],
-                    orElse: () => _qtyUpgradeProducts.first,
-                  );
-                  final price = (item['price'] as num).toDouble();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'Customise: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(price)}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.green,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                }).toList(),
+                ...customiseData
+                    .where((item) {
+                      final itemData = _qtyUpgradeProducts.firstWhere(
+                        (p) => p.id == item['id'],
+                        orElse: () => _qtyUpgradeProducts.first,
+                      );
+                      final selectedQty = item['qty'] as int;
+                      final baseQty = itemData.productBaseQuantity;
+                      // Only show if quantity was changed from base
+                      return selectedQty > baseQty;
+                    })
+                    .map((item) {
+                      final itemData = _qtyUpgradeProducts.firstWhere(
+                        (p) => p.id == item['id'],
+                        orElse: () => _qtyUpgradeProducts.first,
+                      );
+                      final price = (item['price'] as num).toDouble();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'Customise: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(price)}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.green,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    })
+                    .toList(),
               ],
 
               // Upgrades Summary
-              if (upgradeData != null && (upgradeData['price'] as num) > 0) ...[
+              if (hasUpgrade) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
@@ -1816,13 +2007,17 @@ class _DetailViewState extends State<DetailView> {
             activeColor: Colors.blue,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            onChanged: (value) {
-              setState(() {
-                _selectedUpgradeIndex = index;
-                _selectedSubProductIndex[item.id] = -1;
-                // Price will update automatically via _calculateFinalPrice()
-              });
-            },
+            onChanged: item.outOfStock == 1
+                ? null
+                : (value) {
+                    setState(() {
+                      _selectedUpgradeIndex = index;
+                      _selectedSubProductIndex[item.id] = -1;
+                      _hasUserManuallySelectedUpgrade =
+                          true; // Mark as manually selected
+                      // Price will update automatically via _calculateFinalPrice()
+                    });
+                  },
           ),
           const SizedBox(width: 6),
           ClipRRect(
@@ -1871,31 +2066,65 @@ class _DetailViewState extends State<DetailView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF151D51),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: item.outOfStock == 1
+                              ? Colors.grey
+                              : const Color(0xFF151D51),
+                          decoration: item.outOfStock == 1
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                    ),
+                    if (item.outOfStock == 1) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'OUT OF STOCK',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   item.sku,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.blue[600],
+                    color: item.outOfStock == 1
+                        ? Colors.grey
+                        : Colors.blue[600],
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Base Price: \$${item.price.toStringAsFixed(2)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Colors.black54,
+                    color: item.outOfStock == 1 ? Colors.grey : Colors.black54,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1904,9 +2133,11 @@ class _DetailViewState extends State<DetailView> {
                   children: [
                     Text(
                       'Qty: ${item.productBaseQuantity}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF151D51),
+                        color: item.outOfStock == 1
+                            ? Colors.grey
+                            : const Color(0xFF151D51),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1917,7 +2148,9 @@ class _DetailViewState extends State<DetailView> {
                   item.upgradeShortDescription,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[700],
+                    color: item.outOfStock == 1
+                        ? Colors.grey
+                        : Colors.grey[700],
                     height: 1.35,
                   ),
                 ),
@@ -1966,13 +2199,17 @@ class _DetailViewState extends State<DetailView> {
             activeColor: Colors.blue,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            onChanged: (value) {
-              setState(() {
-                _selectedUpgradeIndex = parentIndex;
-                _selectedSubProductIndex[parentItem.id] = subIndex;
-                // Price will update automatically via _calculateFinalPrice()
-              });
-            },
+            onChanged: subProduct.outOfStock == 1
+                ? null
+                : (value) {
+                    setState(() {
+                      _selectedUpgradeIndex = parentIndex;
+                      _selectedSubProductIndex[parentItem.id] = subIndex;
+                      _hasUserManuallySelectedUpgrade =
+                          true; // Mark as manually selected
+                      // Price will update automatically via _calculateFinalPrice()
+                    });
+                  },
           ),
           const SizedBox(width: 6),
           ClipRRect(
@@ -2133,12 +2370,14 @@ class _DetailViewState extends State<DetailView> {
                         scale: 0.9,
                         child: Checkbox(
                           value: isSelected,
-                          onChanged: (value) {
-                            setState(() {
-                              _addOnSelections[index] = value ?? false;
-                              // Price will update automatically via _calculateFinalPrice()
-                            });
-                          },
+                          onChanged: item.outOfStock == 1
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _addOnSelections[index] = value ?? false;
+                                    // Price will update automatically via _calculateFinalPrice()
+                                  });
+                                },
                           activeColor: Colors.blue,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
@@ -2191,30 +2430,64 @@ class _DetailViewState extends State<DetailView> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        flex: 4,
+                        flex: 6,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              item.name,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF151D51),
-                                height: 1.2,
-                              ),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: item.outOfStock == 1
+                                          ? Colors.grey
+                                          : const Color(0xFF151D51),
+                                      height: 1.35,
+                                      decoration: item.outOfStock == 1
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                    ),
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (item.outOfStock == 1) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: const Text(
+                                      'OUT OF STOCK',
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 3),
                             Text(
                               item.sku,
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.blue[600],
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 3),
                             Text(
                               item.upgradeShortDescription,
                               style: TextStyle(
@@ -2230,14 +2503,15 @@ class _DetailViewState extends State<DetailView> {
                       ),
                       const SizedBox(width: 8),
                       SizedBox(
-                        width: 104,
+                        width: 85,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Container(
+                              width: double.infinity,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 1,
+                                horizontal: 4,
+                                vertical: 2,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -2254,7 +2528,7 @@ class _DetailViewState extends State<DetailView> {
                                       value: qty,
                                       child: Text(
                                         '$qty',
-                                        style: const TextStyle(fontSize: 11),
+                                        style: const TextStyle(fontSize: 10),
                                       ),
                                     );
                                   }),
@@ -2267,7 +2541,7 @@ class _DetailViewState extends State<DetailView> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             const Text(
                               'Unit Price',
                               maxLines: 1,
@@ -2298,20 +2572,6 @@ class _DetailViewState extends State<DetailView> {
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: () {
-                                // Handle view details
-                              },
-                              child: const Text(
-                                'View Details ≫',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -2365,7 +2625,13 @@ class _DetailViewState extends State<DetailView> {
       ).convert(response);
       debugPrint('Add-to-cart response:\n$prettyResponse');
 
-      await StorageService.saveCartData(response);
+      // Mark add-on items with parent relationship
+      final enrichedResponse = _enrichCartResponseWithParentInfo(
+        response,
+        payload,
+      );
+
+      await StorageService.saveCartData(enrichedResponse);
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
@@ -2388,6 +2654,61 @@ class _DetailViewState extends State<DetailView> {
         _isAddingToCart = false;
       }
     }
+  }
+
+  Map<String, dynamic> _enrichCartResponseWithParentInfo(
+    Map<String, dynamic> response,
+    Map<String, dynamic> payload,
+  ) {
+    final enrichedResponse = Map<String, dynamic>.from(response);
+    final cartData = enrichedResponse['cart'];
+
+    if (cartData is! Map<String, dynamic>) {
+      return enrichedResponse;
+    }
+
+    final enrichedCart = Map<String, dynamic>.from(cartData);
+    final addonItemsIds = payload['addon_items_id'] as List?;
+
+    if (addonItemsIds == null || addonItemsIds.isEmpty) {
+      return enrichedResponse;
+    }
+
+    // Find the main product cart key (most recently added, usually last entry)
+    String? mainProductCartKey;
+    final mainProductId = payload['id'];
+
+    for (final entry in enrichedCart.entries) {
+      final itemData = entry.value as Map<String, dynamic>?;
+      if (itemData != null) {
+        final productDetails = itemData['item'] as Map<String, dynamic>?;
+        final productId = productDetails?['id'];
+
+        if (productId == mainProductId) {
+          mainProductCartKey = entry.key;
+          break;
+        }
+      }
+    }
+
+    if (mainProductCartKey != null) {
+      // Mark add-on items with parent cart key
+      for (final entry in enrichedCart.entries) {
+        final itemData = entry.value as Map<String, dynamic>?;
+        if (itemData != null) {
+          final productDetails = itemData['item'] as Map<String, dynamic>?;
+          final productId = productDetails?['id'];
+
+          if (addonItemsIds.contains(productId)) {
+            itemData['is_addon'] = 1;
+            itemData['parent_cart_key'] = mainProductCartKey;
+          }
+        }
+      }
+    }
+
+    enrichedResponse['cart'] = enrichedCart;
+    return enrichedResponse;
   }
 
   Widget _buildProductInformation() {

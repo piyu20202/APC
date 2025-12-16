@@ -71,4 +71,27 @@ class CartService {
       rethrow;
     }
   }
+
+  /// Call /user/cart/coupon/apply to apply a coupon or promo code
+  Future<Map<String, dynamic>> applyCoupon(
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      Logger.info('Calling apply-coupon API');
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.applyCoupon,
+        body: payload,
+        contentType: 'application/json',
+        requireAuth: false,
+      );
+      Logger.info('Apply-coupon response keys: ${response.keys.join(", ")}');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e, stackTrace) {
+      Logger.error('Failed to call apply-coupon API', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
 }

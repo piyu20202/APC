@@ -33,6 +33,7 @@ class _SignupScreenState extends State<SignupScreen> {
             padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 40.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 // Skip button
                 const SizedBox(height: 40),

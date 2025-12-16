@@ -100,6 +100,8 @@ class ProductDetailsModel {
   final int outOfStock;
   final String customerType;
   final String slugUrl;
+  final int showFreightCostIcon;
+  final int showFreeShippingIcon;
 
   ProductDetailsModel({
     required this.id,
@@ -203,6 +205,8 @@ class ProductDetailsModel {
     required this.outOfStock,
     required this.customerType,
     required this.slugUrl,
+    required this.showFreightCostIcon,
+    required this.showFreeShippingIcon,
   });
 
   factory ProductDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -326,8 +330,9 @@ class ProductDetailsModel {
           : null,
       showHotPriceImage: parseString(json['showHotPriceImage']),
       structuredDatas: json['structured_datas'],
-      additionalExpressShippingStatus:
-          parseString(json['additional_express_shipping_status']),
+      additionalExpressShippingStatus: parseString(
+        json['additional_express_shipping_status'],
+      ),
       commonWgoProduct: parseInt(json['common_wgo_product']),
       backOrderAllowed: parseInt(json['back_order_allowed']),
       tradeUserProduct: json['trade_user_product'],
@@ -344,6 +349,8 @@ class ProductDetailsModel {
       outOfStock: parseInt(json['out_of_stock']),
       customerType: parseString(json['customer_type']),
       slugUrl: parseString(json['slug_url']),
+      showFreightCostIcon: parseInt(json['show_freight_cost_icon']),
+      showFreeShippingIcon: parseInt(json['show_free_shipping_icon']),
     );
   }
 
@@ -450,7 +457,8 @@ class ProductDetailsModel {
       'out_of_stock': outOfStock,
       'customer_type': customerType,
       'slug_url': slugUrl,
+      'show_freight_cost_icon': showFreightCostIcon,
+      'show_free_shipping_icon': showFreeShippingIcon,
     };
   }
 }
-

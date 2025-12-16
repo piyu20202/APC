@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/repositories/homepage_repository.dart';
-import '../data/models/homepage_model.dart';
+import '../data/models/homepage_model.dart' as models;
 import '../core/exceptions/api_exception.dart';
 import '../core/utils/logger.dart';
 
@@ -12,9 +12,9 @@ class HomepageProvider extends ChangeNotifier {
   bool _isLoadingLatestProducts = false;
   bool _isLoadingSaleProducts = false;
   String? _errorMessage;
-  HomepageModel? _homepageData;
-  List<LatestProduct> _latestProducts = [];
-  List<LatestProduct> _saleProducts = [];
+  models.HomepageModel? _homepageData;
+  List<models.LatestProduct> _latestProducts = [];
+  List<models.LatestProduct> _saleProducts = [];
 
   HomepageProvider({HomepageRepository? homepageRepository})
     : _homepageRepository = homepageRepository ?? HomepageRepository();
@@ -24,12 +24,14 @@ class HomepageProvider extends ChangeNotifier {
   bool get isLoadingLatestProducts => _isLoadingLatestProducts;
   bool get isLoadingSaleProducts => _isLoadingSaleProducts;
   String? get errorMessage => _errorMessage;
-  HomepageModel? get homepageData => _homepageData;
-  List<LatestProduct> get latestProducts => _latestProducts;
-  List<LatestProduct> get saleProducts => _saleProducts;
-  List<Category> get categories => _homepageData?.categories ?? [];
-  List<Partner> get partners => _homepageData?.partners ?? [];
-  List<Service> get services => _homepageData?.services ?? [];
+  models.HomepageModel? get homepageData => _homepageData;
+  List<models.LatestProduct> get latestProducts => _latestProducts;
+  List<models.LatestProduct> get saleProducts => _saleProducts;
+  List<models.Category> get categories => _homepageData?.categories ?? [];
+  List<models.Partner> get partners => _homepageData?.partners ?? [];
+  List<models.Service> get services => _homepageData?.services ?? [];
+  List<models.Banner> get allBanners => _homepageData?.allBanners ?? [];
+  List<models.Slider> get sliders => _homepageData?.sliders ?? [];
 
   /// Load homepage data from API
   Future<void> loadHomepageData() async {

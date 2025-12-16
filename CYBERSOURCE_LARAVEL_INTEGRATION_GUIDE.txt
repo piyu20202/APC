@@ -1,0 +1,808 @@
+================================================================================
+COMPLETE LARAVEL CYBERSOURCE INTEGRATION GUIDE
+================================================================================
+
+This guide provides step-by-step instructions for integrating CyberSource payment
+gateway into your Laravel backend application.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+1. Overview
+2. Step 1: Install Required Package
+3. Step 2: Add Configuration
+4. Step 3: Create Service Class
+5. Step 4: Create Request Validation Classes
+6. Step 5: Create Controller
+7. Step 6: Add Routes
+8. Step 7: Database Migration
+9. Step 8: Testing
+10. Summary & Important Notes
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+CyberSource is a payment gateway that processes credit card payments. Your
+Laravel backend will:
+1. Receive payment data from Flutter app
+2. Send payment request to CyberSource API
+3. Process the response and update your database
+4. Return result to Flutter app
+
+================================================================================
+2. STEP 1: INSTALL REQUIRED PACKAGE
+================================================================================
+
+Guzzle HTTP client is usually included with Laravel by default. If not, add to
+composer.json or run:
+
+composer require guzzlehttp/guzzle
+
+================================================================================
+3. STEP 2: ADD CONFIGURATION
+================================================================================
+
+A. Add to config/services.php:
+
+<?php
+
+return [
+    // ... existing services ...
+
+    'cybersource' => [
+        'merchant_id' => env('CYBERSOURCE_MERCHANT_ID'),
+        'api_key' => env('CYBERSOURCE_API_KEY'),
+        'secret_key' => env('CYBERSOURCE_SECRET_KEY'),
+        'api_url' => env('CYBERSOURCE_API_URL', 'https://apitest.cybersource.com'), // Sandbox
+        // For production: 'https://api.cybersource.com'
+    ],
+];
+
+
+B. Add to .env file:
+
+CYBERSOURCE_MERCHANT_ID=your_merchant_id_here
+CYBERSOURCE_API_KEY=your_api_key_here
+CYBERSOURCE_SECRET_KEY=your_secret_key_here
+CYBERSOURCE_API_URL=https://apitest.cybersource.com
+
+Note: For production, change CYBERSOURCE_API_URL to: https://api.cybersource.com
+
+================================================================================
+4. STEP 3: CREATE SERVICE CLASS
+================================================================================
+
+Create file: app/Services/CyberSourceService.php
+
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Exception;
+
+class CyberSourceService
+{
+    private $merchantId;
+    private $apiKey;
+    private $secretKey;
+    private $apiUrl;
+
+    public function __construct()
+    {
+        $this->merchantId = config('services.cybersource.merchant_id');
+        $this->apiKey = config('services.cybersource.api_key');
+        $this->secretKey = config('services.cybersource.secret_key');
+        $this->apiUrl = config('services.cybersource.api_url');
+    }
+
+    /**
+     * Process payment with CyberSource
+     * 
+     * @param string $orderNumber
+     * @param array $cardData ['card_number', 'expiry_month', 'expiry_year', 'cvv', 'cardholder_name']
+     * @param float $amount
+     * @param string $currency
+     * @return array
+     */
+    public function processPayment(string $orderNumber, array $cardData, float $amount, string $currency = 'AUD'): array
+    {
+        try {
+            // Prepare request payload for CyberSource
+            $payload = [
+                'clientReferenceInformation' => [
+                    'code' => $orderNumber
+                ],
+                'processingInformation' => [
+                    'capture' => true
+                ],
+                'paymentInformation' => [
+                    'card' => [
+                        'number' => $cardData['card_number'],
+                        'expirationMonth' => $cardData['expiry_month'],
+                        'expirationYear' => $cardData['expiry_year'],
+                        'securityCode' => $cardData['cvv']
+                    ]
+                ],
+                'orderInformation' => [
+                    'amountDetails' => [
+                        'totalAmount' => number_format($amount, 2, '.', ''),
+                        'currency' => $currency
+                    ],
+                    'billTo' => [
+                        'firstName' => $this->extractFirstName($cardData['cardholder_name']),
+                        'lastName' => $this->extractLastName($cardData['cardholder_name']),
+                    ]
+                ]
+            ];
+
+            // Make API call to CyberSource
+            $response = $this->makeApiRequest('/pts/v2/payments', $payload);
+
+            // Check if payment was successful
+            if (isset($response['status']) && $response['status'] === 'AUTHORIZED') {
+                return [
+                    'success' => true,
+                    'transaction_id' => $response['id'] ?? null,
+                    'order_status' => 'paid',
+                    'payment_status' => 'completed',
+                    'amount' => $amount,
+                    'currency' => $currency,
+                    'paid_at' => now()->toIso8601String(),
+                    'message' => 'Payment processed successfully',
+                    'cybersource_response' => $response
+                ];
+            } else {
+                // Payment failed
+                $errorMessage = $response['message'] ?? 'Payment processing failed';
+                $errorCode = $response['errorInformation']['reason'] ?? 'unknown_error';
+                
+                Log::error('CyberSource Payment Failed', [
+                    'order_number' => $orderNumber,
+                    'response' => $response
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => $this->mapErrorCode($errorCode),
+                    'message' => $this->getUserFriendlyMessage($errorCode, $errorMessage),
+                    'cybersource_response' => $response
+                ];
+            }
+        } catch (Exception $e) {
+            Log::error('CyberSource API Exception', [
+                'order_number' => $orderNumber,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'server_error',
+                'message' => 'Payment processing failed. Please try again later.'
+            ];
+        }
+    }
+
+    /**
+     * Create payment intent (optional - can be simplified)
+     */
+    public function createPaymentIntent(string $orderNumber, float $amount, string $currency = 'AUD'): array
+    {
+        // For now, just return a simple success response
+        // You can implement actual CyberSource payment intent creation later if needed
+        return [
+            'success' => true,
+            'payment_intent_id' => 'pi_' . uniqid(),
+            'status' => 'requires_payment_method',
+            'message' => 'Payment intent created successfully'
+        ];
+    }
+
+    /**
+     * Make HTTP request to CyberSource API
+     */
+    private function makeApiRequest(string $endpoint, array $data): array
+    {
+        $url = rtrim($this->apiUrl, '/') . $endpoint;
+        
+        // Create Basic Auth header
+        $auth = base64_encode($this->merchantId . ':' . $this->apiKey);
+
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Basic ' . $auth
+        ])->post($url, $data);
+
+        // Log the request and response for debugging
+        Log::info('CyberSource API Request', [
+            'url' => $url,
+            'payload' => $data,
+            'status' => $response->status(),
+            'response' => $response->json()
+        ]);
+
+        if (!$response->successful()) {
+            $errorData = $response->json();
+            throw new Exception($errorData['message'] ?? 'API request failed', $response->status());
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Extract first name from full name
+     */
+    private function extractFirstName(string $fullName): string
+    {
+        $parts = explode(' ', trim($fullName));
+        return $parts[0] ?? '';
+    }
+
+    /**
+     * Extract last name from full name
+     */
+    private function extractLastName(string $fullName): string
+    {
+        $parts = explode(' ', trim($fullName));
+        return count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : '';
+    }
+
+    /**
+     * Map CyberSource error codes to your error codes
+     */
+    private function mapErrorCode(string $cybersourceError): string
+    {
+        $errorMap = [
+            'DECLINED' => 'card_declined',
+            'INVALID_CARD' => 'invalid_card',
+            'EXPIRED_CARD' => 'expired_card',
+            'INSUFFICIENT_FUNDS' => 'insufficient_funds',
+            'INVALID_CVV' => 'invalid_cvv',
+            'INVALID_EXPIRY' => 'invalid_expiry',
+        ];
+
+        return $errorMap[$cybersourceError] ?? 'payment_failed';
+    }
+
+    /**
+     * Get user-friendly error message
+     */
+    private function getUserFriendlyMessage(string $errorCode, string $defaultMessage): string
+    {
+        $messages = [
+            'card_declined' => 'Your card was declined. Please try a different card.',
+            'invalid_card' => 'Invalid card number. Please check and try again.',
+            'expired_card' => 'Your card has expired. Please use a different card.',
+            'insufficient_funds' => 'Insufficient funds. Please try a different card.',
+            'invalid_cvv' => 'Invalid CVV. Please check your card details.',
+            'invalid_expiry' => 'Invalid expiry date. Please check and try again.',
+        ];
+
+        return $messages[$errorCode] ?? $defaultMessage;
+    }
+}
+
+================================================================================
+5. STEP 4: CREATE REQUEST VALIDATION CLASSES
+================================================================================
+
+A. Create file: app/Http/Requests/CreatePaymentIntentRequest.php
+
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class CreatePaymentIntentRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true; // Or add your auth logic here
+    }
+
+    public function rules(): array
+    {
+        return [
+            'order_number' => 'required|string|exists:orders,order_number',
+            'amount' => 'required|numeric|min:0.01',
+            'currency' => 'required|string|size:3',
+        ];
+    }
+}
+
+
+B. Create file: app/Http/Requests/ProcessPaymentRequest.php
+
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class ProcessPaymentRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true; // Or add your auth logic here
+    }
+
+    public function rules(): array
+    {
+        return [
+            'order_number' => 'required|string|exists:orders,order_number',
+            'card_number' => 'required|string|regex:/^[0-9]{13,19}$/',
+            'expiry_month' => 'required|string|regex:/^(0[1-9]|1[0-2])$/',
+            'expiry_year' => 'required|string|regex:/^[0-9]{4}$/',
+            'cvv' => 'required|string|regex:/^[0-9]{3,4}$/',
+            'cardholder_name' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0.01',
+            'currency' => 'required|string|size:3',
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // Remove spaces from card number
+        if ($this->has('card_number')) {
+            $this->merge([
+                'card_number' => preg_replace('/\s+/', '', $this->card_number)
+            ]);
+        }
+    }
+}
+
+================================================================================
+6. STEP 5: CREATE CONTROLLER
+================================================================================
+
+Create file: app/Http/Controllers/Api/PaymentController.php
+
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\CreatePaymentIntentRequest;
+use App\Http\Requests\ProcessPaymentRequest;
+use App\Services\CyberSourceService;
+use App\Models\Order;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class PaymentController extends Controller
+{
+    protected $cyberSourceService;
+
+    public function __construct(CyberSourceService $cyberSourceService)
+    {
+        $this->cyberSourceService = $cyberSourceService;
+    }
+
+    /**
+     * Create Payment Intent
+     * POST /user/payment/create-intent
+     */
+    public function createIntent(CreatePaymentIntentRequest $request): JsonResponse
+    {
+        try {
+            $user = auth()->user(); // Adjust based on your auth setup
+            $orderNumber = $request->input('order_number');
+            $amount = $request->input('amount');
+            $currency = $request->input('currency', 'AUD');
+
+            // Verify order exists and belongs to user
+            $order = Order::where('order_number', $orderNumber)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'invalid_order',
+                    'message' => 'Order not found or does not belong to user'
+                ], 400);
+            }
+
+            // Validate amount matches order total
+            if (abs($order->total_amount - $amount) > 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'invalid_amount',
+                    'message' => 'Amount does not match order total'
+                ], 400);
+            }
+
+            // Create payment intent
+            $result = $this->cyberSourceService->createPaymentIntent($orderNumber, $amount, $currency);
+
+            return response()->json($result);
+
+        } catch (\Exception $e) {
+            Log::error('Create Payment Intent Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'server_error',
+                'message' => 'Failed to create payment intent. Please try again.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Process Payment
+     * POST /user/payment/process
+     */
+    public function process(ProcessPaymentRequest $request): JsonResponse
+    {
+        DB::beginTransaction();
+        
+        try {
+            $user = auth()->user(); // Adjust based on your auth setup
+            $orderNumber = $request->input('order_number');
+            
+            // Verify order exists and belongs to user
+            $order = Order::where('order_number', $orderNumber)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'invalid_order',
+                    'message' => 'Order not found or does not belong to user'
+                ], 400);
+            }
+
+            // Validate amount
+            $amount = $request->input('amount');
+            if (abs($order->total_amount - $amount) > 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'amount_mismatch',
+                    'message' => 'Payment amount does not match order total.'
+                ], 400);
+            }
+
+            // Validate expiry date
+            $expiryMonth = (int)$request->input('expiry_month');
+            $expiryYear = (int)$request->input('expiry_year');
+            $expiryDate = \Carbon\Carbon::createFromDate($expiryYear, $expiryMonth, 1)->endOfMonth();
+            
+            if ($expiryDate->isPast()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'expired_card',
+                    'message' => 'Your card has expired. Please use a different card.'
+                ], 400);
+            }
+
+            // Prepare card data
+            $cardData = [
+                'card_number' => $request->input('card_number'),
+                'expiry_month' => $request->input('expiry_month'),
+                'expiry_year' => $request->input('expiry_year'),
+                'cvv' => $request->input('cvv'),
+                'cardholder_name' => $request->input('cardholder_name'),
+            ];
+
+            // Process payment with CyberSource
+            $result = $this->cyberSourceService->processPayment(
+                $orderNumber,
+                $cardData,
+                $amount,
+                $request->input('currency', 'AUD')
+            );
+
+            // If payment successful, update order
+            if ($result['success']) {
+                $order->update([
+                    'payment_status' => 'paid',
+                    'transaction_id' => $result['transaction_id'],
+                    'paid_at' => now(),
+                    'status' => 'paid'
+                ]);
+
+                // Create payment transaction record (if you have a payments table)
+                // PaymentTransaction::create([...]);
+
+                DB::commit();
+
+                // Send confirmation email (optional)
+                // Mail::to($user->email)->send(new PaymentConfirmation($order));
+
+                return response()->json($result);
+            } else {
+                DB::rollBack();
+                return response()->json($result, 400);
+            }
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Process Payment Error', [
+                'order_number' => $request->input('order_number'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'server_error',
+                'message' => 'Payment processing failed. Please try again later.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify Payment Status
+     * GET /user/payment/verify-status?order_number=ORD-12345
+     */
+    public function verifyStatus(): JsonResponse
+    {
+        try {
+            $user = auth()->user();
+            $orderNumber = request()->query('order_number');
+
+            if (!$orderNumber) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'missing_parameter',
+                    'message' => 'order_number parameter is required'
+                ], 400);
+            }
+
+            $order = Order::where('order_number', $orderNumber)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'order_not_found',
+                    'message' => 'Order not found or does not belong to user'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'order_number' => $order->order_number,
+                'payment_status' => $order->payment_status ?? 'pending',
+                'transaction_id' => $order->transaction_id,
+                'amount' => $order->total_amount,
+                'currency' => $order->currency ?? 'AUD',
+                'paid_at' => $order->paid_at ? $order->paid_at->toIso8601String() : null,
+                'payment_method' => 'credit_card'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Verify Payment Status Error', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'server_error',
+                'message' => 'Failed to verify payment status'
+            ], 500);
+        }
+    }
+}
+
+================================================================================
+7. STEP 6: ADD ROUTES
+================================================================================
+
+Add to routes/api.php:
+
+<?php
+
+use App\Http\Controllers\Api\PaymentController;
+use Illuminate\Support\Facades\Route;
+
+// Payment routes (protected by auth middleware)
+Route::middleware('auth:sanctum')->group(function () { // Adjust middleware as needed
+    Route::post('/user/payment/create-intent', [PaymentController::class, 'createIntent']);
+    Route::post('/user/payment/process', [PaymentController::class, 'process']);
+    Route::get('/user/payment/verify-status', [PaymentController::class, 'verifyStatus']);
+});
+
+Note: Adjust the middleware (auth:sanctum) based on your authentication setup.
+You might use 'auth:api', 'auth', or a custom middleware.
+
+================================================================================
+8. STEP 7: DATABASE MIGRATION (OPTIONAL)
+================================================================================
+
+If you want to track payment transactions separately, create a migration:
+
+Run: php artisan make:migration create_payment_transactions_table
+
+Then edit the migration file:
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('payment_transactions', function (Blueprint $table) {
+            $table->id();
+            $table->string('order_number');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->string('payment_intent_id')->nullable();
+            $table->string('transaction_id')->nullable();
+            $table->decimal('amount', 10, 2);
+            $table->string('currency', 3)->default('AUD');
+            $table->enum('payment_status', ['pending', 'completed', 'failed', 'refunded'])->default('pending');
+            $table->string('payment_method')->nullable();
+            $table->text('cybersource_response')->nullable();
+            $table->timestamp('paid_at')->nullable();
+            $table->timestamps();
+            
+            $table->index('order_number');
+            $table->index('user_id');
+            $table->index('transaction_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('payment_transactions');
+    }
+};
+
+Then run: php artisan migrate
+
+================================================================================
+9. STEP 8: TESTING
+================================================================================
+
+A. Test Card Numbers (for Sandbox/Testing):
+
+Success Payment:
+- Card Number: 4111111111111111
+- CVV: Any 3-4 digits (e.g., 123)
+- Expiry: Any future date (e.g., 12/2025)
+- Name: Any name
+
+Card Declined:
+- Card Number: 4000000000000002
+- CVV: Any 3-4 digits
+- Expiry: Any future date
+
+Insufficient Funds:
+- Card Number: 4000000000009995
+- CVV: Any 3-4 digits
+- Expiry: Any future date
+
+Expired Card:
+- Card Number: 4000000000000069
+- CVV: Any 3-4 digits
+- Expiry: Any past date
+
+B. Testing Endpoints:
+
+1. Test Create Payment Intent:
+POST /api/user/payment/create-intent
+Headers:
+  Authorization: Bearer {your_token}
+  Content-Type: application/json
+Body:
+{
+  "order_number": "ORD-12345",
+  "amount": 1525.00,
+  "currency": "AUD"
+}
+
+2. Test Process Payment:
+POST /api/user/payment/process
+Headers:
+  Authorization: Bearer {your_token}
+  Content-Type: application/json
+Body:
+{
+  "order_number": "ORD-12345",
+  "card_number": "4111111111111111",
+  "expiry_month": "12",
+  "expiry_year": "2025",
+  "cvv": "123",
+  "cardholder_name": "John Doe",
+  "amount": 1525.00,
+  "currency": "AUD"
+}
+
+3. Test Verify Status:
+GET /api/user/payment/verify-status?order_number=ORD-12345
+Headers:
+  Authorization: Bearer {your_token}
+
+================================================================================
+10. SUMMARY & IMPORTANT NOTES
+================================================================================
+
+IMPLEMENTATION CHECKLIST:
+[ ] Add CyberSource credentials to .env file
+[ ] Update config/services.php
+[ ] Create CyberSourceService.php
+[ ] Create PaymentController.php
+[ ] Create Request validation classes
+[ ] Add routes to routes/api.php
+[ ] Test with sandbox credentials
+[ ] Update Order model/table if needed
+
+IMPORTANT NOTES:
+
+1. AUTHENTICATION:
+   - Update auth()->user() calls if your authentication setup is different
+   - Adjust middleware in routes/api.php based on your auth system
+
+2. ORDER MODEL:
+   - Adjust Order model name and table name if different
+   - Ensure Order model has: order_number, user_id, total_amount, payment_status, 
+     transaction_id, paid_at, currency fields
+
+3. CYBERSOURCE API:
+   - The correct endpoint is: /pts/v2/payments
+   - Sandbox URL: https://apitest.cybersource.com
+   - Production URL: https://api.cybersource.com
+   - Authentication uses Basic Auth with merchantId:apiKey base64 encoded
+
+4. SECURITY:
+   - Never store full card numbers in database
+   - Only store transaction_id from CyberSource
+   - All API calls must use HTTPS
+   - Validate all input data before processing
+
+5. ERROR HANDLING:
+   - All errors are logged in Laravel logs
+   - User-friendly error messages are returned to Flutter app
+   - Full error details are available in logs for debugging
+
+6. TESTING:
+   - Always test in sandbox first
+   - Use test card numbers provided above
+   - Check Laravel logs for detailed API responses
+   - Verify database updates after successful payment
+
+7. PRODUCTION DEPLOYMENT:
+   - Change CYBERSOURCE_API_URL to production URL
+   - Use production credentials (Merchant ID, API Key, Secret Key)
+   - Enable proper error logging and monitoring
+   - Set up webhook endpoints for payment notifications (optional)
+
+================================================================================
+ADDITIONAL RESOURCES
+================================================================================
+
+- CyberSource Developer Center: https://developer.cybersource.com/
+- CyberSource API Reference: https://developer.cybersource.com/api-reference-assets/index.html
+- CyberSource GitHub SDKs: https://github.com/cybersource
+- Laravel HTTP Client Docs: https://laravel.com/docs/http-client
+
+================================================================================
+SUPPORT
+================================================================================
+
+If you encounter issues:
+1. Check Laravel logs: storage/logs/laravel.log
+2. Verify .env credentials are correct
+3. Test API endpoint directly with Postman/curl
+4. Check CyberSource dashboard for transaction logs
+5. Review CyberSource API documentation
+
+================================================================================
+END OF GUIDE
+================================================================================

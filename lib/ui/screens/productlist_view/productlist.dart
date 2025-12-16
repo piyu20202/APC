@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widget/product_card.dart';
+import '../widget/listing_product_card.dart';
 import '../../../data/services/homepage_service.dart';
 import '../../../core/utils/logger.dart';
 
@@ -31,11 +31,16 @@ class ProductListScreen extends StatefulWidget {
   State<ProductListScreen> createState() => _ProductListScreenState();
 }
 
+enum SortOption { popular, lowestPrice, highestPrice, latest, oldest }
+
 class _ProductListScreenState extends State<ProductListScreen> {
   final HomepageService _homepageService = HomepageService();
   List<Map<String, dynamic>> products = [];
+  List<Map<String, dynamic>> _originalProducts =
+      []; // Store original for sorting
   bool _isLoading = true;
   String? _errorMessage;
+  SortOption _selectedSort = SortOption.popular;
 
   // Dummy products for fallback
   final List<Map<String, dynamic>> _dummyProducts = [
@@ -104,13 +109,31 @@ class _ProductListScreenState extends State<ProductListScreen> {
     },
   ];
 
+  /// Map UI sort options to API `sort` query parameter values
+  /// Supported API values: date_desc, date_asc, price_desc, price_asc
+  String? _mapSortToApiSort(SortOption option) {
+    switch (option) {
+      case SortOption.lowestPrice:
+        return 'price_asc';
+      case SortOption.highestPrice:
+        return 'price_desc';
+      case SortOption.latest:
+        return 'date_desc';
+      case SortOption.oldest:
+        return 'date_asc';
+      case SortOption.popular:
+        // Let backend fall back to its default sort (price_asc)
+        return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _loadProducts(sortParam: _mapSortToApiSort(_selectedSort));
   }
 
-  Future<void> _loadProducts() async {
+  Future<void> _loadProducts({String? sortParam}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -132,6 +155,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           subcategoryId: widget.subcategoryId,
           childcategoryId: widget.childcategoryId,
           subchildcategoryId: widget.subchildcategoryId,
+          sort: sortParam,
         );
 
         // Convert API products to map format for ProductCard
@@ -168,10 +192,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
           subcategoryId: widget.subcategoryId,
           childcategoryId: widget.childcategoryId,
           subchildcategoryId: widget.subchildcategoryId,
+          sort: sortParam,
         );
 
         products = apiProducts.map((p) {
           return {
+            'id': p.id,
             'name': p.name,
             'sku': p.sku,
             'description': p.shortDescription ?? '',
@@ -193,6 +219,21 @@ class _ProductListScreenState extends State<ProductListScreen> {
         Logger.info('Using dummy products: ${products.length}');
       }
 
+      // Use backend sorted data directly
+      _originalProducts = List.from(products);
+
+      // Apply client-side price sorting as fallback only for price-based sorting
+      // This ensures price sorting works even if backend sorting fails
+      if (_selectedSort == SortOption.lowestPrice ||
+          _selectedSort == SortOption.highestPrice) {
+        _applyPriceSorting();
+      } else {
+        // For other sorts (Latest/Oldest/Popular), use backend sorted data as-is
+        setState(() {
+          products = List.from(_originalProducts);
+        });
+      }
+
       setState(() {
         _isLoading = false;
       });
@@ -200,10 +241,65 @@ class _ProductListScreenState extends State<ProductListScreen> {
       Logger.error('Failed to load products', e);
       // Fallback to dummy products on error
       products = List.from(_dummyProducts);
+      _originalProducts = List.from(products);
+
+      // Apply price sorting as fallback if price sort option is selected
+      if (_selectedSort == SortOption.lowestPrice ||
+          _selectedSort == SortOption.highestPrice) {
+        _applyPriceSorting();
+      }
+
       setState(() {
         _isLoading = false;
         _errorMessage = 'Failed to load products. Showing sample products.';
       });
+    }
+  }
+
+  /// Apply client-side price sorting as fallback
+  /// Only used when backend sorting fails or for price-based sorting
+  void _applyPriceSorting() {
+    final sortedProducts = List<Map<String, dynamic>>.from(_originalProducts);
+
+    switch (_selectedSort) {
+      case SortOption.lowestPrice:
+        sortedProducts.sort((a, b) {
+          final priceA = (a['price'] as num?)?.toDouble() ?? 0.0;
+          final priceB = (b['price'] as num?)?.toDouble() ?? 0.0;
+          return priceA.compareTo(priceB);
+        });
+        break;
+      case SortOption.highestPrice:
+        sortedProducts.sort((a, b) {
+          final priceA = (a['price'] as num?)?.toDouble() ?? 0.0;
+          final priceB = (b['price'] as num?)?.toDouble() ?? 0.0;
+          return priceB.compareTo(priceA);
+        });
+        break;
+      case SortOption.latest:
+      case SortOption.oldest:
+      case SortOption.popular:
+        // For non-price sorting, keep original order (backend should handle)
+        break;
+    }
+
+    setState(() {
+      products = sortedProducts;
+    });
+  }
+
+  String _getSortOptionLabel(SortOption option) {
+    switch (option) {
+      case SortOption.popular:
+        return 'Popular Products';
+      case SortOption.lowestPrice:
+        return 'Lowest Price';
+      case SortOption.highestPrice:
+        return 'Highest Price';
+      case SortOption.latest:
+        return 'Latest Product';
+      case SortOption.oldest:
+        return 'Oldest Product';
     }
   }
 
@@ -264,19 +360,107 @@ class _ProductListScreenState extends State<ProductListScreen> {
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.5,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+    return Column(
+      children: [
+        // Sort By Section
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          color: Colors.white,
+          child: Row(
+            children: [
+              const Text(
+                'Sort By :',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: _buildSortDropdown()),
+            ],
+          ),
+        ),
+        // Products Grid
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.60,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: products.length,
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return ListingProductCard(product: product);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSortDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
       ),
-      itemCount: products.length,
-      itemBuilder: (context, index) {
-        final product = products[index];
-        return ProductCard(product: product);
-      },
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<SortOption>(
+          value: _selectedSort,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[700]),
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+          items: SortOption.values.map((SortOption option) {
+            final isSelected = option == _selectedSort;
+            return DropdownMenuItem<SortOption>(
+              value: option,
+              child: Row(
+                children: [
+                  if (isSelected) ...[
+                    Icon(Icons.check, size: 18, color: const Color(0xFF151D51)),
+                    const SizedBox(width: 8),
+                  ] else ...[
+                    const SizedBox(width: 26),
+                  ],
+                  Expanded(
+                    child: Text(
+                      _getSortOptionLabel(option),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isSelected
+                            ? const Color(0xFF151D51)
+                            : Colors.black87,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (SortOption? newValue) {
+            if (newValue != null && newValue != _selectedSort) {
+              setState(() {
+                _selectedSort = newValue;
+              });
+              // Re-fetch products from API with the selected sort option
+              _loadProducts(sortParam: _mapSortToApiSort(newValue));
+            }
+          },
+        ),
+      ),
     );
   }
 }

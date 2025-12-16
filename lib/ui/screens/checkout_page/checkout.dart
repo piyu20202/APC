@@ -52,6 +52,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
   ];
   String _selectedState = 'VIC';
 
+  // Valid area codes for dropdown
+  static const List<String> _validAreaCodes = ['+61', '+1', '+44'];
+
+  // Get valid area code from controller or return default
+  String _getValidAreaCode() {
+    final areaCode = _areaCodeController.text.trim();
+    if (areaCode.isNotEmpty && _validAreaCodes.contains(areaCode)) {
+      return areaCode;
+    }
+    return '+61';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -83,13 +95,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _nameController.text = _loggedInUser!.name;
         _emailController.text = _loggedInUser!.email;
         _mobileController.text = _loggedInUser!.phone;
-        _areaCodeController.text = _loggedInUser!.areaCode ?? '+61';
+        // Validate area code - only use if it's in the valid list
+        final userAreaCode = _loggedInUser!.areaCode ?? '+61';
+        _areaCodeController.text = _validAreaCodes.contains(userAreaCode)
+            ? userAreaCode
+            : '+61';
         _landlineController.text = _loggedInUser!.landline ?? '';
         _unitController.text = _loggedInUser!.unitApartmentNo ?? '';
         _addressController.text = _loggedInUser!.address ?? '';
         _suburbController.text = _loggedInUser!.city ?? '';
         _postCodeController.text = _loggedInUser!.zip ?? '';
-        _selectedState = _loggedInUser!.state ?? 'VIC';
+        // Validate state - only use if it's in the states list
+        final userState = _loggedInUser!.state ?? 'VIC';
+        _selectedState = _states.contains(userState) ? userState : 'VIC';
         _isLoadingUserData = false;
       });
     } else {
@@ -136,9 +154,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ),
           iconTheme: const IconThemeData(color: Colors.black),
         ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -351,9 +367,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    value: _areaCodeController.text.isNotEmpty
-                        ? _areaCodeController.text
-                        : '+61',
+                    value: _getValidAreaCode(),
                     decoration: const InputDecoration(
                       labelText: 'Area Code',
                       border: OutlineInputBorder(),
@@ -443,7 +457,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    value: _selectedState,
+                    value: _states.contains(_selectedState)
+                        ? _selectedState
+                        : 'VIC',
                     decoration: const InputDecoration(
                       labelText: 'State*',
                       border: OutlineInputBorder(),
@@ -549,7 +565,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
           // Validate form
           if (_formKey.currentState!.validate()) {
             // Double-check user is logged in (defensive check)
-            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            final authProvider = Provider.of<AuthProvider>(
+              context,
+              listen: false,
+            );
             if (!authProvider.isLoggedIn) {
               Fluttertoast.showToast(
                 msg: 'Please login to continue',

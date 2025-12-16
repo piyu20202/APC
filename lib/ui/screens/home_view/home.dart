@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../categories_view/subcategory_page.dart';
 import '../drawer_view/drawer.dart';
-import '../widget/product_card.dart';
+import '../widget/latest_product_card.dart';
+import '../widget/sale_product_card.dart';
 import '../productlist_view/sale_products.dart';
 import '../productlist_view/productlist.dart';
 import '../signup_view/trader_upgrade_flow.dart';
@@ -37,7 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final PageController _bannerController = PageController();
   // Mid banner state
   int _currentMidBannerIndex = 0;
-  late Timer _midBannerTimer;
+  Timer? _midBannerTimer;
   final PageController _midBannerController = PageController();
 
   // Auto-scroll for Latest Products
@@ -148,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
     debugPrint('HomeScreen initState called');
     _startBannerTimer();
     _startProductTimer();
-    _startMidBannerTimer();
+    // Don't start mid banner timer here - will start when banners are loaded
     _checkTraderStatus();
     _fetchSettings();
     // Load homepage data via provider
@@ -157,10 +158,18 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         listen: false,
       );
-      homeProvider.loadHomepageData().catchError((error) {
-        debugPrint('CATCH ERROR loadHomepageData: $error');
-        Logger.error('Error in loadHomepageData', error);
-      });
+      homeProvider
+          .loadHomepageData()
+          .then((_) {
+            // Start mid banner timer after homepage data is loaded
+            if (mounted) {
+              _startMidBannerTimer();
+            }
+          })
+          .catchError((error) {
+            debugPrint('CATCH ERROR loadHomepageData: $error');
+            Logger.error('Error in loadHomepageData', error);
+          });
       homeProvider.loadLatestProducts().catchError((error) {
         debugPrint('CATCH ERROR loadLatestProducts: $error');
         Logger.error('Error in loadLatestProducts', error);
@@ -203,7 +212,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startBannerTimer() {
     _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (_bannerController.hasClients) {
-        final next = (_currentBannerIndex + 1) % banners.length;
+        final homeProvider = Provider.of<HomepageProvider>(
+          context,
+          listen: false,
+        );
+        final apiSliders = homeProvider.sliders;
+        final itemCount =
+            apiSliders.isNotEmpty ? apiSliders.length : banners.length;
+
+        if (itemCount == 0) return;
+
+        final next = (_currentBannerIndex + 1) % itemCount;
         _bannerController.animateToPage(
           next,
           duration: const Duration(milliseconds: 400),
@@ -229,15 +248,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startMidBannerTimer() {
+    _midBannerTimer?.cancel(); // Cancel existing timer if any
     _midBannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (_midBannerController.hasClients) {
-        final next = (_currentMidBannerIndex + 1) % banners.length;
-        _midBannerController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
+        final homeProvider = Provider.of<HomepageProvider>(
+          context,
+          listen: false,
         );
-        setState(() => _currentMidBannerIndex = next);
+        final allBanners = homeProvider.allBanners;
+        if (allBanners.isNotEmpty) {
+          final next = (_currentMidBannerIndex + 1) % allBanners.length;
+          _midBannerController.animateToPage(
+            next,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+          setState(() => _currentMidBannerIndex = next);
+        }
       }
     });
   }
@@ -248,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _bannerController.dispose();
     _productTimer.cancel();
     _productController.dispose();
-    _midBannerTimer.cancel();
+    _midBannerTimer?.cancel();
     _midBannerController.dispose();
     super.dispose();
   }
@@ -282,15 +309,13 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () async {
-              final phoneNumber =
-                  _settings?.generalSettings.headerPhone.isNotEmpty == true
-                  ? _settings!.generalSettings.headerPhone
-                  : _settings?.pageSettings.phone.isNotEmpty == true
-                  ? _settings!.pageSettings.phone
-                  : null;
+              // Get phone number from page_settings (already saved in shared preferences)
+              final phoneNumber = _settings?.pageSettings.phone;
 
-              if (phoneNumber != null) {
-                final uri = Uri.parse('tel:$phoneNumber');
+              if (phoneNumber != null && phoneNumber.isNotEmpty) {
+                // Remove spaces and format for tel: URI
+                final formattedPhone = phoneNumber.replaceAll(' ', '');
+                final uri = Uri.parse('tel:$formattedPhone');
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri);
                 } else {
@@ -500,108 +525,191 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBannerSection() {
-    return Container(
-      height: 200,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-      child: Stack(
-        children: [
-          PageView.builder(
-            controller: _bannerController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentBannerIndex = index;
-              });
-            },
-            itemCount: banners.length,
-            itemBuilder: (context, index) {
-              final banner = banners[index];
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Stack(
-                  children: [
-                    // Background Image - Full Size
-                    Positioned.fill(
-                      child: ClipRRect(
+    return Consumer<HomepageProvider>(
+      builder: (context, homeProvider, _) {
+        final apiSliders = homeProvider.sliders;
+        final bool hasApiSliders = apiSliders.isNotEmpty;
+        final int itemCount =
+            hasApiSliders ? apiSliders.length : banners.length;
+
+        if (itemCount == 0) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          height: 200,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: _bannerController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentBannerIndex = index;
+                  });
+                },
+                itemCount: itemCount,
+                itemBuilder: (context, index) {
+                  // Use API sliders if available, otherwise fall back to local assets
+                  if (hasApiSliders) {
+                    final slider = apiSliders[index];
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          banner['image'],
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: GestureDetector(
+                                onTap: () async {
+                                  if (slider.link != null &&
+                                      slider.link!.isNotEmpty) {
+                                    final uri = Uri.parse(slider.link!);
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri);
+                                    }
+                                  }
+                                },
+                                child: CachedNetworkImage(
+                                  imageUrl: slider.photo,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (context, url, error) {
+                                    return Container(
+                                      color: Colors.grey[300],
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.image,
+                                          color: Colors.white54,
+                                          size: 60,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  placeholder: (context, url) => Container(
+                                    color: Colors.grey[200],
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Overlay for better text readability
+                          Positioned.fill(
+                            child: Container(
                               decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
                                 gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
                                   colors: [
-                                    banner['backgroundColor'],
-                                    banner['backgroundColor'].withOpacity(0.8),
+                                    Colors.black.withOpacity(0.4),
+                                    Colors.transparent,
                                   ],
                                 ),
                               ),
-                              child: Center(
-                                child: Icon(
-                                  Icons.image,
-                                  color: Colors.white.withOpacity(0.5),
-                                  size: 60,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    // Existing static banners (fallback)
+                    final banner = banners[index];
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.asset(
+                                banner['image'],
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          banner['backgroundColor'],
+                                          banner['backgroundColor']
+                                              .withOpacity(0.8),
+                                        ],
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.image,
+                                        color: Colors.white.withOpacity(0.5),
+                                        size: 60,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.black.withOpacity(0.6),
+                                    Colors.transparent,
+                                    Colors.transparent,
+                                  ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-
-                    // Overlay for better text readability
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              Colors.black.withOpacity(0.6),
-                              Colors.transparent,
-                              Colors.transparent,
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                    );
+                  }
+                },
+              ),
+
+              // Banner Indicators
+              Positioned(
+                bottom: 16,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    itemCount,
+                    (index) => Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _currentBannerIndex == index
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.5),
                       ),
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          // Banner Indicators
-          Positioned(
-            bottom: 16,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                banners.length,
-                (index) => Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentBannerIndex == index
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.5),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -908,7 +1016,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           'previous_price': apiProduct.previousPrice,
                           'thumbnail': apiProduct.thumbnail,
                         };
-                        return ProductCard(
+                        return LatestProductCard(
                           product: mapped,
                           width: 160,
                           margin: const EdgeInsets.only(right: 12),
@@ -917,7 +1025,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       // Fall back to mock data
                       final product = products[index];
-                      return ProductCard(
+                      return LatestProductCard(
                         product: product,
                         width: 160,
                         margin: const EdgeInsets.only(right: 12),
@@ -931,83 +1039,119 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMidBanner() {
-    return Container(
-      height: 140,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          ClipRRect(
+    return Consumer<HomepageProvider>(
+      builder: (context, homeProvider, child) {
+        final allBanners = homeProvider.allBanners;
+
+        // Debug: Log banner count
+        debugPrint('Banner count: ${allBanners.length}');
+        if (allBanners.isNotEmpty) {
+          debugPrint('First banner photo: ${allBanners[0].photo}');
+        }
+
+        // Restart timer when banners are loaded
+        if (allBanners.isNotEmpty &&
+            (_midBannerTimer == null || !_midBannerTimer!.isActive)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _startMidBannerTimer();
+            }
+          });
+        }
+
+        // If no banners from API, show a placeholder or nothing
+        if (allBanners.isEmpty) {
+          debugPrint('No banners available - hiding banner section');
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          height: 140,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            child: PageView.builder(
-              controller: _midBannerController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentMidBannerIndex = index;
-                });
-              },
-              itemCount: banners.length,
-              itemBuilder: (context, index) {
-                final banner = banners[index];
-                return Image.asset(
-                  banner['image'],
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.blue[50],
-                      child: Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.image, color: Colors.blueGrey, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Promotional Banner',
-                              style: TextStyle(color: Colors.blueGrey),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.08),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: PageView.builder(
+                  controller: _midBannerController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentMidBannerIndex = index;
+                    });
+                  },
+                  itemCount: allBanners.length,
+                  itemBuilder: (context, index) {
+                    final banner = allBanners[index];
+                    return GestureDetector(
+                      onTap: () {
+                        if (banner.link != null && banner.link!.isNotEmpty) {
+                          launchUrl(Uri.parse(banner.link!));
+                        }
+                      },
+                      child: CachedNetworkImage(
+                        imageUrl: banner.photo,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 140,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey[300],
+                          child: const Center(
+                            child: Icon(
+                              Icons.image,
+                              color: Colors.grey,
+                              size: 40,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     );
                   },
-                );
-              },
-            ),
-          ),
-          // Indicators (small, subtle)
-          Positioned(
-            bottom: 8,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                banners.length,
-                (index) => Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentMidBannerIndex == index
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.6),
-                  ),
                 ),
               ),
-            ),
+              // Indicators (small, subtle)
+              if (allBanners.length > 1)
+                Positioned(
+                  bottom: 8,
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      allBanners.length,
+                      (index) => Container(
+                        width: 6,
+                        height: 6,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _currentMidBannerIndex == index
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.6),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1059,18 +1203,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               'On sale — description coming soon.',
                           'onSale': true,
                         };
-                        return ProductCard(
+                        return SaleProductCard(
                           product: mapped,
-                          width: 160,
-                          margin: const EdgeInsets.only(right: 12),
                         );
                       }
 
                       final product = featuredProducts[index];
-                      return ProductCard(
+                      return SaleProductCard(
                         product: product,
-                        width: 160,
-                        margin: const EdgeInsets.only(right: 12),
                       );
                     },
                   ),

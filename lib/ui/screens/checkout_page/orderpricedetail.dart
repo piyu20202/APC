@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:apcproject/services/storage_service.dart';
 import 'package:apcproject/data/services/order_service.dart';
+import 'package:apcproject/data/services/cart_service.dart';
 import 'package:apcproject/data/models/user_model.dart';
 import 'package:apcproject/core/exceptions/api_exception.dart';
 import 'package:apcproject/providers/auth_provider.dart';
+import 'package:apcproject/data/services/payment_service.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:pay/pay.dart';
+import 'package:flutter/services.dart';
 
 class OrderPriceDetailPage extends StatefulWidget {
   const OrderPriceDetailPage({super.key});
@@ -17,6 +22,8 @@ class OrderPriceDetailPage extends StatefulWidget {
 
 class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   final OrderService _orderService = OrderService();
+  final CartService _cartService = CartService();
+  final PaymentService _paymentService = PaymentService();
   bool _isSubmitting = false;
   String? _couponCode;
   double _couponDiscount = 0.0;
@@ -30,16 +37,48 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   double? _gstAmount;
   double? _totalInclGst;
   double? _totalPayable;
+  bool _hasPendingFreightQuote = false;
+
+  // Google Pay variables
+  Pay? _payClient;
+  PaymentConfiguration? _googlePayConfig;
+  bool _isGooglePayAvailable = false;
+  bool _isInitializingGooglePay = true;
+  StreamSubscription? _paymentResultSubscription;
+
+  /// Safely convert API values (which may be num or String with commas) to double
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      // Remove thousand separators like "10,616.73"
+      final normalized = value.replaceAll(',', '');
+      return double.tryParse(normalized);
+    }
+    return null;
+  }
 
   @override
   void initState() {
     super.initState();
     _loadCartTotals();
+    _initializeGooglePay(); // Initialize Google Pay
+    // Add listener to enable/disable apply button based on input length
+    _couponController.addListener(_onCouponTextChanged);
+  }
+
+  void _onCouponTextChanged() {
+    // Trigger rebuild when text changes to update button state
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _couponController.removeListener(_onCouponTextChanged);
     _couponController.dispose();
+    _paymentResultSubscription?.cancel();
     super.dispose();
   }
 
@@ -48,14 +87,49 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     try {
       final cartResponse = await StorageService.getCartData();
       if (cartResponse != null) {
-        // Get total from cart (GST Incl) - this is the totalPayable
-        final totalPrice = (cartResponse['totalPrice'] as num?)?.toDouble() ?? 0.0;
+        // Use totals returned by cart/update API
+        final totalPrice = _toDouble(cartResponse['totalPrice']);
+        final taxAmount = _toDouble(cartResponse['tax']);
+        final totalWithGst = _toDouble(cartResponse['total_with_gst']);
 
-        setState(() {
-          _totalPayable = totalPrice;
-          // If breakdown not available in cart response, keep others null
-          // This way only Total Payable Amount will show
-        });
+        // Shipping may be num or string
+        final shippingCost = _toDouble(cartResponse['shipping']);
+
+        // Freight quote flag: show only if > 0
+        final showRequestFreight =
+            (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ??
+            0;
+        final hasPendingFreight = showRequestFreight > 0;
+
+        if (totalPrice != null) {
+          final totalExclGst = totalPrice + (shippingCost ?? 0.0);
+          final gstAmount =
+              taxAmount ??
+              (totalWithGst != null ? totalWithGst - totalExclGst : null);
+
+          setState(() {
+            _subtotalExclGst = totalPrice;
+            _shippingCost = shippingCost;
+            _totalExclGst = totalExclGst;
+            _gstAmount = gstAmount;
+            _totalInclGst =
+                totalWithGst ??
+                (totalPrice + (shippingCost ?? 0.0) + (gstAmount ?? 0.0));
+            _totalPayable = _totalInclGst;
+            _hasPendingFreightQuote = hasPendingFreight;
+          });
+        } else {
+          // If totals are not available, keep values null
+          setState(() {
+            _totalPayable = null;
+            _subtotalExclGst = null;
+            _shippingCost = null;
+            _totalExclGst = null;
+            _gstAmount = null;
+            _totalInclGst = null;
+            _hasPendingFreightQuote = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading cart totals: $e');
@@ -114,93 +188,196 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // PRICE DETAILS Header
             const Text(
-              'Order Summary',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'PRICE DETAILS',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF151D51),
+              ),
             ),
             const SizedBox(height: 16),
 
-            // Only show rows if data is available
-            if (_subtotalExclGst != null)
-              _buildPriceRow(
-                'Total Of Items (excl. GST)',
-                '\$${_subtotalExclGst!.toStringAsFixed(2)}',
-              ),
-            if (_shippingCost != null)
-              _buildPriceRow(
-                'Shipping Cost (excl. GST)',
-                '\$${_shippingCost!.toStringAsFixed(2)}',
-              ),
-            if (_totalExclGst != null)
-              _buildPriceRow(
-                'Total without GST',
-                '\$${_totalExclGst!.toStringAsFixed(2)}',
-              ),
-            if (_gstAmount != null)
-              _buildPriceRow(
-                'GST @ 10%',
-                '\$${_gstAmount!.toStringAsFixed(2)}',
-              ),
-            if (_totalInclGst != null)
-              _buildPriceRow(
-                'Total (incl. GST)',
-                '\$${_totalInclGst!.toStringAsFixed(2)}',
-              ),
+            // Total Of Items (excl. GST)
+            _buildPriceRow(
+              'Total Of Items (excl. GST)',
+              _subtotalExclGst != null
+                  ? '\$${_subtotalExclGst!.toStringAsFixed(2)}'
+                  : '-',
+            ),
+            const SizedBox(height: 4),
 
-            const SizedBox(height: 16),
+            // Shipping Cost (excl. GST) - in red
+            _buildPriceRow(
+              '*Shipping Cost (excl. GST)',
+              _shippingCost != null
+                  ? '\$${_shippingCost!.toStringAsFixed(2)}'
+                  : '-',
+              isRed: true,
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
 
-            InkWell(
-              onTap: () {
-                // Handle promo code
-                _showPromoCodeDialog();
-              },
-              child: Row(
+            // Total without GST
+            _buildPriceRow(
+              'Total without GST',
+              _totalExclGst != null
+                  ? '\$${_totalExclGst!.toStringAsFixed(2)}'
+                  : '-',
+            ),
+            const SizedBox(height: 4),
+
+            // GST @ 10%
+            _buildPriceRow(
+              'GST @ 10%',
+              _gstAmount != null ? '\$${_gstAmount!.toStringAsFixed(2)}' : '-',
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+
+            // Total (incl. GST)
+            _buildPriceRow(
+              'Total (incl. GST)',
+              _totalInclGst != null
+                  ? '\$${_totalInclGst!.toStringAsFixed(2)}'
+                  : '-',
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+
+            // Promo Code Section
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextField(
+                      controller: _couponController,
+                      decoration: InputDecoration(
+                        hintText: 'Enter promo code',
+                        hintStyle: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 14,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: InputBorder.none,
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Builder(
+                  builder: (context) {
+                    final textLength = _couponController.text.trim().length;
+                    final isEnabled = !_isSubmitting && textLength > 3;
+
+                    return ElevatedButton(
+                      onPressed: isEnabled ? _applyPromoCode : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isEnabled
+                            ? const Color(0xFF151D51)
+                            : Colors.grey[400],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        minimumSize: const Size(80, 40),
+                        disabledBackgroundColor: Colors.grey[400],
+                        disabledForegroundColor: Colors.white,
+                      ),
+                      child: const Text(
+                        'Apply',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            // Show applied promo code message
+            if (_couponCode != null && _couponCode!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  const Icon(Icons.tag, size: 16),
+                  Icon(Icons.check_circle, size: 16, color: Colors.green[600]),
                   const SizedBox(width: 4),
                   Text(
-                    _couponCode != null && _couponCode!.isNotEmpty
-                        ? 'Promo Code: $_couponCode'
-                        : 'Have a promo code?',
+                    'Promo code "$_couponCode" applied',
                     style: TextStyle(
-                      color: _couponCode != null && _couponCode!.isNotEmpty
-                          ? Colors.green
-                          : Colors.blue,
-                      decoration: TextDecoration.underline,
+                      color: Colors.green[700],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
-            ),
+            ],
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
 
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-
-            // Total Payable Amount (always show)
+            // Total Payable Amount
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Total Payable Amount:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  '*Total Payable Amount :',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
                 Text(
                   _totalPayable != null
                       ? '\$${_totalPayable!.toStringAsFixed(2)}'
-                      : '\$0.00',
-                  style: TextStyle(
+                      : '-',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.amber[700],
+                    color: Colors.black,
                   ),
                 ),
               ],
             ),
 
-            // Shipping notice (only show if shipping is free or null)
-            if (_shippingCost == 0.0 || _shippingCost == null) ...[
-              const SizedBox(height: 16),
+            // Pending Freight Quote (in red) - only show if API indicates freight quote is pending
+            if (_hasPendingFreightQuote) ...[
+              const SizedBox(height: 4),
+              const Text(
+                '*Pending Freight Quote',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+
+            // Shipping notice (only show if shipping is free)
+            if (_shippingCost == 0.0) ...[
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -214,59 +391,6 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOrderSummarySection() {
-    return Card(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'ORDER SUMMARY',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-
-            // Sample order items
-            _buildOrderItem(
-              'Telescopic Linear Actuator - Heavy Duty',
-              'APC-TLA-HD',
-              '\$13',
-              '1',
-            ),
-            _buildOrderItem(
-              'Robust Cast Alloy Casing Kit',
-              'APC-RCAK-001',
-              '\$74',
-              '2',
-            ),
-            _buildOrderItem('Farm Gate Opener Kit', 'APC-FGO-001', '\$59', '1'),
-            _buildOrderItem('Gas Automation Kit', 'APC-GAK-001', '\$89', '3'),
-            _buildOrderItem(
-              'Gate & Fencing Hardware',
-              'APC-GFH-001',
-              '\$45',
-              '2',
-            ),
-
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Subtotal:', style: TextStyle(fontSize: 16)),
-                const Text('\$1,386.36', style: TextStyle(fontSize: 16)),
-              ],
-            ),
           ],
         ),
       ),
@@ -339,60 +463,61 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 _selectedPaymentMethod == 'Zip Pay',
               ),
             ),
+            const SizedBox(height: 12),
+            // Google Pay Option
+            if (_isInitializingGooglePay)
+              Container(
+                padding: const EdgeInsets.all(12),
+                child: const Center(
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (_isGooglePayAvailable)
+              GestureDetector(
+                onTap: () {
+                  // Update selected payment method first
+                  setState(() {
+                    _selectedPaymentMethod = 'Google Pay';
+                  });
+                  // Then trigger payment directly
+                  _handleGooglePayClick();
+                },
+                child: _buildPaymentOption(
+                  'Google Pay',
+                  Icons.account_balance_wallet,
+                  _selectedPaymentMethod == 'Google Pay',
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPriceRow(String label, String amount) {
+  Widget _buildPriceRow(String label, String amount, {bool isRed = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [Text(label), Text(amount)],
-      ),
-    );
-  }
-
-  Widget _buildOrderItem(
-    String name,
-    String sku,
-    String price,
-    String quantity,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
         children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  'SKU: $sku',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: isRed ? Colors.red : const Color(0xFF151D51),
+              fontWeight: FontWeight.w500,
             ),
           ),
-          Expanded(
-            flex: 1,
-            child: Text('Qty: $quantity', style: const TextStyle(fontSize: 14)),
-          ),
-          Expanded(
-            flex: 1,
-            child: Text(
-              price,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          Text(
+            amount,
+            style: TextStyle(
+              fontSize: 14,
+              color: isRed ? Colors.red : Colors.black,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -575,12 +700,16 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         debugPrint('Process Payment Flag: ${response['process_payment']}');
         debugPrint('Order Number: $orderNumber');
         debugPrint('Order Response keys: ${response.keys.join(", ")}');
-        
+
         // Verify order data is saved
         final savedOrderData = await StorageService.getOrderData();
-        debugPrint('Order data saved: ${savedOrderData != null ? "Yes" : "No"}');
+        debugPrint(
+          'Order data saved: ${savedOrderData != null ? "Yes" : "No"}',
+        );
         if (savedOrderData != null) {
-          debugPrint('Saved order data keys: ${savedOrderData.keys.join(", ")}');
+          debugPrint(
+            'Saved order data keys: ${savedOrderData.keys.join(", ")}',
+          );
         }
 
         // Route to appropriate payment flow based on selected payment method
@@ -596,11 +725,22 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           return;
         }
 
+        // For Google Pay - it's handled directly when clicked, so this shouldn't be reached
+        // But add it for safety
+        if (_selectedPaymentMethod == 'Google Pay') {
+          debugPrint(
+            'Google Pay selected - Payment should be handled directly',
+          );
+          return;
+        }
+
         // For other payment methods
         if (_selectedPaymentMethod == 'PayPal' ||
             _selectedPaymentMethod == 'Afterpay' ||
             _selectedPaymentMethod == 'Zip Pay') {
-          debugPrint('${_selectedPaymentMethod} selected - Navigating to payment page');
+          debugPrint(
+            '${_selectedPaymentMethod} selected - Navigating to payment page',
+          );
           await StorageService.clearCheckoutData();
           Navigator.pushNamed(
             context,
@@ -749,59 +889,370 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     return payload;
   }
 
-  void _showPromoCodeDialog() {
-    _couponController.clear();
+  Future<void> _applyPromoCode() async {
+    final code = _couponController.text.trim();
 
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Promo Code'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _couponController,
-                decoration: const InputDecoration(
-                  labelText: 'Enter Promo Code',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _couponCode = _couponController.text.trim();
-                  // TODO: Calculate coupon discount by calling coupon API
-                  _couponDiscount = 0.0;
-                });
-                Navigator.of(dialogContext).pop();
-                if (_couponCode != null && _couponCode!.isNotEmpty) {
-                  Fluttertoast.showToast(
-                    msg: 'Promo code applied: $_couponCode',
-                    toastLength: Toast.LENGTH_SHORT,
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF002e5b),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Apply'),
-            ),
-          ],
+    if (code.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'Please enter a promo code',
+        toastLength: Toast.LENGTH_SHORT,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+      return;
+    }
+
+    if (_isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      // Read existing cart – this is what must remain if coupon fails
+      final cartResponse = await StorageService.getCartData();
+      if (cartResponse == null || cartResponse['cart'] == null) {
+        Fluttertoast.showToast(
+          msg: 'Cart is empty',
+          toastLength: Toast.LENGTH_SHORT,
         );
-      },
-    );
+        return;
+      }
+
+      final oldCart = cartResponse['cart'] as Map<String, dynamic>;
+
+      final payload = <String, dynamic>{'old_cart': oldCart, 'code': code};
+
+      // 200 responses come here; non‑2xx go to on ApiException
+      final response = await _cartService.applyCoupon(payload);
+
+      final updatedCart = response['cart'] as Map<String, dynamic>?;
+      if (updatedCart == null) {
+        // Treat as logical failure, but do not change existing totals
+        Fluttertoast.showToast(
+          msg: 'Unable to apply promo code. Please try again.',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+        return;
+      }
+
+      // Optional: compute discount
+      final oldTotal = (cartResponse['totalPrice'] as num?)?.toDouble();
+      final newTotal = (response['totalPrice'] as num?)?.toDouble();
+      final discount = (oldTotal != null && newTotal != null)
+          ? (oldTotal - newTotal)
+          : 0.0;
+
+      // Persist new cart + refresh totals shown on card
+      await StorageService.saveCartData(response);
+      await _loadCartTotals();
+
+      if (mounted) {
+        setState(() {
+          _couponCode = code;
+          _couponDiscount = discount > 0 ? discount : 0.0;
+        });
+      }
+
+      // Use server success message if present
+      final successMsg =
+          (response['message'] as String?) ??
+          'Promo code "$code" applied successfully';
+
+      Fluttertoast.showToast(
+        msg: successMsg,
+        toastLength: Toast.LENGTH_SHORT,
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+      );
+    } on ApiException catch (e) {
+      // 403 and other non‑2xx: keep old totals, show backend message
+      Fluttertoast.showToast(
+        msg: e.message,
+        toastLength: Toast.LENGTH_LONG,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Failed to apply promo code. Please try again.',
+        toastLength: Toast.LENGTH_LONG,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      } else {
+        _isSubmitting = false;
+      }
+    }
+  }
+
+  /// Initialize Google Pay
+  Future<void> _initializeGooglePay() async {
+    try {
+      setState(() {
+        _isInitializingGooglePay = true;
+      });
+
+      // Load Google Pay configuration
+      _googlePayConfig = await PaymentConfiguration.fromAsset(
+        'google_pay_config.json',
+      );
+
+      // Initialize Pay client
+      _payClient = Pay({PayProvider.google_pay: _googlePayConfig!});
+
+      // Check if Google Pay is available
+      _isGooglePayAvailable = await _payClient!.userCanPay(
+        PayProvider.google_pay,
+      );
+
+      // Setup payment result listener for Android
+      _setupPaymentResultListener();
+
+      debugPrint('Google Pay initialized. Available: $_isGooglePayAvailable');
+
+      setState(() {
+        _isInitializingGooglePay = false;
+      });
+    } catch (e) {
+      debugPrint('Error initializing Google Pay: $e');
+      _isGooglePayAvailable = false;
+      _isInitializingGooglePay = false;
+      setState(() {});
+    }
+  }
+
+  /// Setup payment result listener for Android
+  void _setupPaymentResultListener() {
+    const eventChannel = EventChannel('plugins.flutter.io/pay/payment_result');
+    _paymentResultSubscription = eventChannel
+        .receiveBroadcastStream()
+        .map((result) => jsonDecode(result as String) as Map<String, dynamic>)
+        .listen(
+          (result) {
+            debugPrint('Google Pay result received: $result');
+            _handleGooglePayResult(result);
+          },
+          onError: (error) {
+            debugPrint('Google Pay result error: $error');
+            if (mounted) {
+              setState(() {
+                _isSubmitting = false;
+              });
+              Fluttertoast.showToast(
+                msg: 'Google Pay failed. Please try again.',
+                toastLength: Toast.LENGTH_LONG,
+                backgroundColor: Colors.red,
+                textColor: Colors.white,
+              );
+            }
+          },
+        );
+  }
+
+  /// Handle Google Pay payment result
+  Future<void> _handleGooglePayResult(
+    Map<String, dynamic> paymentResult,
+  ) async {
+    try {
+      setState(() {
+        _isSubmitting = true;
+      });
+
+      // First, place the order if not already placed
+      final orderData = await StorageService.getOrderData();
+      String? orderNumber;
+      double amount = _totalPayable ?? 0.0;
+
+      if (orderData == null) {
+        // Order not placed yet, need to place order first
+        final userData = await StorageService.getUserData();
+        if (userData == null) {
+          throw Exception('User not logged in');
+        }
+
+        final cartResponse = await StorageService.getCartData();
+        if (cartResponse == null || cartResponse['cart'] == null) {
+          throw Exception('Cart is empty');
+        }
+
+        final checkoutData = await StorageService.getCheckoutData();
+        if (checkoutData == null) {
+          throw Exception('Checkout data not found');
+        }
+
+        final orderPayload = await _buildOrderPayload(
+          userData: userData,
+          cartResponse: cartResponse,
+          checkoutData: checkoutData,
+        );
+
+        orderPayload['payment_method'] = 'Google Pay';
+
+        final response = await _orderService.storeOrder(orderPayload);
+        await StorageService.saveOrderData(response);
+        await StorageService.clearCartData();
+        await StorageService.clearCheckoutData();
+
+        final order = response['order'] as Map<String, dynamic>?;
+        orderNumber = order?['order_number'] as String?;
+        amount =
+            (_toDouble(order?['pay_amount']) ??
+            _toDouble(order?['total']) ??
+            amount);
+      } else {
+        final order = orderData['order'] as Map<String, dynamic>?;
+        orderNumber = order?['order_number'] as String?;
+        amount =
+            (_toDouble(order?['pay_amount']) ??
+            _toDouble(order?['total']) ??
+            amount);
+      }
+
+      if (orderNumber == null) {
+        throw Exception('Order number not found');
+      }
+
+      debugPrint(
+        'Processing Google Pay for order: $orderNumber, amount: $amount',
+      );
+
+      // Process Google Pay payment
+      final response = await _paymentService.processGooglePay(
+        orderNumber: orderNumber,
+        amount: amount,
+        paymentResult: paymentResult,
+      );
+
+      final success = response['success'] as bool? ?? false;
+      final paymentToken =
+          response['payment_token'] as String?; // Extract token
+
+      // Debug: Print token before showing toast
+      debugPrint('=== TOKEN BEFORE TOAST ===');
+      debugPrint('Token: $paymentToken');
+      debugPrint('Token is null: ${paymentToken == null}');
+      debugPrint('Token is empty: ${paymentToken?.isEmpty ?? true}');
+      debugPrint('Response keys: ${response.keys}');
+      debugPrint('Full response: $response');
+
+      // Print Google Pay token as Base64 for easy identification in logs
+      if (paymentToken != null && paymentToken.isNotEmpty) {
+        final base64Token = base64Encode(utf8.encode(paymentToken));
+        debugPrint('============token =========');
+        debugPrint(base64Token);
+        debugPrint('============token =========');
+      }
+
+      if (success && mounted) {
+        // Show toast with token if available
+        String toastMessage = 'Payment successful!';
+        // Do NOT show token in UI/toast (can cause overflow). Keep token only in debug logs.
+        if (paymentToken == null || paymentToken.isEmpty) {
+          debugPrint('Token is null or empty, showing toast without token');
+        }
+
+        Fluttertoast.showToast(
+          msg: toastMessage,
+          toastLength: Toast.LENGTH_LONG, // LONG duration to show full token
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+        );
+
+        // Navigate to order success page with token
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/order-placed',
+          (route) => false,
+          arguments: {
+            'payment_token': paymentToken, // Pass token as argument
+            'payment_method': 'Google Pay',
+          },
+        );
+      } else {
+        final message = response['message'] as String? ?? 'Payment failed';
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: message,
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error handling Google Pay result: $e');
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Payment failed. Please try again.',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  /// Handle Google Pay option click
+  Future<void> _handleGooglePayClick() async {
+    if (!_isGooglePayAvailable ||
+        _payClient == null ||
+        _googlePayConfig == null) {
+      Fluttertoast.showToast(
+        msg: 'Google Pay is not available on this device',
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
+
+    try {
+      final amount = _totalPayable ?? 0.0;
+
+      final paymentItems = [
+        PaymentItem(
+          label: 'Total',
+          amount: amount.toStringAsFixed(2),
+          status: PaymentItemStatus.final_price,
+        ),
+      ];
+
+      // For Android, use showPaymentSelector (result comes via event channel)
+      if (Theme.of(context).platform == TargetPlatform.android) {
+        await _payClient!.showPaymentSelector(
+          PayProvider.google_pay,
+          paymentItems,
+        );
+      } else {
+        // For iOS, result comes directly
+        final result = await _payClient!.showPaymentSelector(
+          PayProvider.google_pay,
+          paymentItems,
+        );
+        _handleGooglePayResult(result);
+      }
+    } catch (e) {
+      debugPrint('Google Pay error: $e');
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Google Pay failed. Please try again.',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    }
   }
 }

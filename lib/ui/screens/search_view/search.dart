@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../productlist_view/productlist.dart';
 import '../widget/product_card.dart';
 import '../../../data/repositories/homepage_repository.dart';
@@ -18,6 +19,42 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isSearching = false;
   bool _isLoading = false;
   String? _error;
+  Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    // Cancel previous timer
+    _debounceTimer?.cancel();
+    
+    final query = _searchController.text.trim();
+    
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+        _isLoading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    // Set loading state immediately for better UX
+    setState(() {
+      _isSearching = true;
+      _isLoading = true;
+      _error = null;
+    });
+
+    // Debounce: Wait 600ms after user stops typing before making API call
+    _debounceTimer = Timer(const Duration(milliseconds: 600), () {
+      _performSearch(query);
+    });
+  }
 
   void _performSearch(String query) async {
     if (query.isEmpty) {
@@ -62,6 +99,7 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() {
         _searchResults = mappedResults;
         _isLoading = false;
+        _isSearching = false;
         _error = null;
       });
     } catch (e) {
@@ -69,6 +107,7 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() {
         _searchResults = [];
         _isLoading = false;
+        _isSearching = false;
         _error = 'Failed to search products. Please try again.';
       });
     }
@@ -76,6 +115,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -112,8 +153,14 @@ class _SearchScreenState extends State<SearchScreen> {
                     ? IconButton(
                         icon: const Icon(Icons.clear, color: Colors.grey),
                         onPressed: () {
+                          _debounceTimer?.cancel();
                           _searchController.clear();
-                          _performSearch('');
+                          setState(() {
+                            _searchResults = [];
+                            _isSearching = false;
+                            _isLoading = false;
+                            _error = null;
+                          });
                         },
                       )
                     : null,
@@ -132,8 +179,10 @@ class _SearchScreenState extends State<SearchScreen> {
                 filled: true,
                 fillColor: Colors.grey[50],
               ),
-              onChanged: _performSearch,
-              onSubmitted: _performSearch,
+              onSubmitted: (value) {
+                _debounceTimer?.cancel();
+                _performSearch(value.trim());
+              },
             ),
           ),
 

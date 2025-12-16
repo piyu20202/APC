@@ -14,6 +14,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Main card content
         Container(
@@ -25,6 +26,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Welcome Header
               Row(
@@ -268,6 +270,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
 
         // External buttons (outside the card)
         Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
               width: double.infinity,

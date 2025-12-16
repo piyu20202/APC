@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../providers/auth_provider.dart';
 import '../forgotpassword_view/forgotpassword.dart';
 import '../../../data/services/settings_service.dart';
@@ -99,37 +100,71 @@ class _SigninScreenState extends State<SigninScreen> {
   /// Handle Facebook login
   Future<void> _handleFacebookLogin() async {
     try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
       // Trigger Facebook login
       final LoginResult result = await FacebookAuth.instance.login();
-      
+
       if (result.status == LoginStatus.success) {
         // Get user data from Facebook
         final userData = await FacebookAuth.instance.getUserData();
-        
+        final accessToken = result.accessToken?.tokenString ?? '';
+
         Logger.info('Facebook login successful: ${userData.toString()}');
-        
-        // TODO: Send Facebook token to your backend API
-        // You'll need to implement this in AuthProvider similar to regular login
-        // Example:
-        // final success = await authProvider.loginWithFacebook(
-        //   accessToken: result.accessToken?.tokenString ?? '',
-        //   email: userData['email'],
-        //   name: userData['name'],
-        // );
-        
-        if (mounted) {
-          Fluttertoast.showToast(
-            msg: 'Facebook login successful!',
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            backgroundColor: Colors.green,
-            textColor: Colors.white,
-            fontSize: 16.0,
+
+        // Try social login first (for existing users)
+        bool success = await authProvider.socialLogin(
+          provider: 'facebook',
+          accessToken: accessToken,
+          email: userData['email']?.toString(),
+          name: userData['name']?.toString(),
+          phone: userData['phone']?.toString(),
+        );
+
+        if (!success && mounted) {
+          // If login fails, try registration (for new users)
+          success = await authProvider.socialRegister(
+            provider: 'facebook',
+            accessToken: accessToken,
+            email: userData['email']?.toString(),
+            name: userData['name']?.toString(),
+            phone: userData['phone']?.toString(),
           );
-          
-          // Navigate to main screen after successful login
-          // Uncomment when backend integration is ready:
-          // Navigator.pushReplacementNamed(context, '/main');
+        }
+
+        if (mounted) {
+          if (success) {
+            // Check if settings already exist (first time login check)
+            final existingSettings = await StorageService.getSettings();
+
+            if (existingSettings == null) {
+              await _fetchSettingsFirstTime();
+            }
+
+            final userName = authProvider.currentUser?.name ?? 'User';
+
+            Fluttertoast.showToast(
+              msg: 'Welcome $userName! Login successful.',
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.BOTTOM,
+              backgroundColor: Colors.green,
+              textColor: Colors.white,
+              fontSize: 16.0,
+            );
+
+            Navigator.pushReplacementNamed(context, '/main');
+          } else {
+            Fluttertoast.showToast(
+              msg:
+                  authProvider.errorMessage ??
+                  'Facebook login failed. Please try again.',
+              toastLength: Toast.LENGTH_LONG,
+              gravity: ToastGravity.BOTTOM,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+              fontSize: 16.0,
+            );
+          }
         }
       } else if (result.status == LoginStatus.cancelled) {
         if (mounted) {
@@ -156,6 +191,108 @@ class _SigninScreenState extends State<SigninScreen> {
       }
     } catch (e) {
       Logger.error('Facebook login error', e);
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Error: ${e.toString()}',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      }
+    }
+  }
+
+  /// Handle Google login
+  Future<void> _handleGoogleLogin() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      // Initialize Google Sign In
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+
+      // Trigger Google sign in
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // User cancelled the sign-in
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Google login cancelled',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.orange,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+        }
+        return;
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final accessToken = googleAuth.accessToken ?? '';
+
+      Logger.info('Google login successful: ${googleUser.email}');
+
+      // Try social login first (for existing users)
+      bool success = await authProvider.socialLogin(
+        provider: 'google',
+        accessToken: accessToken,
+        email: googleUser.email,
+        name: googleUser.displayName,
+        phone: null,
+      );
+
+      if (!success && mounted) {
+        // If login fails, try registration (for new users)
+        success = await authProvider.socialRegister(
+          provider: 'google',
+          accessToken: accessToken,
+          email: googleUser.email,
+          name: googleUser.displayName,
+          phone: null,
+        );
+      }
+
+      if (mounted) {
+        if (success) {
+          // Check if settings already exist (first time login check)
+          final existingSettings = await StorageService.getSettings();
+
+          if (existingSettings == null) {
+            await _fetchSettingsFirstTime();
+          }
+
+          final userName = authProvider.currentUser?.name ?? 'User';
+
+          Fluttertoast.showToast(
+            msg: 'Welcome $userName! Login successful.',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+
+          Navigator.pushReplacementNamed(context, '/main');
+        } else {
+          Fluttertoast.showToast(
+            msg:
+                authProvider.errorMessage ??
+                'Google login failed. Please try again.',
+            toastLength: Toast.LENGTH_LONG,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+        }
+      }
+    } catch (e) {
+      Logger.error('Google login error', e);
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Error: ${e.toString()}',
@@ -198,8 +335,12 @@ class _SigninScreenState extends State<SigninScreen> {
                   Center(
                     child: Container(
                       constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.4, // 40% of screen width
-                        maxHeight: MediaQuery.of(context).size.height * 0.15, // 15% of screen height
+                        maxWidth:
+                            MediaQuery.of(context).size.width *
+                            0.4, // 40% of screen width
+                        maxHeight:
+                            MediaQuery.of(context).size.height *
+                            0.15, // 15% of screen height
                       ),
                       child: Image.asset(
                         'assets/images/logo.png',
@@ -365,81 +506,99 @@ class _SigninScreenState extends State<SigninScreen> {
                   const SizedBox(height: 60),
 
                   // Social Login Section
+                  // TODO: Enable social login buttons after configuring:
+                  // - Google Sign-In: Add SHA-1 fingerprint to Firebase Console and configure Info.plist
+                  // - Facebook Login: Set up Facebook App ID in AndroidManifest.xml and Info.plist
                   Row(
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          onTap: _handleFacebookLogin,
-                          child: Container(
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFF1877F2), // Facebook blue color
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'f',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'Roboto',
+                        child: IgnorePointer(
+                          ignoring:
+                              true, // Disabled until configuration is complete
+                          child: Opacity(
+                            opacity:
+                                0.5, // Visual indication that button is disabled
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(25),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: Color(
+                                        0xFF1877F2,
+                                      ), // Facebook blue color
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        'f',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Roboto',
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Facebook',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Facebook',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Container(
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.g_mobiledata,
-                                size: 24,
-                                color: Colors.black,
+                        child: IgnorePointer(
+                          ignoring:
+                              true, // Disabled until configuration is complete
+                          child: Opacity(
+                            opacity:
+                                0.5, // Visual indication that button is disabled
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(25),
+                                border: Border.all(color: Colors.grey.shade300),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Google',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.g_mobiledata,
+                                    size: 24,
+                                    color: Colors.black,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Google',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),

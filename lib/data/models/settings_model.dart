@@ -44,6 +44,9 @@ class GeneralSettings {
   final String copyright;
   final String headerPhone;
   final String defaultImage;
+  final int freeShippingThreshold;
+  final double minFreeShippingCost;
+  final String freeShippingStatus;
 
   GeneralSettings({
     required this.logo,
@@ -52,9 +55,32 @@ class GeneralSettings {
     required this.copyright,
     required this.headerPhone,
     required this.defaultImage,
+    required this.freeShippingThreshold,
+    required this.minFreeShippingCost,
+    required this.freeShippingStatus,
   });
 
   factory GeneralSettings.fromJson(Map<String, dynamic> json) {
+    // Parse free_shipping_threshold (can be int or string)
+    int parseFreeShippingThreshold(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) {
+        return int.tryParse(value.trim()) ?? 0;
+      }
+      return 0;
+    }
+
+    // Parse min_free_shipping_cost (can be string or number)
+    double parseMinFreeShippingCost(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) return value.toDouble();
+      if (value is String) {
+        return double.tryParse(value.trim()) ?? 0.0;
+      }
+      return 0.0;
+    }
+
     return GeneralSettings(
       logo: json['logo'] as String? ?? '',
       favicon: json['favicon'] as String? ?? '',
@@ -62,6 +88,14 @@ class GeneralSettings {
       copyright: json['copyright'] as String? ?? '',
       headerPhone: json['header_phone'] as String? ?? '',
       defaultImage: json['default_image'] as String? ?? '',
+      freeShippingThreshold: parseFreeShippingThreshold(
+        json['free_shipping_threshold'],
+      ),
+      minFreeShippingCost: parseMinFreeShippingCost(
+        json['min_free_shipping_cost'],
+      ),
+      freeShippingStatus:
+          json['free_shipping_status']?.toString().toLowerCase() ?? 'no',
     );
   }
 
@@ -73,6 +107,9 @@ class GeneralSettings {
       'copyright': copyright,
       'header_phone': headerPhone,
       'default_image': defaultImage,
+      'free_shipping_threshold': freeShippingThreshold,
+      'min_free_shipping_cost': minFreeShippingCost,
+      'free_shipping_status': freeShippingStatus,
     };
   }
 }

@@ -53,102 +53,107 @@ class _ProfileViewState extends State<ProfileView> {
       ),
       backgroundColor: Colors.grey[50],
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Trader Status Card (if not a trader)
-              if (!_isLoading && !_isTrader) ...[
-                _buildTraderUpgradeCard(),
-                const SizedBox(height: 16),
-              ],
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // Trader Status Card (if not a trader)
+                if (!_isLoading && !_isTrader) ...[
+                  _buildTraderUpgradeCard(),
+                  const SizedBox(height: 16),
+                ],
 
-              // Profile Menu
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey[300]!),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                // Profile Menu
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey[300]!),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildMenuItem(
+                        context: context,
+                        title: 'Account Info',
+                        onTap: () {
+                          // Navigate to Account Info page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AccountInfoPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        context: context,
+                        title: 'My Orders',
+                        onTap: () {
+                          // Navigate to My Orders page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MyOrdersPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        context: context,
+                        title: 'Edit Profile',
+                        onTap: () {
+                          // Navigate to Edit Profile page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfilePage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        context: context,
+                        title: 'Reset Password',
+                        onTap: () {
+                          // Navigate to Reset Password page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ResetPasswordPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        context: context,
+                        title: 'Logout',
+                        onTap: () {
+                          _showLogoutDialog(context);
+                        },
+                        isLogout: true,
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    _buildMenuItem(
-                      context: context,
-                      title: 'Account Info',
-                      onTap: () {
-                        // Navigate to Account Info page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AccountInfoPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      context: context,
-                      title: 'My Orders',
-                      onTap: () {
-                        // Navigate to My Orders page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MyOrdersPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      context: context,
-                      title: 'Edit Profile',
-                      onTap: () {
-                        // Navigate to Edit Profile page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EditProfilePage(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      context: context,
-                      title: 'Reset Password',
-                      onTap: () {
-                        // Navigate to Reset Password page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ResetPasswordPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      context: context,
-                      title: 'Logout',
-                      onTap: () {
-                        _showLogoutDialog(context);
-                      },
-                      isLogout: true,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                // Add bottom padding to prevent content from being cut off
+                SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+              ],
+            ),
           ),
         ),
       ),

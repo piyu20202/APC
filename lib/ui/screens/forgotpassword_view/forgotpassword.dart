@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../core/exceptions/api_exception.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -10,6 +12,8 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final AuthService _authService = AuthService();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -72,21 +76,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // Handle password reset logic here
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Password reset link sent to your email!',
-                              ),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                          // Navigate back to signin screen
-                          Navigator.pop(context);
-                        }
-                      },
+                      onPressed: _isSubmitting ? null : _handleResetPassword,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(
                           0xFF151D51,
@@ -97,14 +87,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Reset Password',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Reset Password',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
 
@@ -198,5 +199,53 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _handleResetPassword() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      await _authService.forgotPassword(email: email);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset link sent to your email!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to send reset link. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      } else {
+        _isSubmitting = false;
+      }
+    }
   }
 }

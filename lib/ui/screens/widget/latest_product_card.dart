@@ -7,13 +7,13 @@ import '../../../data/services/cart_payload_builder.dart';
 import '../../../services/storage_service.dart';
 import '../../../services/navigation_service.dart';
 
-class ProductCard extends StatefulWidget {
+class LatestProductCard extends StatefulWidget {
   final Map<String, dynamic> product;
   final double? width;
   final double? height;
   final EdgeInsets? margin;
 
-  const ProductCard({
+  const LatestProductCard({
     super.key,
     required this.product,
     this.width,
@@ -22,10 +22,10 @@ class ProductCard extends StatefulWidget {
   });
 
   @override
-  State<ProductCard> createState() => _ProductCardState();
+  State<LatestProductCard> createState() => _LatestProductCardState();
 }
 
-class _ProductCardState extends State<ProductCard> {
+class _LatestProductCardState extends State<LatestProductCard> {
   final ProductService _productService = ProductService();
   final CartService _cartService = CartService();
   bool _isQuickAdding = false;
@@ -47,7 +47,6 @@ class _ProductCardState extends State<ProductCard> {
       },
       child: Container(
         width: widget.width,
-        // height: widget.height,  // Removed - let content decide height for flexibility
         margin: widget.margin,
         decoration: BoxDecoration(
           color: Colors.white,
@@ -65,12 +64,38 @@ class _ProductCardState extends State<ProductCard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: Wishlist icon (right only)
+            // Top row: "NEW" badge and Wishlist icon
             Padding(
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 6),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // NEW Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          spreadRadius: 0.5,
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      'NEW',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  // Wishlist icon
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
@@ -94,7 +119,7 @@ class _ProductCardState extends State<ProductCard> {
                 ],
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             // Product Image
             Container(
               height: 120,
@@ -125,42 +150,6 @@ class _ProductCardState extends State<ProductCard> {
                           : _buildProductImage(product),
                     ),
                   ),
-
-                  if (_hasStrikePrice(product))
-                    Positioned(
-                      top: 12,
-                      left: -14,
-                      child: Transform.rotate(
-                        angle: -0.785398, // -45 degrees in radians
-                        child: Container(
-                          width: 60,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                spreadRadius: 0.5,
-                                blurRadius: 1,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Text(
-                              'SALE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 9,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
                   // Out of Stock Badge
                   if (_isOutOfStock(product))
                     Positioned(
@@ -195,27 +184,21 @@ class _ProductCardState extends State<ProductCard> {
                 ],
               ),
             ),
-
             // Product Details
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                8,
-                4,
-                8,
-                0,
-              ), // Bottom padding removed
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Fixed-height SKU row (1 line space reserved)
+                  // SKU row
                   SizedBox(
-                    height: 18,
+                    height: 16,
                     child: (product['sku'] ?? '').toString().trim().isNotEmpty
                         ? Text(
                             'SKU: ${product['sku']}',
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: Colors.black87,
                             ),
                             maxLines: 1,
@@ -223,10 +206,10 @@ class _ProductCardState extends State<ProductCard> {
                           )
                         : const SizedBox.shrink(),
                   ),
-                  const SizedBox(height: 2),
-                  // Fixed-height Title (2 lines)
+                  const SizedBox(height: 1),
+                  // Title
                   SizedBox(
-                    height: 50,
+                    height: 42,
                     child: Text(
                       product['name'] ?? '',
                       style: const TextStyle(
@@ -238,14 +221,14 @@ class _ProductCardState extends State<ProductCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  // Fixed-height Description (2 lines) - Reduce height slightly when strike price exists
+                  const SizedBox(height: 1),
+                  // Description
                   SizedBox(
-                    height: _hasStrikePrice(product) ? 50 : 42,
+                    height: 34,
                     child: Text(
                       product['description'] ?? '',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Colors.grey[700],
                         fontWeight: FontWeight.w400,
                       ),
@@ -254,52 +237,26 @@ class _ProductCardState extends State<ProductCard> {
                     ),
                   ),
                   const SizedBox(height: 1),
-                  // Price and Cart Row - Fixed height to prevent overflow (always reserve space for strike price)
+                  // Price and Cart Row
                   SizedBox(
-                    height: 50,
+                    height: 42,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                height: _hasStrikePrice(product) ? 16 : 0,
-                                child: _hasStrikePrice(product)
-                                    ? Text(
-                                        _formatPrice(
-                                          product['previous_price'] ??
-                                              product['originalPrice'],
-                                        ),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          decoration:
-                                              TextDecoration.lineThrough,
-                                          color: Colors.grey[600],
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                    : const SizedBox.shrink(),
-                              ),
-                              Text(
-                                _formatPrice(
-                                  product['price'] ??
-                                      product['currentPrice'] ??
-                                      '',
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                          child: Text(
+                            _formatPrice(
+                              product['price'] ??
+                                  product['currentPrice'] ??
+                                  '',
+                            ),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -320,8 +277,7 @@ class _ProductCardState extends State<ProductCard> {
                                 ),
                               )
                             : GestureDetector(
-                                onTap:
-                                    (_isQuickAdding || _isOutOfStock(product))
+                                onTap: (_isQuickAdding || _isOutOfStock(product))
                                     ? null
                                     : () => _handleQuickAdd(context),
                                 child: Container(
@@ -378,7 +334,6 @@ class _ProductCardState extends State<ProductCard> {
       return;
     }
 
-    // Check if product is out of stock
     if (_isOutOfStock(widget.product)) {
       messenger.showSnackBar(
         const SnackBar(
@@ -443,12 +398,6 @@ class _ProductCardState extends State<ProductCard> {
   }
 }
 
-bool _hasStrikePrice(Map<String, dynamic> product) {
-  final prev = _readNum(product['previous_price'] ?? product['originalPrice']);
-  final price = _readNum(product['price'] ?? product['currentPrice']);
-  return prev > 0 && prev > price;
-}
-
 bool _isOutOfStock(Map<String, dynamic> product) {
   final outOfStock = product['out_of_stock'];
   if (outOfStock == null) return false;
@@ -470,7 +419,6 @@ num _readNum(dynamic v) {
 String _formatPrice(dynamic v) {
   final n = _readNum(v);
   if (n == 0) {
-    // Fall back to string if provided like "$13"
     if (v is String && v.trim().isNotEmpty) return v;
     return '';
   }
@@ -480,7 +428,6 @@ String _formatPrice(dynamic v) {
 Widget _buildProductImage(Map<String, dynamic> product) {
   final thumb = (product['thumbnail'] ?? product['image'])?.toString();
   if (thumb == null || thumb.isEmpty) {
-    // Use the provided fallback image URL when thumbnail is empty
     return CachedNetworkImage(
       imageUrl:
           'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
@@ -554,3 +501,4 @@ Widget _buildProductImage(Map<String, dynamic> product) {
 Widget _imageFallback() {
   return Center(child: Icon(Icons.image, color: Colors.grey[400], size: 40));
 }
+

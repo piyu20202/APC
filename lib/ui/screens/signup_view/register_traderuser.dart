@@ -458,6 +458,10 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
                 : TextInputType.text,
             decoration: InputDecoration(
               hintText: hint,
+              hintStyle: TextStyle(
+                color: Colors.grey[400], // Light gray color for placeholder
+                fontSize: 14,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(color: Colors.grey),

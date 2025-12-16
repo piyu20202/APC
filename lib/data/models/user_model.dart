@@ -13,6 +13,7 @@ class UserModel {
   final String? zip;
   final int isTradeUser;
   final int specialUser;
+  final int? freeShippingThreshold;
 
   UserModel({
     required this.id,
@@ -29,6 +30,7 @@ class UserModel {
     this.zip,
     required this.isTradeUser,
     required this.specialUser,
+    this.freeShippingThreshold,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,11 @@ class UserModel {
       zip: json['zip'] as String?,
       isTradeUser: json['is_trade_user'] as int,
       specialUser: json['special_user'] as int,
+      freeShippingThreshold: json['free_shipping_threshold'] != null
+          ? (json['free_shipping_threshold'] is int
+                ? json['free_shipping_threshold'] as int
+                : int.tryParse(json['free_shipping_threshold'].toString()))
+          : null,
     );
   }
 
@@ -66,6 +73,7 @@ class UserModel {
       'zip': zip,
       'is_trade_user': isTradeUser,
       'special_user': specialUser,
+      'free_shipping_threshold': freeShippingThreshold,
     };
   }
 }

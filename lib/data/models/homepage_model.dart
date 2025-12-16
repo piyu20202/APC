@@ -162,7 +162,7 @@ class Banner {
       id: json['id'] as int? ?? 0,
       photo: json['photo'] as String? ?? '',
       link: json['link'] as String?,
-      title: json['title'] as String?,
+      title: json['b_title'] as String? ?? json['title'] as String?,
     );
   }
 
@@ -194,8 +194,8 @@ class Category {
         id: json['id'] is int
             ? json['id']
             : (json['id'] != null
-                ? int.tryParse(json['id'].toString()) ?? 0
-                : 0),
+                  ? int.tryParse(json['id'].toString()) ?? 0
+                  : 0),
         name: json['name'] is String
             ? json['name']
             : json['name']?.toString() ?? '',
@@ -208,8 +208,11 @@ class Category {
         slug: json['slug']?.toString(),
         subcategories: json['subcategories'] != null
             ? (json['subcategories'] as List<dynamic>)
-                .map((item) => SubCategory.fromJson(item as Map<String, dynamic>))
-                .toList()
+                  .map(
+                    (item) =>
+                        SubCategory.fromJson(item as Map<String, dynamic>),
+                  )
+                  .toList()
             : null,
       );
     } catch (e) {
@@ -229,7 +232,8 @@ class Category {
     };
   }
 
-  bool get hasSubcategories => subcategories != null && subcategories!.isNotEmpty;
+  bool get hasSubcategories =>
+      subcategories != null && subcategories!.isNotEmpty;
 }
 
 class SubCategory {
@@ -265,15 +269,17 @@ class SubCategory {
             : json['image']?.toString(),
         categoryId: json['category_id'] != null
             ? (json['category_id'] is int
-                ? json['category_id']
-                : int.tryParse(json['category_id'].toString()))
+                  ? json['category_id']
+                  : int.tryParse(json['category_id'].toString()))
             : null,
         slug: json['slug']?.toString(),
         childcategories: json['childcategories'] != null
             ? (json['childcategories'] as List<dynamic>)
-                .map((item) =>
-                    ChildCategory.fromJson(item as Map<String, dynamic>))
-                .toList()
+                  .map(
+                    (item) =>
+                        ChildCategory.fromJson(item as Map<String, dynamic>),
+                  )
+                  .toList()
             : null,
       );
     } catch (e) {
@@ -288,8 +294,7 @@ class SubCategory {
       'image': image,
       'category_id': categoryId,
       'slug': slug,
-      'childcategories':
-          childcategories?.map((c) => c.toJson()).toList(),
+      'childcategories': childcategories?.map((c) => c.toJson()).toList(),
     };
   }
 
@@ -332,20 +337,22 @@ class ChildCategory {
             : json['image']?.toString(),
         subcategoryId: json['subcategory_id'] != null
             ? (json['subcategory_id'] is int
-                ? json['subcategory_id']
-                : int.tryParse(json['subcategory_id'].toString()))
+                  ? json['subcategory_id']
+                  : int.tryParse(json['subcategory_id'].toString()))
             : null,
         categoryId: json['category_id'] != null
             ? (json['category_id'] is int
-                ? json['category_id']
-                : int.tryParse(json['category_id'].toString()))
+                  ? json['category_id']
+                  : int.tryParse(json['category_id'].toString()))
             : null,
         slug: json['slug']?.toString(),
         subchildcategories: json['subchildcategories'] != null
             ? (json['subchildcategories'] as List<dynamic>)
-                .map((item) =>
-                    SubChildCategory.fromJson(item as Map<String, dynamic>))
-                .toList()
+                  .map(
+                    (item) =>
+                        SubChildCategory.fromJson(item as Map<String, dynamic>),
+                  )
+                  .toList()
             : null,
       );
     } catch (e) {
@@ -361,8 +368,7 @@ class ChildCategory {
       'subcategory_id': subcategoryId,
       'category_id': categoryId,
       'slug': slug,
-      'subchildcategories':
-          subchildcategories?.map((s) => s.toJson()).toList(),
+      'subchildcategories': subchildcategories?.map((s) => s.toJson()).toList(),
     };
   }
 
@@ -407,29 +413,35 @@ class SubChildCategory {
             : json['image']?.toString(),
         childcategoryId: json['childcategory_id'] != null
             ? (json['childcategory_id'] is int
-                ? json['childcategory_id']
-                : int.tryParse(json['childcategory_id'].toString()))
+                  ? json['childcategory_id']
+                  : int.tryParse(json['childcategory_id'].toString()))
             : null,
         subcategoryId: json['subcategory_id'] != null
             ? (json['subcategory_id'] is int
-                ? json['subcategory_id']
-                : int.tryParse(json['subcategory_id'].toString()))
+                  ? json['subcategory_id']
+                  : int.tryParse(json['subcategory_id'].toString()))
             : null,
         categoryId: json['category_id'] != null
             ? (json['category_id'] is int
-                ? json['category_id']
-                : int.tryParse(json['category_id'].toString()))
+                  ? json['category_id']
+                  : int.tryParse(json['category_id'].toString()))
             : null,
         slug: json['slug']?.toString(),
         subchildcategories: json['subchildcategories'] != null
             ? (json['subchildcategories'] as List<dynamic>)
-                .map((item) =>
-                    SubChildCategory.fromJson(item as Map<String, dynamic>))
-                .toList()
+                  .map(
+                    (item) =>
+                        SubChildCategory.fromJson(item as Map<String, dynamic>),
+                  )
+                  .toList()
             : null,
       );
     } catch (e) {
-      return SubChildCategory(id: 0, name: 'Unknown SubChildCategory', image: null);
+      return SubChildCategory(
+        id: 0,
+        name: 'Unknown SubChildCategory',
+        image: null,
+      );
     }
   }
 
@@ -442,8 +454,7 @@ class SubChildCategory {
       'subcategory_id': subcategoryId,
       'category_id': categoryId,
       'slug': slug,
-      'subchildcategories':
-          subchildcategories?.map((s) => s.toJson()).toList(),
+      'subchildcategories': subchildcategories?.map((s) => s.toJson()).toList(),
     };
   }
 

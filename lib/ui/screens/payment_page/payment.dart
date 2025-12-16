@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:apcproject/services/storage_service.dart';
 import 'package:apcproject/data/services/payment_service.dart';
+import 'package:cybersource_inapp/cybersource_inapp.dart';
 import 'package:apcproject/core/exceptions/api_exception.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
@@ -214,54 +215,50 @@ class _PaymentPageState extends State<PaymentPage> {
         throw Exception('Invalid expiry date format');
       }
 
-      // Build payment data for CyberSource
-      final paymentData = {
-        'card_number': cardNumber,
-        'expiry_month': expiryParts[0].padLeft(2, '0'),
-        'expiry_year': '20${expiryParts[1]}', // Convert YY to YYYY
-        'cvv': _cvvController.text,
-        'cardholder_name': _cardholderNameController.text,
-        'amount': _amount,
-        'currency': _currency ?? 'AUD',
-      };
+      final expiryMonth = expiryParts[0].padLeft(2, '0');
+      final expiryYear = '20${expiryParts[1]}'; // Convert YY to YYYY
 
-      // Process payment
-      final response = await _paymentService.processPayment(
-        orderNumber: _orderNumber!,
-        paymentData: paymentData,
+      // === Cybersource transient token flow (mobile side) ===
+      // Get (dummy) capture context from the plugin – this will later come
+      // from backend / Cybersource, but for now enables end‑to‑end testing.
+      final captureContext = await CybersourceInapp.getCaptureContext();
+
+      final token = await CybersourceInapp.tokenizeCard(
+        captureContext: captureContext,
+        cardNumber: cardNumber,
+        expiryMonth: expiryMonth,
+        expiryYear: expiryYear,
+        cvv: _cvvController.text,
+        cardholderName: _cardholderNameController.text,
       );
 
-      // Check payment success
-      final success = response['success'] as bool? ?? false;
-      final transactionId = response['transaction_id'] as String?;
-      final message = response['message'] as String? ?? 'Payment processed';
+      debugPrint('Cybersource transient token: $token');
 
-      if (success && transactionId != null) {
-        if (mounted) {
-          Fluttertoast.showToast(
-            msg: 'Payment successful!',
-            toastLength: Toast.LENGTH_SHORT,
-            backgroundColor: Colors.green,
-            textColor: Colors.white,
-          );
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Card token: $token',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+        );
 
-          // Navigate to order success page
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/order-placed',
-            (route) => false,
-          );
-        }
-      } else {
-        if (mounted) {
-          Fluttertoast.showToast(
-            msg: message,
-            toastLength: Toast.LENGTH_LONG,
-            backgroundColor: Colors.red,
-            textColor: Colors.white,
-          );
-        }
+        // Navigate to order success page and display the token,
+        // similar to Google Pay token handling.
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/order-placed',
+          (route) => false,
+          arguments: {
+            'payment_token': token,
+            'payment_method': 'Cybersource Card',
+          },
+        );
       }
+
+      // NOTE: The previous backend `processPayment` call is intentionally
+      // skipped here for now so that the UI flow can be validated first.
+      // Once the backend is ready to accept transient tokens, the token
+      // can be sent to the server from this method.
     } on ApiException catch (e) {
       if (mounted) {
         if (e.statusCode == 401) {

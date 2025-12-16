@@ -5,6 +5,11 @@ class OrderPlacedPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get arguments passed from navigation
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final paymentToken = args?['payment_token'] as String?;
+    final paymentMethod = args?['payment_method'] as String? ?? 'Payment';
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -78,6 +83,55 @@ class OrderPlacedPage extends StatelessWidget {
               ),
 
               const SizedBox(height: 16),
+
+              // Payment Token Display (if available)
+              if (paymentToken != null && paymentToken.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Payment Token ($paymentMethod)',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF151D51),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SelectableText(
+                        paymentToken,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontFamily: 'monospace',
+                        ),
+                        maxLines: null,
+                        textAlign: TextAlign.left,
+                      ),
+                    ],
+                  ),
+                ),
+
+              if (paymentToken != null && paymentToken.isNotEmpty)
+                const SizedBox(height: 16),
 
               // Order Details
               /*

@@ -24,16 +24,25 @@ class HomepageService {
   // Category name to structure mapping for dummy data
   CategoryStructure _getCategoryStructure(String categoryName) {
     final normalizedName = categoryName.toLowerCase().trim();
-    
+
     if (normalizedName.contains('remote')) {
-      return CategoryStructure(hasSubcategories: true, hasChildcategories: true);
-    } else if (normalizedName.contains('video intercom') || 
-               normalizedName.contains('video intercom system')) {
-      return CategoryStructure(hasSubcategories: true, hasChildcategories: false);
+      return CategoryStructure(
+        hasSubcategories: true,
+        hasChildcategories: true,
+      );
+    } else if (normalizedName.contains('video intercom') ||
+        normalizedName.contains('video intercom system')) {
+      return CategoryStructure(
+        hasSubcategories: true,
+        hasChildcategories: false,
+      );
     }
-    
+
     // Default: no subcategories
-    return CategoryStructure(hasSubcategories: false, hasChildcategories: false);
+    return CategoryStructure(
+      hasSubcategories: false,
+      hasChildcategories: false,
+    );
   }
 
   /// Generate dummy category data for testing
@@ -48,14 +57,24 @@ class HomepageService {
       name: name,
       image: 'assets/images/product${id % 5}.png',
       pageOpen: hasSubcategories ? 'landing_page' : 'product_listing_page',
-      subcategories: hasSubcategories ? _generateDummySubcategories(id, name, hasChildcategories: hasChildcategories) : null,
+      subcategories: hasSubcategories
+          ? _generateDummySubcategories(
+              id,
+              name,
+              hasChildcategories: hasChildcategories,
+            )
+          : null,
     );
   }
 
-  List<SubCategory> _generateDummySubcategories(int categoryId, String categoryName, {bool hasChildcategories = false}) {
+  List<SubCategory> _generateDummySubcategories(
+    int categoryId,
+    String categoryName, {
+    bool hasChildcategories = false,
+  }) {
     final normalizedCategoryName = categoryName.toLowerCase().trim();
     final isRemoteCategory = normalizedCategoryName.contains('remote');
-    
+
     return [
       SubCategory(
         id: categoryId * 10 + 1,
@@ -64,8 +83,11 @@ class HomepageService {
         categoryId: categoryId,
         // All subcategories of Remote category have childcategories
         // Some childcategories will have subchildcategories for testing
-        childcategories: (hasChildcategories && isRemoteCategory) 
-            ? _generateDummyChildcategories(categoryId * 10 + 1, hasSubchildcategories: true) 
+        childcategories: (hasChildcategories && isRemoteCategory)
+            ? _generateDummyChildcategories(
+                categoryId * 10 + 1,
+                hasSubchildcategories: true,
+              )
             : null,
       ),
       SubCategory(
@@ -75,14 +97,20 @@ class HomepageService {
         categoryId: categoryId,
         // All subcategories of Remote category have childcategories
         // Some childcategories will have subchildcategories for testing
-        childcategories: (hasChildcategories && isRemoteCategory) 
-            ? _generateDummyChildcategories(categoryId * 10 + 2, hasSubchildcategories: true) 
+        childcategories: (hasChildcategories && isRemoteCategory)
+            ? _generateDummyChildcategories(
+                categoryId * 10 + 2,
+                hasSubchildcategories: true,
+              )
             : null,
       ),
     ];
   }
 
-  List<ChildCategory> _generateDummyChildcategories(int subcategoryId, {bool hasSubchildcategories = false}) {
+  List<ChildCategory> _generateDummyChildcategories(
+    int subcategoryId, {
+    bool hasSubchildcategories = false,
+  }) {
     return [
       ChildCategory(
         id: subcategoryId * 10 + 1,
@@ -90,7 +118,9 @@ class HomepageService {
         image: 'assets/images/product${(subcategoryId * 10 + 1) % 5}.png',
         subcategoryId: subcategoryId,
         categoryId: (subcategoryId ~/ 10),
-        subchildcategories: hasSubchildcategories ? _generateDummySubchildcategories(subcategoryId * 10 + 1) : null,
+        subchildcategories: hasSubchildcategories
+            ? _generateDummySubchildcategories(subcategoryId * 10 + 1)
+            : null,
       ),
       ChildCategory(
         id: subcategoryId * 10 + 2,
@@ -98,12 +128,17 @@ class HomepageService {
         image: 'assets/images/product${(subcategoryId * 10 + 2) % 5}.png',
         subcategoryId: subcategoryId,
         categoryId: (subcategoryId ~/ 10),
-        subchildcategories: hasSubchildcategories ? _generateDummySubchildcategories(subcategoryId * 10 + 2) : null,
+        subchildcategories: hasSubchildcategories
+            ? _generateDummySubchildcategories(subcategoryId * 10 + 2)
+            : null,
       ),
     ];
   }
 
-  List<SubChildCategory> _generateDummySubchildcategories(int childcategoryId, {bool hasNestedSubchildcategories = false}) {
+  List<SubChildCategory> _generateDummySubchildcategories(
+    int childcategoryId, {
+    bool hasNestedSubchildcategories = false,
+  }) {
     // If hasNestedSubchildcategories is true, only return the first subchildcategory
     // which will have the second one nested under it
     if (hasNestedSubchildcategories) {
@@ -116,11 +151,13 @@ class HomepageService {
           subcategoryId: (childcategoryId ~/ 10),
           categoryId: (childcategoryId ~/ 100),
           // First subchildcategory has the second one nested under it
-          subchildcategories: _generateNestedSubchildcategories(childcategoryId * 10 + 1),
+          subchildcategories: _generateNestedSubchildcategories(
+            childcategoryId * 10 + 1,
+          ),
         ),
       ];
     }
-    
+
     // Otherwise, return both as siblings
     return [
       SubChildCategory(
@@ -142,13 +179,17 @@ class HomepageService {
     ];
   }
 
-  List<SubChildCategory> _generateNestedSubchildcategories(int subchildcategoryId) {
+  List<SubChildCategory> _generateNestedSubchildcategories(
+    int subchildcategoryId,
+  ) {
     // Generate the second subchildcategory (e.g., 1511-2) nested under the first one (e.g., 1511-1)
     // The parent subchildcategory ID is like 15111, so we need to generate 15112
     // But we want it to be named "1511-2", so we calculate it differently
-    final parentChildcategoryId = subchildcategoryId ~/ 10; // e.g., 1511 from 15111
-    final nestedSubchildcategoryId = parentChildcategoryId * 10 + 2; // e.g., 15112
-    
+    final parentChildcategoryId =
+        subchildcategoryId ~/ 10; // e.g., 1511 from 15111
+    final nestedSubchildcategoryId =
+        parentChildcategoryId * 10 + 2; // e.g., 15112
+
     return [
       SubChildCategory(
         id: nestedSubchildcategoryId,
@@ -168,8 +209,13 @@ class HomepageService {
     int? subchildcategoryId,
   }) {
     final List<LatestProduct> products = [];
-    final baseId = subchildcategoryId ?? childcategoryId ?? subcategoryId ?? categoryId ?? 1;
-    
+    final baseId =
+        subchildcategoryId ??
+        childcategoryId ??
+        subcategoryId ??
+        categoryId ??
+        1;
+
     for (int i = 1; i <= 8; i++) {
       products.add(
         LatestProduct(
@@ -187,12 +233,14 @@ class HomepageService {
           isKit: null,
           createdAt: DateTime.now().toString(),
           slugUrl: '/product-$baseId-$i',
-          shortDescription: 'This is a sample product description for testing purposes.',
+          shortDescription:
+              'This is a sample product description for testing purposes.',
         ),
       );
     }
     return products;
   }
+
   /// Fetch homepage data from the server
   Future<HomepageModel> getHomepageData() async {
     try {
@@ -331,6 +379,78 @@ class HomepageService {
 
       Logger.info('Total services parsed: ${services.length}');
 
+      // Extract sliders (top homepage banner images)
+      List<Slider> sliders = [];
+      if (response.containsKey('sliders') && response['sliders'] != null) {
+        Logger.info('Sliders found');
+        final slidersData = response['sliders'];
+        if (slidersData is List) {
+          Logger.info('Sliders is a list with ${slidersData.length} items');
+          for (var i = 0; i < slidersData.length; i++) {
+            final item = slidersData[i];
+            if (item == null) {
+              Logger.warning('Slider item at index $i is null - skipping');
+              continue;
+            }
+            if (item is! Map<String, dynamic>) {
+              Logger.warning(
+                'Slider item at index $i is not a Map: ${item.runtimeType}',
+              );
+              continue;
+            }
+            try {
+              final slider = Slider.fromJson(item);
+              sliders.add(slider);
+              Logger.info(
+                'Successfully parsed slider: ID ${slider.id}, photo: ${slider.photo}',
+              );
+            } catch (e) {
+              Logger.error('Error parsing slider at index $i', e);
+            }
+          }
+        }
+      } else {
+        Logger.warning('Sliders key not found or is null');
+      }
+
+      Logger.info('Total sliders parsed: ${sliders.length}');
+
+      // Extract all_banners
+      List<Banner> allBanners = [];
+      if (response.containsKey('all_banners') &&
+          response['all_banners'] != null) {
+        Logger.info('All banners found');
+        final bannersData = response['all_banners'];
+        if (bannersData is List) {
+          Logger.info('All banners is a list with ${bannersData.length} items');
+          for (var i = 0; i < bannersData.length; i++) {
+            final item = bannersData[i];
+            if (item == null) {
+              Logger.warning('Banner item at index $i is null - skipping');
+              continue;
+            }
+            if (item is! Map<String, dynamic>) {
+              Logger.warning(
+                'Banner item at index $i is not a Map: ${item.runtimeType}',
+              );
+              continue;
+            }
+            try {
+              final banner = Banner.fromJson(item);
+              allBanners.add(banner);
+              Logger.info(
+                'Successfully parsed banner: ID ${banner.id}, photo: ${banner.photo}',
+              );
+            } catch (e) {
+              Logger.error('Error parsing banner at index $i', e);
+            }
+          }
+        }
+      } else {
+        Logger.warning('all_banners key not found or is null');
+      }
+      Logger.info('Total banners parsed: ${allBanners.length}');
+
       // Extract latest products
       List<LatestProduct> latestProducts = [];
       if (response.containsKey('latest_products') &&
@@ -353,12 +473,12 @@ class HomepageService {
         Logger.warning('latest_products key not found or is null');
       }
 
-      // Return HomepageModel with categories, partners, and services
+      // Return HomepageModel with categories, partners, services, sliders, and banners
       final homepageModel = HomepageModel(
         partners: partners,
         services: services,
-        sliders: [],
-        allBanners: [],
+        sliders: sliders,
+        allBanners: allBanners,
         categories: categories,
         latestProducts: latestProducts,
       );
@@ -528,9 +648,7 @@ class HomepageService {
       Logger.info('Searching products with keyword: $searchKeyword');
 
       // Build query parameters
-      final queryParameters = <String, String>{
-        'search_keyword': searchKeyword,
-      };
+      final queryParameters = <String, String>{'search_keyword': searchKeyword};
       if (page != null && page.isNotEmpty) {
         queryParameters['page'] = page;
       }
@@ -554,9 +672,7 @@ class HomepageService {
         final productsData = response['products'];
 
         if (productsData is List) {
-          Logger.info(
-            'Products is a list with ${productsData.length} items',
-          );
+          Logger.info('Products is a list with ${productsData.length} items');
 
           for (var i = 0; i < productsData.length; i++) {
             final item = productsData[i];
@@ -592,9 +708,7 @@ class HomepageService {
       rethrow;
     } catch (e, stackTrace) {
       Logger.error('Failed to search products', e, stackTrace);
-      throw ApiException(
-        message: 'Failed to search products: ${e.toString()}',
-      );
+      throw ApiException(message: 'Failed to search products: ${e.toString()}');
     }
   }
 
@@ -605,9 +719,11 @@ class HomepageService {
 
       // Use dummy data for testing
       if (useDummyData) {
-        await Future.delayed(const Duration(milliseconds: 500)); // Simulate API delay
+        await Future.delayed(
+          const Duration(milliseconds: 500),
+        ); // Simulate API delay
         Logger.info('Using dummy data for category details');
-        
+
         // Try to get category name from homepage data first
         String categoryName = 'Category $categoryId';
         try {
@@ -618,12 +734,14 @@ class HomepageService {
           );
           categoryName = category.name;
         } catch (e) {
-          Logger.warning('Could not get category name from homepage, using default');
+          Logger.warning(
+            'Could not get category name from homepage, using default',
+          );
         }
-        
+
         // Check category structure based on name
         final structure = _getCategoryStructure(categoryName);
-        
+
         return _generateDummyCategory(
           categoryId,
           categoryName,
@@ -663,15 +781,17 @@ class HomepageService {
 
       // Use dummy data for testing
       if (useDummyData) {
-        await Future.delayed(const Duration(milliseconds: 500)); // Simulate API delay
+        await Future.delayed(
+          const Duration(milliseconds: 500),
+        ); // Simulate API delay
         Logger.info('Using dummy data for subcategory details');
-        
+
         final categoryId = subcategoryId ~/ 10;
-        
+
         // Try to get category name to determine structure
         String categoryName = 'Category $categoryId';
         bool hasChildcategories = false;
-        
+
         try {
           final homepageData = await getHomepageData();
           final category = homepageData.categories.firstWhere(
@@ -679,21 +799,25 @@ class HomepageService {
             orElse: () => Category(id: categoryId, name: categoryName),
           );
           categoryName = category.name;
-          
+
           // Check if this is "Remote" category - only Remote has childcategories
           final normalizedName = categoryName.toLowerCase().trim();
           hasChildcategories = normalizedName.contains('remote');
         } catch (e) {
-          Logger.warning('Could not get category name from homepage, using default');
+          Logger.warning(
+            'Could not get category name from homepage, using default',
+          );
         }
-        
+
         return SubCategory(
           id: subcategoryId,
           name: 'SubCategory $subcategoryId',
           image: 'assets/images/product${subcategoryId % 5}.png',
           categoryId: categoryId,
           // All subcategories of Remote category have childcategories
-          childcategories: hasChildcategories ? _generateDummyChildcategories(subcategoryId) : null,
+          childcategories: hasChildcategories
+              ? _generateDummyChildcategories(subcategoryId)
+              : null,
         );
       }
 
@@ -731,24 +855,30 @@ class HomepageService {
 
       // Use dummy data for testing
       if (useDummyData) {
-        await Future.delayed(const Duration(milliseconds: 500)); // Simulate API delay
+        await Future.delayed(
+          const Duration(milliseconds: 500),
+        ); // Simulate API delay
         Logger.info('Using dummy data for childcategory details');
-        
+
         final subcategoryId = childcategoryId ~/ 10;
         final categoryId = subcategoryId ~/ 10;
-        
+
         // For testing, some childcategories have subchildcategories
         // You can modify this logic based on your needs
-        final hasSubchildcategories = childcategoryId % 2 == 1; // Odd IDs have subchildcategories
-        
+        final hasSubchildcategories =
+            childcategoryId % 2 == 1; // Odd IDs have subchildcategories
+
         return ChildCategory(
           id: childcategoryId,
           name: 'ChildCategory ${subcategoryId}-${childcategoryId % 10}',
           image: 'assets/images/product${childcategoryId % 5}.png',
           subcategoryId: subcategoryId,
           categoryId: categoryId,
-          subchildcategories: hasSubchildcategories 
-              ? _generateDummySubchildcategories(childcategoryId, hasNestedSubchildcategories: true) 
+          subchildcategories: hasSubchildcategories
+              ? _generateDummySubchildcategories(
+                  childcategoryId,
+                  hasNestedSubchildcategories: true,
+                )
               : null,
         );
       }
@@ -783,33 +913,40 @@ class HomepageService {
   }
 
   /// Fetch subchildcategory details
-  Future<SubChildCategory> getSubchildcategoryDetails(int subchildcategoryId) async {
+  Future<SubChildCategory> getSubchildcategoryDetails(
+    int subchildcategoryId,
+  ) async {
     try {
-      Logger.info('Fetching subchildcategory details for ID: $subchildcategoryId');
+      Logger.info(
+        'Fetching subchildcategory details for ID: $subchildcategoryId',
+      );
 
       // Use dummy data for testing
       if (useDummyData) {
-        await Future.delayed(const Duration(milliseconds: 500)); // Simulate API delay
+        await Future.delayed(
+          const Duration(milliseconds: 500),
+        ); // Simulate API delay
         Logger.info('Using dummy data for subchildcategory details');
-        
+
         final childcategoryId = subchildcategoryId ~/ 10;
         final subcategoryId = childcategoryId ~/ 10;
         final categoryId = subcategoryId ~/ 10;
-        
+
         // For testing, some subchildcategories have nested subchildcategories
         // Example: subchildcategory ending in 1 (like 15111 which represents 1511-1) has nested subchildcategories
         // The nested one will be 15112 which represents 1511-2
         final hasNestedSubchildcategories = (subchildcategoryId % 10) == 1;
-        
+
         return SubChildCategory(
           id: subchildcategoryId,
-          name: 'SubChildCategory ${subchildcategoryId ~/ 10}-${subchildcategoryId % 10}',
+          name:
+              'SubChildCategory ${subchildcategoryId ~/ 10}-${subchildcategoryId % 10}',
           image: 'assets/images/product${subchildcategoryId % 5}.png',
           childcategoryId: childcategoryId,
           subcategoryId: subcategoryId,
           categoryId: categoryId,
-          subchildcategories: hasNestedSubchildcategories 
-              ? _generateNestedSubchildcategories(subchildcategoryId) 
+          subchildcategories: hasNestedSubchildcategories
+              ? _generateNestedSubchildcategories(subchildcategoryId)
               : null,
         );
       }
@@ -853,6 +990,7 @@ class HomepageService {
     int? subcategoryId,
     int? childcategoryId,
     int? subchildcategoryId,
+    String? sort,
   }) async {
     try {
       Logger.info(
@@ -896,6 +1034,9 @@ class HomepageService {
       }
       if (perPage != null) {
         queryParameters['per_page'] = perPage.toString();
+      }
+      if (sort != null && sort.isNotEmpty) {
+        queryParameters['sort'] = sort;
       }
 
       if (queryParameters.isEmpty) {
@@ -962,7 +1103,7 @@ class HomepageService {
 
       // Parse the response
       final categoriesResponse = CategoriesResponse.fromJson(response);
-      
+
       Logger.info('Parsed ${categoriesResponse.categories.length} categories');
 
       // Cache the categories

@@ -6,6 +6,8 @@ class CartItemCard extends StatefulWidget {
   final VoidCallback onQuantityDecrease;
   final VoidCallback onQuantityIncrease;
   final VoidCallback onDelete;
+  final bool isAddonProduct;
+  final bool isMainProduct;
 
   const CartItemCard({
     super.key,
@@ -14,6 +16,8 @@ class CartItemCard extends StatefulWidget {
     required this.onQuantityDecrease,
     required this.onQuantityIncrease,
     required this.onDelete,
+    this.isAddonProduct = false,
+    this.isMainProduct = false,
   });
 
   @override
@@ -63,11 +67,18 @@ class _CartItemCardState extends State<CartItemCard>
     final subtotal = unitPrice * quantity;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: widget.isAddonProduct
+          ? const EdgeInsets.only(bottom: 12, left: 20)
+          : widget.isMainProduct
+          ? const EdgeInsets.only(bottom: 8)
+          : const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: widget.isAddonProduct ? Colors.orange.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: widget.isAddonProduct
+            ? Border.all(color: Colors.orange.shade200, width: 2)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
@@ -79,22 +90,55 @@ class _CartItemCardState extends State<CartItemCard>
       ),
       child: Stack(
         children: [
+          // Add-on badge (if this is an add-on product)
+          if (widget.isAddonProduct)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'ADD-ON',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           // Top-right delete button
           Positioned(
-            top: 4,
-            right: 4,
+            top: 0,
+            right: 0,
             child: GestureDetector(
               onTap: widget.onDelete,
               child: Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.delete_outline,
-                  color: Colors.red[600],
-                  size: 26,
+                  color: Colors.red[700],
+                  size: 22,
                 ),
               ),
             ),
@@ -124,9 +168,12 @@ class _CartItemCardState extends State<CartItemCard>
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.only(
-                        right: 35,
-                      ), // Space for delete button
+                      padding: EdgeInsets.only(
+                        right: 48, // More space for delete button
+                        top: widget.isAddonProduct
+                            ? 30
+                            : 0, // Space for add-on badge
+                      ),
                       child: Text(
                         widget.item['name'] ?? '',
                         style: const TextStyle(
@@ -135,7 +182,7 @@ class _CartItemCardState extends State<CartItemCard>
                           color: Colors.black,
                           height: 1.3, // Line height for better spacing
                         ),
-                        maxLines: 2,
+                        maxLines: widget.isAddonProduct ? 3 : 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

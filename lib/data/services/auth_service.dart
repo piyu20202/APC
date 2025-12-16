@@ -31,4 +31,135 @@ class AuthService {
       throw ApiException(message: 'Login failed: ${e.toString()}');
     }
   }
+
+  /// Register user with email, password, phone, and name
+  Future<LoginResponse> register({
+    required String email,
+    required String password,
+    required String phone,
+    required String name,
+  }) async {
+    try {
+      Logger.info('Attempting to register with email: $email');
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.register,
+        body: {
+          'email': email,
+          'password': password,
+          'phone': phone,
+          'name': name,
+        },
+      );
+
+      if (response.isEmpty) {
+        throw ApiException(message: 'Invalid response from server');
+      }
+
+      Logger.info('Registration successful');
+      return LoginResponse.fromJson(response);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Registration failed', e);
+      throw ApiException(message: 'Registration failed: ${e.toString()}');
+    }
+  }
+
+  /// Request password reset link to be sent to the user's email
+  Future<void> forgotPassword({required String email}) async {
+    try {
+      Logger.info('Requesting password reset for email: $email');
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.forgotPassword,
+        body: {'email': email},
+      );
+
+      if (response.isEmpty) {
+        throw ApiException(message: 'Invalid response from server');
+      }
+
+      Logger.info('Forgot password request successful');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Forgot password request failed', e);
+      throw ApiException(message: 'Failed to send reset link: ${e.toString()}');
+    }
+  }
+
+  /// Social login with Facebook or Google
+  Future<LoginResponse> socialLogin({
+    required String provider, // 'facebook' or 'google'
+    required String accessToken,
+    String? email,
+    String? name,
+    String? phone,
+  }) async {
+    try {
+      Logger.info('Attempting social login with provider: $provider');
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.socialLogin,
+        body: {
+          'provider': provider,
+          'access_token': accessToken,
+          if (email != null) 'email': email,
+          if (name != null) 'name': name,
+          if (phone != null) 'phone': phone,
+        },
+      );
+
+      if (response.isEmpty) {
+        throw ApiException(message: 'Invalid response from server');
+      }
+
+      Logger.info('Social login successful');
+      return LoginResponse.fromJson(response);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Social login failed', e);
+      throw ApiException(message: 'Social login failed: ${e.toString()}');
+    }
+  }
+
+  /// Social register with Facebook or Google
+  Future<LoginResponse> socialRegister({
+    required String provider, // 'facebook' or 'google'
+    required String accessToken,
+    String? email,
+    String? name,
+    String? phone,
+  }) async {
+    try {
+      Logger.info('Attempting social registration with provider: $provider');
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.socialRegister,
+        body: {
+          'provider': provider,
+          'access_token': accessToken,
+          if (email != null) 'email': email,
+          if (name != null) 'name': name,
+          if (phone != null) 'phone': phone,
+        },
+      );
+
+      if (response.isEmpty) {
+        throw ApiException(message: 'Invalid response from server');
+      }
+
+      Logger.info('Social registration successful');
+      return LoginResponse.fromJson(response);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Social registration failed', e);
+      throw ApiException(
+        message: 'Social registration failed: ${e.toString()}',
+      );
+    }
+  }
 }
