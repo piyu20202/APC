@@ -9,6 +9,7 @@ class ApiEndpoints {
   static const String forgotPassword = '/forgot';
   static const String socialLogin = '/social/login';
   static const String socialRegister = '/social/register';
+  static const String logout = '/logout';
 
   // Settings endpoints
   static const String settings = '/settings';
@@ -57,6 +58,11 @@ class ApiEndpoints {
   static const String createPaymentIntent = '/user/payment/create-intent';
   static const String processPayment = '/user/payment/process';
   static const String processGooglePay = '/user/payment/process-google-pay';
+  // Google Pay token -> CyberSource (base64 token payload)
+  static const String googlePayToken =
+      '/user/payment/cybersource/googlepay/token';
+  // Card payment (raw card details payload)
+  static const String cybersourceCardPayment = '/user/payment/cybersource/card';
   static const String verifyPaymentStatus = '/user/payment/verify-status';
 
   // Add more endpoints here as needed

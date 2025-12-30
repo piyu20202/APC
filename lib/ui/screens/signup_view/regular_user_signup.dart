@@ -383,100 +383,103 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
               // TODO: Enable social login buttons after configuring:
               // - Google Sign-In: Add SHA-1 fingerprint to Firebase Console and configure Info.plist
               // - Facebook Login: Set up Facebook App ID in AndroidManifest.xml and Info.plist
-              Row(
-                children: [
-                  Expanded(
-                    child: IgnorePointer(
-                      ignoring:
-                          true, // Disabled until configuration is complete
-                      child: Opacity(
-                        opacity:
-                            0.5, // Visual indication that button is disabled
-                        child: Container(
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: Color(
-                                    0xFF1877F2,
-                                  ), // Facebook blue color
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'f',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Roboto',
+              Visibility(
+                visible: false, // Hidden for now
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: IgnorePointer(
+                        ignoring:
+                            true, // Disabled until configuration is complete
+                        child: Opacity(
+                          opacity:
+                              0.5, // Visual indication that button is disabled
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Color(
+                                      0xFF1877F2,
+                                    ), // Facebook blue color
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'f',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Roboto',
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Facebook',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Facebook',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: IgnorePointer(
-                      ignoring:
-                          true, // Disabled until configuration is complete
-                      child: Opacity(
-                        opacity:
-                            0.5, // Visual indication that button is disabled
-                        child: Container(
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.g_mobiledata,
-                                size: 24,
-                                color: Colors.black,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Google',
-                                style: TextStyle(
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: IgnorePointer(
+                        ignoring:
+                            true, // Disabled until configuration is complete
+                        child: Opacity(
+                          opacity:
+                              0.5, // Visual indication that button is disabled
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.g_mobiledata,
+                                  size: 24,
                                   color: Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Google',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               const SizedBox(height: 20),

@@ -162,4 +162,25 @@ class AuthService {
       );
     }
   }
+
+  /// Logout the current user (requires auth token)
+  /// Expected 200 response: { "message": "Logged out successfully." }
+  Future<String?> logout() async {
+    try {
+      Logger.info('Attempting to logout');
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.logout,
+        body: const {},
+        requireAuth: true,
+      );
+
+      return response['message']?.toString();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Logout failed', e);
+      throw ApiException(message: 'Logout failed: ${e.toString()}');
+    }
+  }
 }

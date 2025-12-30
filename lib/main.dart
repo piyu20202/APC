@@ -11,6 +11,7 @@ import 'ui/screens/manuals/manuals_menu.dart';
 import 'ui/screens/signin_view/signin.dart';
 import 'ui/screens/signup_view/signup_new.dart';
 import 'main_navigation.dart';
+import 'services/route_observer.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,14 +35,14 @@ class MyApp extends StatelessWidget {
           primaryColor: const Color(0xFF151D51),
           appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
         ),
+        navigatorObservers: [routeObserver],
         home: const SplashScreen(),
         routes: {
           '/main': (context) => const MainNavigationScreen(),
           '/signin': (context) => const SigninScreen(),
           '/signup': (context) => const SignupScreen(),
           '/checkout': (context) => const CheckoutPage(),
-          '/order-price-detail': (context) =>
-              const OrderPriceDetailPage(),
+          '/order-price-detail': (context) => const OrderPriceDetailPage(),
           '/payment': (context) => const PaymentPage(),
           '/order-placed': (context) => const OrderPlacedPage(),
           '/manuals': (context) => const ManualsMenuPage(),

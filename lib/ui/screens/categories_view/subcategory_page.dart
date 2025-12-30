@@ -3,7 +3,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/categories_model.dart';
 import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
+import '../../../data/services/homepage_service.dart';
+import '../../../core/network/network_checker.dart';
 import '../productlist_view/productlist.dart';
+import '../widget/app_state_view.dart';
 
 class SubCategoryPage extends StatefulWidget {
   final int categoryId;
@@ -22,11 +25,12 @@ class SubCategoryPage extends StatefulWidget {
 }
 
 class _SubCategoryPageState extends State<SubCategoryPage> {
+  final HomepageService _homepageService = HomepageService();
   CategoryFull? _categoryData;
   List<SubCategoryFull> _subcategories = [];
-  Map<int, bool> _expandedSubcategories =
+  final Map<int, bool> _expandedSubcategories =
       {}; // Track expanded state for subcategories
-  Map<int, bool> _expandedChildCategories =
+  final Map<int, bool> _expandedChildCategories =
       {}; // Track expanded state for childs
   bool _isLoading = true;
   String? _errorMessage;
@@ -36,6 +40,36 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
   void initState() {
     super.initState();
     _loadSubcategories();
+  }
+
+  Future<void> _onRefresh() async {
+    final hasInternet = await NetworkChecker.hasConnection();
+    if (!hasInternet) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No internet connection. Please try again.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      // Refill the in-memory categories cache.
+      await _homepageService.getAllCategories();
+    } catch (e) {
+      Logger.error('Failed to refresh categories cache', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to refresh categories. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        _loadSubcategories();
+      }
+    }
   }
 
   void _loadSubcategories() {
@@ -158,63 +192,46 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 0,
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadSubcategories,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // If no subcategories, show message
-    if (_subcategories.isEmpty) {
-      return Container(
-        color: Colors.grey[50],
+      body: RefreshIndicator.adaptive(
+        onRefresh: _onRefresh,
         child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'No subcategories available',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              ),
-            ),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              if (_isLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppStateView(state: AppViewState.loading),
+                )
+              else if (_errorMessage != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppStateView(
+                    state: AppViewState.error,
+                    title: 'Failed to load subcategories',
+                    message: _errorMessage,
+                    primaryActionLabel: 'Retry',
+                    onPrimaryAction: _loadSubcategories,
+                  ),
+                )
+              else if (_subcategories.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppStateView(
+                    state: AppViewState.empty,
+                    title: 'No subcategories available',
+                    message: 'Pull down to refresh and try again.',
+                  ),
+                )
+              else
+                SliverToBoxAdapter(
+                  child: Container(
+                    color: Colors.grey[50],
+                    child: _buildMainCategoryContainer(),
+                  ),
+                ),
+            ],
           ),
-        ),
-      );
-    }
-
-    return Container(
-      color: Colors.grey[50],
-      child: SafeArea(
-        child: ListView(
-          children: [
-            // Subcategories list
-            _buildMainCategoryContainer(),
-          ],
         ),
       ),
     );

@@ -4,16 +4,37 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/logger.dart';
+import '../../services/storage_service.dart';
 
 class PaymentService {
   // Add this flag to switch between mock and real API
   // Change to false when backend is ready
   static const bool useMockApi = true;
-  
+
   // Google Pay: Use mock mode (true) or real backend API (false)
   // Set to false to use CyberSource backend integration
   // Set to true to revert to mock mode if any issues occur
   static const bool useMockGooglePay = true; // Reverted to mock mode
+
+  // Google Pay token API (CyberSource): keep OFF until backend endpoint is ready
+  // When backend is ready:
+  // - set useMockGooglePay = false
+  // - set enableGooglePayTokenApi = true
+  static const bool enableGooglePayTokenApi = false;
+
+  // Card payment API (raw card fields)
+  static const bool enableCardPaymentApi = true;
+
+  /// Helper function to print long strings in chunks (to avoid truncation)
+  void _printLongString(String text, String label) {
+    debugPrint('=== $label (Length: ${text.length}) ===');
+    const int chunkSize = 800; // Print in chunks of 800 chars
+    for (int i = 0; i < text.length; i += chunkSize) {
+      final end = (i + chunkSize < text.length) ? i + chunkSize : text.length;
+      debugPrint(text.substring(i, end));
+    }
+    debugPrint('=== END $label ===');
+  }
 
   /// Create a payment intent for CyberSource
   /// This initializes the payment session and returns payment details
@@ -73,6 +94,93 @@ class PaymentService {
       rethrow;
     } catch (e, stackTrace) {
       Logger.error('Failed to process payment', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Process card payment by sending raw card details to backend (JSON body)
+  /// NOTE: This is feature-flagged and should remain disabled until backend is ready.
+  Future<Map<String, dynamic>> processCardPaymentRaw({
+    required int orderId,
+    required String orderNumber,
+    required double amount,
+    required String currency,
+    required String cardNumber,
+    required String expiryMonth,
+    required String expiryYear,
+    required String cvv,
+    required String cardholderName,
+  }) async {
+    if (!enableCardPaymentApi) {
+      throw ApiException(
+        message: 'Card payment API not enabled',
+        statusCode: 400,
+      );
+    }
+
+    if (ApiEndpoints.cybersourceCardPayment == '/__TODO_CARD_PAYMENT_URL__') {
+      throw ApiException(
+        message: 'Card payment endpoint not configured',
+        statusCode: 400,
+      );
+    }
+
+    try {
+      // Get user email
+      final user = await StorageService.getUserData();
+      final email = user?.email;
+      if (email == null || email.isEmpty) {
+        throw ApiException(message: 'User email not found', statusCode: 400);
+      }
+
+      Logger.info('Processing card payment (raw) for order ID: $orderId, order number: $orderNumber');
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.cybersourceCardPayment,
+        body: {
+          'number': cardNumber,
+          'expirationMonth': expiryMonth,
+          'expirationYear': expiryYear,
+          'securityCode': cvv,
+          'cardholderName': cardholderName,
+          'orderid': orderId, // Send integer order ID, not order number string
+          'email': email,
+        },
+        contentType: 'application/json',
+        requireAuth: true,
+      );
+
+      // Validate response format for success case
+      // Expected: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
+      if (response['order'] != null) {
+        final order = response['order'] as Map<String, dynamic>?;
+        if (order != null) {
+          // Ensure required fields are present
+          final requiredFields = [
+            'id',
+            'user_id',
+            'pay_amount',
+            'payment_status',
+            'order_number',
+          ];
+          for (final field in requiredFields) {
+            if (!order.containsKey(field)) {
+              Logger.warning('Missing field in order response: $field');
+            }
+          }
+        }
+
+        // Save updated order data to storage
+        await StorageService.saveOrderData(response);
+        Logger.info('Order data updated after payment');
+      }
+
+      Logger.info('Card payment (raw) processed');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e, stackTrace) {
+      Logger.error('Failed to process card payment (raw)', e);
       Logger.error('Stack trace', null, stackTrace);
       rethrow;
     }
@@ -263,48 +371,16 @@ class PaymentService {
     required Map<String, dynamic> paymentResult,
   }) async {
     try {
-      Logger.info('Processing Google Pay for order: $orderNumber');
-      Logger.info('Payment result: ${paymentResult.toString()}');
-      
-      // FIRST: Convert entire paymentResult to base64 and print immediately
-      debugPrint('=== STARTING BASE64 CONVERSION ===');
-      try {
-        final paymentResultJson = jsonEncode(paymentResult);
-        final paymentResultBytes = utf8.encode(paymentResultJson);
-        final paymentResultBase64 = base64Encode(paymentResultBytes);
-        
-        debugPrint('============token =========');
-        debugPrint(paymentResultBase64);
-        debugPrint('============token =========');
-        
-        // Force print multiple times to ensure visibility
-        print('============token =========');
-        print(paymentResultBase64);
-        print('============token =========');
-        
-        Logger.info('============token =========');
-        Logger.info(paymentResultBase64);
-        Logger.info('============token =========');
-      } catch (e) {
-        debugPrint('Error encoding paymentResult to base64: $e');
-        print('Error encoding paymentResult to base64: $e');
-      }
-      debugPrint('=== BASE64 CONVERSION COMPLETE ===');
-      
-      // Debug: Print payment result structure
-      debugPrint('=== PAYMENT RESULT STRUCTURE ===');
-      debugPrint('Payment result keys: ${paymentResult.keys.toList()}');
-      debugPrint('Full payment result: $paymentResult');
-      
       // Extract payment token - handle different Google Pay response formats
       String? token;
-      
+
       // Method 1: Standard format
-      final paymentMethodData = paymentResult['paymentMethodData'] as Map<String, dynamic>?;
+      final paymentMethodData =
+          paymentResult['paymentMethodData'] as Map<String, dynamic>?;
       if (paymentMethodData != null) {
-        final tokenizationData = paymentMethodData['tokenizationData'] as Map<String, dynamic>?;
+        final tokenizationData =
+            paymentMethodData['tokenizationData'] as Map<String, dynamic>?;
         if (tokenizationData != null) {
-          // Token can be a string or JSON string
           final tokenValue = tokenizationData['token'];
           if (tokenValue is String) {
             token = tokenValue;
@@ -313,109 +389,39 @@ class PaymentService {
           }
         }
       }
-      
+
       // Method 2: Direct token in paymentResult
       if (token == null || token.isEmpty) {
         token = paymentResult['token'] as String?;
       }
-      
+
       // Method 3: Check if token is in nested structure
       if (token == null || token.isEmpty) {
-        final nestedToken = paymentResult['paymentMethodData']?['tokenizationData']?['token'] as String?;
+        final nestedToken =
+            paymentResult['paymentMethodData']?['tokenizationData']?['token']
+                as String?;
         if (nestedToken != null) {
           token = nestedToken;
         }
       }
-      
-      // Debug: Check token before base64 conversion
-      debugPrint('=== TOKEN EXTRACTION CHECK ===');
-      debugPrint('Token is null: ${token == null}');
-      debugPrint('Token is empty: ${token?.isEmpty ?? true}');
-      if (token != null) {
-        debugPrint('Token length: ${token.length}');
-        debugPrint('Token type: ${token.runtimeType}');
-      }
-      
-      // Convert token to base64 and print with clear delimiters
+
+      // ===== ONLY TWO PRINTS (with chunking for long tokens) =====
       if (token != null && token.isNotEmpty) {
-        try {
-          // If token is already a JSON string, use it directly
-          // Otherwise, if it's a Map, convert to JSON string first
-          String tokenString = token;
-          
-          // Try to parse as JSON to check if it's valid JSON string
-          try {
-            jsonDecode(token); // Validate it's valid JSON
-            // If successful, token is already a JSON string, use as is
-          } catch (e) {
-            // If not valid JSON, might be plain string, use as is
-          }
-          
-          // Convert token string to base64
-          final bytes = utf8.encode(tokenString);
-          final base64Token = base64Encode(bytes);
-          
-          // Print with clear delimiters for easy identification
-          debugPrint('============token =========');
-          debugPrint(base64Token);
-          debugPrint('============token =========');
-          
-          // Also log using Logger
-          Logger.info('============token =========');
-          Logger.info(base64Token);
-          Logger.info('============token =========');
-        } catch (e) {
-          debugPrint('Error encoding token to base64: $e');
-          Logger.error('Error encoding token to base64', e);
-        }
+        _printLongString(token, 'GOOGLE_PAY_TOKEN_RAW');
+
+        final base64Token = base64Encode(utf8.encode(token));
+        _printLongString(base64Token, 'GOOGLE_PAY_TOKEN_BASE64');
       } else {
-        debugPrint('Token is null or empty, skipping base64 conversion');
-        Logger.info('Token is null or empty, skipping base64 conversion');
-      }
-      
-      // Debug: Print full payment result structure
-      debugPrint('=== GOOGLE PAY TOKEN EXTRACTION ===');
-      debugPrint('Payment result keys: ${paymentResult.keys}');
-      debugPrint('Payment method data: $paymentMethodData');
-      debugPrint('Token extracted: ${token != null ? "Yes" : "No"}');
-      if (token != null) {
-        debugPrint('Token length: ${token.length}');
-        debugPrint('Token preview: ${token.length > 50 ? token.substring(0, 50) + "..." : token}');
-        Logger.info('Google Pay Token: $token');
-      } else {
-        debugPrint('Full payment result: $paymentResult');
-        Logger.info('Google Pay Token received: No');
+        debugPrint('=== GOOGLE_PAY_TOKEN_RAW ===');
+        debugPrint('null');
+        debugPrint('=== GOOGLE_PAY_TOKEN_BASE64 ===');
+        debugPrint('null');
       }
 
-      // ============ MOCK MODE (Backup - Set useMockGooglePay = true to use this) ============
+      // ============ MOCK MODE ============
       if (useMockGooglePay) {
-        // Simulate API delay
         await Future.delayed(const Duration(seconds: 2));
-        
-        // For testing: Return mock success response
-        Logger.info('Using MOCK mode for Google Pay (useMockGooglePay = true)');
-        
-        // If token was extracted, convert to base64 and print before returning
-        if (token != null && token.isNotEmpty) {
-          try {
-            final bytes = utf8.encode(token);
-            final base64Token = base64Encode(bytes);
-            
-            // Print with clear delimiters for easy identification
-            debugPrint('============token =========');
-            debugPrint(base64Token);
-            debugPrint('============token =========');
-            
-            // Also log using Logger
-            Logger.info('============token =========');
-            Logger.info(base64Token);
-            Logger.info('============token =========');
-          } catch (e) {
-            debugPrint('Error encoding token to base64 in MOCK mode: $e');
-            Logger.error('Error encoding token to base64 in MOCK mode', e);
-          }
-        }
-        
+
         return {
           'success': true,
           'transaction_id': 'gp_test_${DateTime.now().millisecondsSinceEpoch}',
@@ -428,9 +434,7 @@ class PaymentService {
         };
       }
 
-      // ============ PRODUCTION MODE (CyberSource Backend Integration) ============
-      Logger.info('Using PRODUCTION mode for Google Pay (useMockGooglePay = false)');
-      
+      // ============ PRODUCTION MODE ============
       if (token == null) {
         throw ApiException(
           message: 'Invalid payment token from Google Pay',
@@ -438,20 +442,71 @@ class PaymentService {
         );
       }
 
-      final response = await ApiClient.post(
-        endpoint: ApiEndpoints.processGooglePay,
-        body: {
-          'order_number': orderNumber,
-          'amount': amount,
-          'payment_token': token,
-          'payment_method': 'google_pay',
-        },
-        contentType: 'application/json',
-        requireAuth: true,
-      );
-      
-      Logger.info('Google Pay processed successfully');
-      return response;
+      // Backend requires base64 encoded token for /user/payment/cybersource/googlepay/token
+      final tokenBase64 = base64Encode(utf8.encode(token));
+
+      final Map<String, dynamic> response;
+
+      // New endpoint (feature-flagged)
+      if (enableGooglePayTokenApi) {
+        final user = await StorageService.getUserData();
+        final email = user?.email;
+        if (email == null || email.isEmpty) {
+          throw ApiException(message: 'User email not found', statusCode: 400);
+        }
+
+        response = await ApiClient.post(
+          endpoint: ApiEndpoints.googlePayToken,
+          body: {
+            'token': tokenBase64,
+            'orderid': orderNumber, // using order_number as orderid
+            'email': email,
+          },
+          contentType: 'application/json',
+          requireAuth: true,
+        );
+      } else {
+        // Existing (older) backend integration kept for compatibility
+        response = await ApiClient.post(
+          endpoint: ApiEndpoints.processGooglePay,
+          body: {
+            'order_number': orderNumber,
+            'amount': amount,
+            'payment_token': token,
+            'payment_method': 'google_pay',
+          },
+          contentType: 'application/json',
+          requireAuth: true,
+        );
+      }
+
+      // Validate response format for success case
+      // Expected: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
+      if (response['order'] != null) {
+        final order = response['order'] as Map<String, dynamic>?;
+        if (order != null) {
+          // Ensure required fields are present
+          final requiredFields = [
+            'id',
+            'user_id',
+            'pay_amount',
+            'payment_status',
+            'order_number',
+          ];
+          for (final field in requiredFields) {
+            if (!order.containsKey(field)) {
+              Logger.warning('Missing field in order response: $field');
+            }
+          }
+        }
+
+        // Save updated order data to storage
+        await StorageService.saveOrderData(response);
+        Logger.info('Order data updated after Google Pay payment');
+      }
+
+      // UI expects 'payment_token' key (used by checkout flow); keep it available.
+      return {...response, 'payment_token': token};
     } catch (e, stackTrace) {
       Logger.error('Failed to process Google Pay', e);
       Logger.error('Stack trace', null, stackTrace);

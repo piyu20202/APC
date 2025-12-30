@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../data/services/homepage_service.dart';
 import '../../../data/models/homepage_model.dart';
 import '../../../core/utils/logger.dart';
+import '../../../core/network/network_checker.dart';
+import '../widget/app_state_view.dart';
 import '../widget/category_tile.dart';
 import '../productlist_view/productlist.dart';
 
@@ -40,7 +42,7 @@ class SubChildCategoryPage extends StatefulWidget {
 class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
   final HomepageService _homepageService = HomepageService();
   List<SubChildCategory> _subchildcategories = [];
-  Map<int, SubChildCategory> _subChildCategoryDetails =
+  final Map<int, SubChildCategory> _subChildCategoryDetails =
       {}; // Cache subchildcategory details with nested subchildcategories
   bool _isLoading = true;
   String? _errorMessage;
@@ -49,6 +51,36 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
   void initState() {
     super.initState();
     _fetchChildcategoryDetails();
+  }
+
+  Future<void> _onRefresh() async {
+    final hasInternet = await NetworkChecker.hasConnection();
+    if (!hasInternet) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No internet connection. Please try again.')),
+        );
+      }
+      return;
+    }
+    await _fetchChildcategoryDetails();
+  }
+
+  void _viewProductsForChildCategory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductListScreen(
+          categoryId: widget.categoryId,
+          subcategoryId: widget.subcategoryId,
+          childcategoryId: widget.childcategoryId,
+          categorySlug: widget.childcategorySlug,
+          categoryType: 'childcategory',
+          title: widget.childcategoryName,
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchChildcategoryDetails() async {
@@ -177,79 +209,65 @@ class _SubChildCategoryPageState extends State<SubChildCategoryPage> {
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 0,
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _fetchChildcategoryDetails,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // If no subchildcategories, navigate directly to products
-    if (_subchildcategories.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductListScreen(
-              categoryId: widget.categoryId,
-              subcategoryId: widget.subcategoryId,
-              childcategoryId: widget.childcategoryId,
-              categorySlug: widget.childcategorySlug,
-              categoryType: 'childcategory',
-              title: widget.childcategoryName,
-            ),
-          ),
-        );
-      });
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Container(
-      color: Colors.white,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: GridView.builder(
-            padding: const EdgeInsets.only(bottom: 80),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.95,
-            ),
-            itemCount: _subchildcategories.length,
-            itemBuilder: (context, index) {
-              final subchildcategory = _subchildcategories[index];
-              return CategoryTile(
-                name: subchildcategory.name,
-                image: subchildcategory.image,
-                onTap: () => _navigateToSubchildcategory(subchildcategory),
-              );
-            },
+      body: RefreshIndicator.adaptive(
+        onRefresh: _onRefresh,
+        child: SafeArea(
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              if (_isLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppStateView(state: AppViewState.loading),
+                )
+              else if (_errorMessage != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppStateView(
+                    state: AppViewState.error,
+                    title: 'Failed to load sub-child categories',
+                    message: _errorMessage,
+                    primaryActionLabel: 'Retry',
+                    onPrimaryAction: _fetchChildcategoryDetails,
+                  ),
+                )
+              else if (_subchildcategories.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppStateView(
+                    state: AppViewState.empty,
+                    title: 'No sub-child categories available',
+                    message: 'You can view products directly, or pull down to refresh.',
+                    primaryActionLabel: 'View products',
+                    onPrimaryAction: _viewProductsForChildCategory,
+                    secondaryActionLabel: 'Retry',
+                    onSecondaryAction: _fetchChildcategoryDetails,
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.all(16.0),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 0.95,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final subchildcategory = _subchildcategories[index];
+                        return CategoryTile(
+                          name: subchildcategory.name,
+                          image: subchildcategory.image,
+                          onTap: () => _navigateToSubchildcategory(subchildcategory),
+                        );
+                      },
+                      childCount: _subchildcategories.length,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

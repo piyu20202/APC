@@ -1,0 +1,9 @@
+# Copy this file to `android/key.properties` (do not commit `key.properties`).
+#
+# storeFile is relative to the `android/app/` directory (since it's read from app/build.gradle.kts).
+storeFile=apc_upload.jks
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=APC
+
+

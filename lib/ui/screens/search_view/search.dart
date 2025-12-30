@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../productlist_view/productlist.dart';
 import '../widget/product_card.dart';
 import '../../../data/repositories/homepage_repository.dart';
 import '../../../core/utils/logger.dart';
+import '../../../services/navigation_service.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -30,9 +30,9 @@ class _SearchScreenState extends State<SearchScreen> {
   void _onSearchChanged() {
     // Cancel previous timer
     _debounceTimer?.cancel();
-    
+
     final query = _searchController.text.trim();
-    
+
     if (query.isEmpty) {
       setState(() {
         _searchResults = [];
@@ -267,12 +267,16 @@ class _SearchScreenState extends State<SearchScreen> {
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProductListScreen(),
-                ),
-              );
+              // "Browse all products" should return the user to the Home tab
+              // (catalog/categories live there in this app).
+              NavigationService.instance.switchToTab(0);
+
+              // If SearchScreen is on a pushed navigation stack (not inside the
+              // main tab scaffold), unwind back to the root.
+              final navigator = Navigator.of(context);
+              if (navigator.canPop()) {
+                navigator.popUntil((route) => route.isFirst);
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF151D51),

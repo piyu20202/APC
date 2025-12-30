@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../signin_view/signin.dart';
 import '../drawer_view/drawer.dart';
 import '../widget/trader_benefits_showcase.dart';
 import '../signup_view/trader_upgrade_flow.dart';
 import '../../../services/user_role_service.dart';
+import '../../../providers/auth_provider.dart';
 import 'accountinfo.dart';
 import 'myorder.dart';
 import 'editprofile.dart';
@@ -396,11 +398,35 @@ class _ProfileViewState extends State<ProfileView> {
                 // Yes Button
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      // Close confirm dialog
                       Navigator.of(context).pop();
-                      // Navigate to signin screen
+
+                      // Show blocking loader while we call logout + clear local data
+                      showDialog(
+                        context: this.context,
+                        barrierDismissible: false,
+                        builder: (_) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+
+                      try {
+                        final authProvider = Provider.of<AuthProvider>(
+                          this.context,
+                          listen: false,
+                        );
+                        await authProvider.logout();
+                      } finally {
+                        if (mounted) {
+                          Navigator.of(this.context).pop(); // close loader
+                        }
+                      }
+
+                      if (!mounted) return;
+                      // Navigate to signin screen (after data is cleared)
                       Navigator.pushAndRemoveUntil(
-                        context,
+                        this.context,
                         MaterialPageRoute(
                           builder: (context) => const SigninScreen(),
                         ),

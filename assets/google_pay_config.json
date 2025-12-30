@@ -1,7 +1,7 @@
 {
   "provider": "google_pay",
   "data": {
-    "environment": "TEST",
+    "environment": "PRODUCTION",
     "apiVersion": 2,
     "apiVersionMinor": 0,
     "allowedPaymentMethods": [
@@ -15,13 +15,13 @@
           "type": "PAYMENT_GATEWAY",
           "parameters": {
             "gateway": "cybersource",
-            "gatewayMerchantId": "anzgate"
+            "gatewayMerchantId": "anzapcau"
           }
         }
       }
     ],
     "merchantInfo": {
-      "merchantId": "anzgate",
+      "merchantId": "BCR2DN7TRDA73ZCT",
       "merchantName": "Automotion Plus"
     },
     "transactionInfo": {

@@ -122,4 +122,17 @@ class AuthRepository {
       );
     }
   }
+
+  /// Logout user (server-side)
+  Future<String?> logout() async {
+    try {
+      Logger.info('Repository: Starting logout');
+      return await _authService.logout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Repository: Logout error', e);
+      throw ApiException(message: 'Failed to logout: ${e.toString()}');
+    }
+  }
 }

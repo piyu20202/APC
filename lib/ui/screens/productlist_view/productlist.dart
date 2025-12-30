@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../widget/listing_product_card.dart';
 import '../../../data/services/homepage_service.dart';
 import '../../../core/utils/logger.dart';
+import '../../../core/network/network_checker.dart';
+import '../widget/app_state_view.dart';
 
 class ProductListScreen extends StatefulWidget {
   final int? categoryId;
@@ -133,6 +135,20 @@ class _ProductListScreenState extends State<ProductListScreen> {
     _loadProducts(sortParam: _mapSortToApiSort(_selectedSort));
   }
 
+  Future<void> _onRefresh() async {
+    final hasInternet = await NetworkChecker.hasConnection();
+    if (!hasInternet) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No internet connection. Please try again.')),
+        );
+      }
+      return;
+    }
+    await _loadProducts(sortParam: _mapSortToApiSort(_selectedSort));
+  }
+
   Future<void> _loadProducts({String? sortParam}) async {
     setState(() {
       _isLoading = true;
@@ -239,19 +255,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
       });
     } catch (e) {
       Logger.error('Failed to load products', e);
-      // Fallback to dummy products on error
-      products = List.from(_dummyProducts);
-      _originalProducts = List.from(products);
-
-      // Apply price sorting as fallback if price sort option is selected
-      if (_selectedSort == SortOption.lowestPrice ||
-          _selectedSort == SortOption.highestPrice) {
-        _applyPriceSorting();
-      }
-
       setState(() {
+        products = [];
+        _originalProducts = [];
         _isLoading = false;
-        _errorMessage = 'Failed to load products. Showing sample products.';
+        _errorMessage = 'Failed to load products. Please try again.';
       });
     }
   }
@@ -320,84 +328,86 @@ class _ProductListScreenState extends State<ProductListScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: _buildBody(),
+      body: RefreshIndicator.adaptive(
+        onRefresh: _onRefresh,
+        child: _buildBody(),
+      ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null && products.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadProducts,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (products.isEmpty) {
-      return const Center(
-        child: Text(
-          'No products available',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
+    // Always return a scrollable so pull-to-refresh works on loading/error/empty.
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
         // Sort By Section
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.white,
-          child: Row(
-            children: [
-              const Text(
-                'Sort By :',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+        SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.white,
+            child: Row(
+              children: [
+                const Text(
+                  'Sort By :',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: _buildSortDropdown()),
-            ],
-          ),
-        ),
-        // Products Grid
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.60,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+                const SizedBox(width: 12),
+                Expanded(child: _buildSortDropdown()),
+              ],
             ),
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return ListingProductCard(product: product);
-            },
           ),
         ),
+
+        if (_isLoading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: AppStateView(state: AppViewState.loading),
+          )
+        else if (_errorMessage != null && products.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: AppStateView(
+              state: AppViewState.error,
+              title: 'Failed to load products',
+              message: _errorMessage,
+              primaryActionLabel: 'Retry',
+              onPrimaryAction: () => _loadProducts(
+                sortParam: _mapSortToApiSort(_selectedSort),
+              ),
+            ),
+          )
+        else if (products.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: AppStateView(
+              state: AppViewState.empty,
+              title: 'No products found',
+              message: 'Pull down to refresh and try again.',
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.60,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final product = products[index];
+                  return ListingProductCard(product: product);
+                },
+                childCount: products.length,
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:apcproject/services/storage_service.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../data/models/user_model.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -36,7 +35,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // Login status
   bool _isLoggedIn = false;
-  UserModel? _loggedInUser;
   bool _isLoadingUserData = true;
 
   // States list
@@ -50,24 +48,64 @@ class _CheckoutPageState extends State<CheckoutPage> {
     'NT',
     'ACT',
   ];
-  String _selectedState = 'VIC';
+  String? _selectedState;
+
+  // Country selection (was previously defaulted)
+  String? _selectedCountry;
 
   // Valid area codes for dropdown
   static const List<String> _validAreaCodes = ['+61', '+1', '+44'];
 
-  // Get valid area code from controller or return default
-  String _getValidAreaCode() {
+  // Get valid area code from controller or null (no default prefill)
+  String? _getValidAreaCodeOrNull() {
     final areaCode = _areaCodeController.text.trim();
     if (areaCode.isNotEmpty && _validAreaCodes.contains(areaCode)) {
       return areaCode;
     }
-    return '+61';
+    return null;
   }
 
   @override
   void initState() {
     super.initState();
     _checkLoginAndPrefillForm();
+  }
+
+  void _prefillDummyBillingDetailsIfEmpty() {
+    // Only fill fields that are currently empty, so we don't override user input.
+    if (_nameController.text.trim().isEmpty) _nameController.text = 'Vikram';
+    if (_emailController.text.trim().isEmpty) {
+      _emailController.text = 'vikram@vmail.in';
+    }
+    if (_mobileController.text.trim().isEmpty) {
+      _mobileController.text = '+61 400 000 000';
+    }
+    if (_companyController.text.trim().isEmpty) {
+      _companyController.text = 'ABC PVT LTD';
+    }
+
+    // Address details (Australia)
+    if (_unitController.text.trim().isEmpty) _unitController.text = 'Unit 10';
+    if (_addressController.text.trim().isEmpty) {
+      _addressController.text = '1 George St';
+    }
+    // This field is labeled "Suburb" in the UI; treat it as the city.
+    if (_suburbController.text.trim().isEmpty)
+      _suburbController.text = 'Sydney';
+    if (_postCodeController.text.trim().isEmpty) {
+      _postCodeController.text = '2000';
+    }
+
+    // Phone (area code dropdown + landline)
+    if (_areaCodeController.text.trim().isEmpty)
+      _areaCodeController.text = '+61';
+    if (_landlineController.text.trim().isEmpty) {
+      _landlineController.text = '2 1234 5678';
+    }
+
+    // Dropdowns
+    _selectedState ??= 'NSW';
+    _selectedCountry ??= 'Australia';
   }
 
   /// Check login status and pre-fill form with logged-in user data
@@ -87,34 +125,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    // User is logged in - get user data and pre-fill form
-    _loggedInUser = authProvider.currentUser;
+    // User is logged in - get user data.
+    //
+    // NOTE: This app currently doesn't prefill from user profile here.
+    // To avoid an empty Order Price Details screen during demos/testing,
+    // we fill dummy values when fields are blank (without overriding user input).
+    _prefillDummyBillingDetailsIfEmpty();
 
-    if (_loggedInUser != null) {
-      setState(() {
-        _nameController.text = _loggedInUser!.name;
-        _emailController.text = _loggedInUser!.email;
-        _mobileController.text = _loggedInUser!.phone;
-        // Validate area code - only use if it's in the valid list
-        final userAreaCode = _loggedInUser!.areaCode ?? '+61';
-        _areaCodeController.text = _validAreaCodes.contains(userAreaCode)
-            ? userAreaCode
-            : '+61';
-        _landlineController.text = _loggedInUser!.landline ?? '';
-        _unitController.text = _loggedInUser!.unitApartmentNo ?? '';
-        _addressController.text = _loggedInUser!.address ?? '';
-        _suburbController.text = _loggedInUser!.city ?? '';
-        _postCodeController.text = _loggedInUser!.zip ?? '';
-        // Validate state - only use if it's in the states list
-        final userState = _loggedInUser!.state ?? 'VIC';
-        _selectedState = _states.contains(userState) ? userState : 'VIC';
-        _isLoadingUserData = false;
-      });
-    } else {
-      setState(() {
-        _isLoadingUserData = false;
-      });
-    }
+    setState(() {
+      _isLoadingUserData = false;
+    });
   }
 
   @override
@@ -367,13 +387,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    value: _getValidAreaCode(),
+                    isExpanded: true,
+                    value: _getValidAreaCodeOrNull(),
                     decoration: const InputDecoration(
                       labelText: 'Area Code',
                       border: OutlineInputBorder(),
                       filled: true,
                       fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                     ),
+                    hint: const Text('Select', overflow: TextOverflow.ellipsis),
                     items: const [
                       DropdownMenuItem(value: '+61', child: Text('+61')),
                       DropdownMenuItem(value: '+1', child: Text('+1')),
@@ -381,7 +408,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     ],
                     onChanged: (value) {
                       setState(() {
-                        _areaCodeController.text = value!;
+                        _areaCodeController.text = value ?? '';
                       });
                     },
                   ),
@@ -396,6 +423,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       border: OutlineInputBorder(),
                       filled: true,
                       fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                     ),
                   ),
                 ),
@@ -457,22 +489,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    value: _states.contains(_selectedState)
+                    value:
+                        (_selectedState != null &&
+                            _states.contains(_selectedState))
                         ? _selectedState
-                        : 'VIC',
+                        : null,
                     decoration: const InputDecoration(
                       labelText: 'State*',
                       border: OutlineInputBorder(),
                       filled: true,
                       fillColor: Colors.white,
                     ),
+                    hint: const Text('Select'),
                     items: _states.map((state) {
                       return DropdownMenuItem(value: state, child: Text(state));
                     }).toList(),
                     onChanged: (value) {
                       setState(() {
-                        _selectedState = value!;
+                        _selectedState = value;
                       });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select state';
+                      }
+                      return null;
                     },
                   ),
                 ),
@@ -501,13 +542,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
             // Country
             DropdownButtonFormField<String>(
-              value: 'Australia',
+              value: _selectedCountry,
               decoration: const InputDecoration(
                 labelText: 'Country*',
                 border: OutlineInputBorder(),
                 filled: true,
                 fillColor: Colors.white,
               ),
+              hint: const Text('Select'),
               items: const [
                 DropdownMenuItem(value: 'Australia', child: Text('Australia')),
                 DropdownMenuItem(
@@ -519,7 +561,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: Text('United States'),
                 ),
               ],
-              onChanged: (value) {},
+              onChanged: (value) {
+                setState(() {
+                  _selectedCountry = value;
+                });
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please select country';
+                }
+                return null;
+              },
             ),
           ],
         ),
@@ -592,6 +644,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               'address': _addressController.text.trim(),
               'suburb': _suburbController.text.trim(),
               'state': _selectedState,
+              'country': _selectedCountry,
               'post_code': _postCodeController.text.trim(),
               'order_note': _orderNoteController.text.trim(),
             };

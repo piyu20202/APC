@@ -4,8 +4,10 @@ import 'package:apcproject/data/services/cart_service.dart';
 import 'package:apcproject/services/storage_service.dart';
 import 'package:apcproject/services/navigation_service.dart';
 import 'package:flutter/material.dart';
+import '../../../core/network/network_checker.dart';
 
 import '../drawer_view/drawer.dart';
+import '../widget/app_state_view.dart';
 import '../widget/cart_item_card.dart';
 
 class CartPage extends StatefulWidget {
@@ -62,14 +64,65 @@ class _CartPageState extends State<CartPage> {
         actions: null,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-          ? _buildErrorState()
-          : cartItems.isEmpty
-          ? _buildEmptyCart()
-          : _buildCartWithItems(),
+      body: RefreshIndicator.adaptive(
+        onRefresh: _onRefreshCart,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _isLoading
+                  ? const AppStateView(state: AppViewState.loading)
+                  : (_errorMessage != null)
+                  ? AppStateView(
+                      state: AppViewState.error,
+                      title: 'Unable to load cart',
+                      message: _errorMessage,
+                      primaryActionLabel: 'Retry',
+                      onPrimaryAction: _loadCartItems,
+                    )
+                  : (cartItems.isEmpty)
+                  ? AppStateView(
+                      state: AppViewState.empty,
+                      title: 'Your cart is empty',
+                      message:
+                          'Pull down to refresh, or browse products to add items.',
+                      primaryActionLabel: 'Go to catalog',
+                      onPrimaryAction: () {
+                        // In this app, the "catalog" lives on the Home tab.
+                        // Using Navigator.pop() here can pop the root route (black screen)
+                        // when Cart is shown as a bottom-tab screen.
+                        NavigationService.instance.switchToTab(0);
+
+                        final navigator = Navigator.of(context);
+                        if (navigator.canPop()) {
+                          navigator.popUntil((route) => route.isFirst);
+                        }
+                      },
+                    )
+                  : _buildCartWithItems(),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _onRefreshCart() async {
+    // Cart is local-first in this app, but still check connectivity to give
+    // a clear message when user expects a server refresh.
+    final hasInternet = await NetworkChecker.hasConnection();
+    if (!hasInternet) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No internet connection. Refreshing local cart…'),
+          ),
+        );
+      }
+    }
+    await _loadCartItems();
   }
 
   Future<void> _loadCartItems() async {
@@ -185,14 +238,14 @@ class _CartPageState extends State<CartPage> {
             if (removedProductId != null &&
                 !_removedProductIds.contains(removedProductId)) {
               _removedProductIds.add(removedProductId);
-      }
+            }
             if (removedId != null) {
               if (!_removedCartItemIds.contains(removedId)) {
                 _removedCartItemIds.add(removedId);
-        }
+              }
               _quantityChanges.remove(removedId);
               _unitPrices.remove(removedId);
-      }
+            }
           }
         }
         _serverReportedTotal = _calculateSubtotal();
@@ -606,103 +659,6 @@ class _CartPageState extends State<CartPage> {
     return grouped;
   }
 
-  Widget _buildEmptyCart() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.shopping_cart_outlined,
-                size: 60,
-                color: Colors.grey[400],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Your cart is empty',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Looks like you haven\'t added anything yet.',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Navigate to catalog/home
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF151D51),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Go to catalog',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 12),
-            Text(
-              _errorMessage ?? 'Something went wrong',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _loadCartItems,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF151D51),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildCartWithItems() {
     final subtotal = _serverReportedTotal ?? _calculateSubtotal();
     final totalQty = _calculateTotalQuantity();
@@ -741,46 +697,46 @@ class _CartPageState extends State<CartPage> {
                           item: mainItem,
                           index: mainIndex,
                           isMainProduct: addons.isNotEmpty,
-                      onQuantityDecrease: () {
+                          onQuantityDecrease: () {
                             final itemId =
                                 cartItems[mainIndex]['itemId'] as String?;
-                        final currentQty =
+                            final currentQty =
                                 (cartItems[mainIndex]['quantity'] as num?)
                                     ?.toInt() ??
-                            1;
-                        if (currentQty > 1) {
-                          setState(() {
+                                1;
+                            if (currentQty > 1) {
+                              setState(() {
                                 cartItems[mainIndex]['quantity'] =
                                     currentQty - 1;
-                            _serverReportedTotal = null;
-                            _serverReportedQty = null;
-                          });
-                          if (itemId != null) {
-                            _recordQuantityChange(itemId, -1);
-                          }
-                        }
-                      },
-                      onQuantityIncrease: () {
+                                _serverReportedTotal = null;
+                                _serverReportedQty = null;
+                              });
+                              if (itemId != null) {
+                                _recordQuantityChange(itemId, -1);
+                              }
+                            }
+                          },
+                          onQuantityIncrease: () {
                             final itemId =
                                 cartItems[mainIndex]['itemId'] as String?;
-                        final currentQty =
+                            final currentQty =
                                 (cartItems[mainIndex]['quantity'] as num?)
                                     ?.toInt() ??
-                            0;
-                        setState(() {
+                                0;
+                            setState(() {
                               cartItems[mainIndex]['quantity'] = currentQty + 1;
-                          _serverReportedTotal = null;
-                          _serverReportedQty = null;
-                        });
-                        if (itemId != null) {
-                          _recordQuantityChange(itemId, 1);
-                        }
-                      },
-                      onDelete: () {
-                        if (cartKey != null &&
-                            _deletingItems.contains(cartKey)) {
-                          return;
-                        }
+                              _serverReportedTotal = null;
+                              _serverReportedQty = null;
+                            });
+                            if (itemId != null) {
+                              _recordQuantityChange(itemId, 1);
+                            }
+                          },
+                          onDelete: () {
+                            if (cartKey != null &&
+                                _deletingItems.contains(cartKey)) {
+                              return;
+                            }
                             _handleDeleteItem(
                               cartKey: cartKey,
                               index: mainIndex,

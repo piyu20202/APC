@@ -1,7 +1,7 @@
 {
   "provider": "google_pay",
   "data": {
-    "environment": "PRODUCTION",
+    "environment": "TEST",
     "apiVersion": 2,
     "apiVersionMinor": 0,
     "allowedPaymentMethods": [
@@ -14,20 +14,21 @@
         "tokenizationSpecification": {
           "type": "PAYMENT_GATEWAY",
           "parameters": {
-            "gateway": "example",
-            "gatewayMerchantId": "exampleGatewayMerchantId"
+            "gateway": "cybersource",
+            "gatewayMerchantId": "anzgate"
           }
         }
       }
     ],
     "merchantInfo": {
-      "merchantId": "01234567890123456789",
-      "merchantName": "APC Project Test"
+      "merchantId": "BCR2DN7TRDA73ZCT",
+      "merchantName": "Automotion Plus"
     },
     "transactionInfo": {
       "totalPriceStatus": "FINAL",
       "totalPrice": "0.00",
-      "currencyCode": "AUD"
+      "currencyCode": "AUD",
+      "countryCode": "AU"
     }
   }
 }

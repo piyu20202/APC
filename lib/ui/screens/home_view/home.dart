@@ -18,23 +18,32 @@ import '../../../providers/homepage_provider.dart';
 import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
 import '../../../services/navigation_service.dart';
+import '../../../core/network/network_checker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart' hide Category;
+import '../../../services/route_observer.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSearchTap;
   final int cartCount;
+  final bool isActive;
 
-  const HomeScreen({super.key, this.onSearchTap, this.cartCount = 0});
+  const HomeScreen({
+    super.key,
+    this.onSearchTap,
+    this.cartCount = 0,
+    this.isActive = true,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   int _currentBannerIndex = 0;
-  late Timer _bannerTimer;
+  Timer? _bannerTimer;
   final PageController _bannerController = PageController();
   // Mid banner state
   int _currentMidBannerIndex = 0;
@@ -43,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Auto-scroll for Latest Products
   int _currentProductIndex = 0;
-  late Timer _productTimer;
+  Timer? _productTimer;
   final PageController _productController = PageController();
 
   // Trader status
@@ -55,6 +64,57 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Homepage data moved to HomepageProvider
   final HomepageService _homepageService = HomepageService();
+
+  // Avoid noisy logs on every rebuild
+  bool _didLogCategoriesOnce = false;
+  bool _didLogBannersOnce = false;
+
+  // Track whether this route is visible (not covered by another route)
+  bool _isRouteVisible = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      _syncTimers();
+    }
+  }
+
+  @override
+  void didPushNext() {
+    // Another route is pushed on top of Home (e.g. Checkout).
+    _isRouteVisible = false;
+    _syncTimers();
+  }
+
+  @override
+  void didPopNext() {
+    // Returned back to Home.
+    _isRouteVisible = true;
+    _syncTimers();
+  }
+
+  void _syncTimers() {
+    final shouldRun = widget.isActive && _isRouteVisible;
+    if (shouldRun) {
+      _startBannerTimer();
+      _startProductTimer();
+      _startMidBannerTimer();
+    } else {
+      _stopBannerTimer();
+      _stopProductTimer();
+      _stopMidBannerTimer();
+    }
+  }
 
   final List<Map<String, dynamic>> banners = [
     {
@@ -147,9 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     debugPrint('HomeScreen initState called');
-    _startBannerTimer();
-    _startProductTimer();
-    // Don't start mid banner timer here - will start when banners are loaded
+    // Timers are controlled via _syncTimers() so they pause when Home isn't visible.
     _checkTraderStatus();
     _fetchSettings();
     // Load homepage data via provider
@@ -161,10 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
       homeProvider
           .loadHomepageData()
           .then((_) {
-            // Start mid banner timer after homepage data is loaded
-            if (mounted) {
-              _startMidBannerTimer();
-            }
+            if (mounted) _syncTimers();
           })
           .catchError((error) {
             debugPrint('CATCH ERROR loadHomepageData: $error');
@@ -179,6 +234,39 @@ class _HomeScreenState extends State<HomeScreen> {
         Logger.error('Error in loadSaleProducts', error);
       });
     });
+    _syncTimers();
+  }
+
+  Future<void> _onRefreshHome() async {
+    final hasInternet = await NetworkChecker.hasConnection();
+    if (!hasInternet) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No internet connection. Please try again.')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final homeProvider = Provider.of<HomepageProvider>(context, listen: false);
+
+    try {
+      // Refresh all homepage provider data in parallel.
+      await homeProvider.refresh();
+
+      // Refresh categories cache used by SubCategoryPage (landing pages).
+      await _homepageService.getAllCategories();
+    } catch (e) {
+      Logger.error('Home refresh failed', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to refresh. Please try again.')),
+        );
+      }
+    }
   }
 
   /// Fetch settings from API and save to SharedPreferences
@@ -210,15 +298,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startBannerTimer() {
+    if (_bannerTimer?.isActive == true) return;
     _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
       if (_bannerController.hasClients) {
         final homeProvider = Provider.of<HomepageProvider>(
           context,
           listen: false,
         );
         final apiSliders = homeProvider.sliders;
-        final itemCount =
-            apiSliders.isNotEmpty ? apiSliders.length : banners.length;
+        final itemCount = apiSliders.isNotEmpty
+            ? apiSliders.length
+            : banners.length;
 
         if (itemCount == 0) return;
 
@@ -228,13 +319,20 @@ class _HomeScreenState extends State<HomeScreen> {
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeInOut,
         );
-        setState(() => _currentBannerIndex = next);
+        if (mounted) setState(() => _currentBannerIndex = next);
       }
     });
   }
 
+  void _stopBannerTimer() {
+    _bannerTimer?.cancel();
+    _bannerTimer = null;
+  }
+
   void _startProductTimer() {
+    if (_productTimer?.isActive == true) return;
     _productTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
       if (_productController.hasClients && products.isNotEmpty) {
         final next = (_currentProductIndex + 1) % products.length;
         _productController.animateToPage(
@@ -242,14 +340,20 @@ class _HomeScreenState extends State<HomeScreen> {
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
-        setState(() => _currentProductIndex = next);
+        if (mounted) setState(() => _currentProductIndex = next);
       }
     });
   }
 
+  void _stopProductTimer() {
+    _productTimer?.cancel();
+    _productTimer = null;
+  }
+
   void _startMidBannerTimer() {
-    _midBannerTimer?.cancel(); // Cancel existing timer if any
+    if (_midBannerTimer?.isActive == true) return;
     _midBannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
       if (_midBannerController.hasClients) {
         final homeProvider = Provider.of<HomepageProvider>(
           context,
@@ -263,19 +367,25 @@ class _HomeScreenState extends State<HomeScreen> {
             duration: const Duration(milliseconds: 400),
             curve: Curves.easeInOut,
           );
-          setState(() => _currentMidBannerIndex = next);
+          if (mounted) setState(() => _currentMidBannerIndex = next);
         }
       }
     });
   }
 
+  void _stopMidBannerTimer() {
+    _midBannerTimer?.cancel();
+    _midBannerTimer = null;
+  }
+
   @override
   void dispose() {
-    _bannerTimer.cancel();
+    routeObserver.unsubscribe(this);
+    _stopBannerTimer();
     _bannerController.dispose();
-    _productTimer.cancel();
+    _stopProductTimer();
     _productController.dispose();
-    _midBannerTimer?.cancel();
+    _stopMidBannerTimer();
     _midBannerController.dispose();
     super.dispose();
   }
@@ -318,21 +428,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 final uri = Uri.parse('tel:$formattedPhone');
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri);
+                  return;
                 } else {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Unable to make phone call'),
-                      ),
-                    );
-                  }
-                }
-              } else {
-                if (mounted) {
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Phone number not available')),
+                    const SnackBar(
+                      content: Text('Unable to make phone call'),
+                    ),
                   );
                 }
+              } else {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Phone number not available')),
+                );
               }
             },
             icon: const Icon(Icons.phone, color: Colors.black, size: 22),
@@ -387,137 +496,141 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       backgroundColor: Colors.grey[50],
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 12),
+        child: RefreshIndicator.adaptive(
+          onRefresh: _onRefreshHome,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 12),
 
-              // Search and Cart Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    // Search Bar
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          NavigationService.instance.switchToTab(1);
-                        },
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 12),
-                              Icon(
-                                Icons.search,
-                                color: Colors.grey[600],
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Search products...',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    // Cart Icon
-                    GestureDetector(
-                      onTap: () {
-                        NavigationService.instance.switchToTab(3);
-                      },
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
+                // Search and Cart Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      // Search Bar
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            NavigationService.instance.switchToTab(1);
+                          },
+                          child: Container(
+                            height: 40,
                             decoration: BoxDecoration(
                               color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Icon(
-                              Icons.shopping_cart,
-                              color: Colors.grey[600],
-                              size: 20,
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 12),
+                                Icon(
+                                  Icons.search,
+                                  color: Colors.grey[600],
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Search products...',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          if (cartCount > 0)
-                            Positioned(
-                              top: -2,
-                              right: -2,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '$cartCount',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      // Cart Icon
+                      GestureDetector(
+                        onTap: () {
+                          NavigationService.instance.switchToTab(3);
+                        },
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Icon(
+                                Icons.shopping_cart,
+                                color: Colors.grey[600],
+                                size: 20,
+                              ),
+                            ),
+                            if (cartCount > 0)
+                              Positioned(
+                                top: -2,
+                                right: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '$cartCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Banner Section
-              _buildBannerSection(),
+                // Banner Section
+                _buildBannerSection(),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Categories Section
-              _buildCategoriesSection(),
+                // Categories Section
+                _buildCategoriesSection(),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Latest Products Section
-              _buildLatestProductsSection(),
+                // Latest Products Section
+                _buildLatestProductsSection(),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Banner below Latest Products
-              _buildMidBanner(),
+                // Banner below Latest Products
+                _buildMidBanner(),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Sale Products Section
-              _buildSaleProductsSection(),
+                // Sale Products Section
+                _buildSaleProductsSection(),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Services Section
-              _buildServicesSection(),
+                // Services Section
+                _buildServicesSection(),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Collections Section
-              _buildCollectionsSection(),
+                // Collections Section
+                _buildCollectionsSection(),
 
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
@@ -529,8 +642,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, homeProvider, _) {
         final apiSliders = homeProvider.sliders;
         final bool hasApiSliders = apiSliders.isNotEmpty;
-        final int itemCount =
-            hasApiSliders ? apiSliders.length : banners.length;
+        final int itemCount = hasApiSliders
+            ? apiSliders.length
+            : banners.length;
 
         if (itemCount == 0) {
           return const SizedBox.shrink();
@@ -643,8 +757,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         end: Alignment.bottomRight,
                                         colors: [
                                           banner['backgroundColor'],
-                                          banner['backgroundColor']
-                                              .withOpacity(0.8),
+                                          banner['backgroundColor'].withOpacity(
+                                            0.8,
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -718,9 +833,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final _isLoadingHomepage = homeProvider.isLoading;
     final _homepageData = homeProvider.homepageData;
 
-    Logger.info(
-      'Building categories section - isLoading: $_isLoadingHomepage, hasData: ${_homepageData != null}, categoriesCount: ${_homepageData?.categories.length ?? 0}',
-    );
+    if (kDebugMode && !_didLogCategoriesOnce) {
+      Logger.info(
+        'Building categories section - isLoading: $_isLoadingHomepage, hasData: ${_homepageData != null}, categoriesCount: ${_homepageData?.categories.length ?? 0}',
+      );
+    }
 
     if (_isLoadingHomepage) {
       return Container(
@@ -773,24 +890,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final categories = _homepageData?.categories ?? [];
 
     // Debug log
-    if (categories.isEmpty) {
-      Logger.info(
-        'No categories received from API - _homepageData is null: ${_homepageData == null}',
-      );
-      if (_homepageData != null) {
-        Logger.info('Homepage data exists but categories array is empty');
-        final keys = _homepageData.toJson().keys.join(", ");
-        Logger.info('Available keys: $keys');
-      }
-    } else {
-      Logger.info('Received ${categories.length} categories from API');
-      categories.asMap().forEach((index, cat) {
-        if (index < 3) {
-          Logger.info(
-            'Category $index: name="${cat.name}", image="${cat.image}"',
-          );
+    if (kDebugMode && !_didLogCategoriesOnce) {
+      if (categories.isEmpty) {
+        Logger.info(
+          'No categories received from API - _homepageData is null: ${_homepageData == null}',
+        );
+        if (_homepageData != null) {
+          Logger.info('Homepage data exists but categories array is empty');
+          final keys = _homepageData.toJson().keys.join(", ");
+          Logger.info('Available keys: $keys');
         }
-      });
+      } else {
+        Logger.info('Received ${categories.length} categories from API');
+        categories.asMap().forEach((index, cat) {
+          if (index < 3) {
+            Logger.info(
+              'Category $index: name="${cat.name}", image="${cat.image}"',
+            );
+          }
+        });
+      }
+      _didLogCategoriesOnce = true;
     }
 
     // Show all categories - NO "See All" button, NO limit
@@ -1043,25 +1163,19 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, homeProvider, child) {
         final allBanners = homeProvider.allBanners;
 
-        // Debug: Log banner count
-        debugPrint('Banner count: ${allBanners.length}');
-        if (allBanners.isNotEmpty) {
-          debugPrint('First banner photo: ${allBanners[0].photo}');
-        }
-
-        // Restart timer when banners are loaded
-        if (allBanners.isNotEmpty &&
-            (_midBannerTimer == null || !_midBannerTimer!.isActive)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _startMidBannerTimer();
-            }
-          });
+        if (kDebugMode && !_didLogBannersOnce) {
+          debugPrint('Banner count: ${allBanners.length}');
+          if (allBanners.isNotEmpty) {
+            debugPrint('First banner photo: ${allBanners[0].photo}');
+          }
+          _didLogBannersOnce = true;
         }
 
         // If no banners from API, show a placeholder or nothing
         if (allBanners.isEmpty) {
-          debugPrint('No banners available - hiding banner section');
+          if (kDebugMode) {
+            debugPrint('No banners available - hiding banner section');
+          }
           return const SizedBox.shrink();
         }
 
@@ -1156,67 +1270,89 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSaleProductsSection() {
-    final homeProvider = Provider.of<HomepageProvider>(context);
-    final saleProducts = homeProvider.saleProducts.isNotEmpty
-        ? homeProvider.saleProducts
-        : null;
+    return Consumer<HomepageProvider>(
+      builder: (context, homeProvider, _) {
+        final saleProducts = homeProvider.saleProducts;
+        final isLoading = homeProvider.isLoadingSaleProducts;
+        final double sectionHeight = isLoading
+            ? 310
+            : saleProducts.isEmpty
+                ? 90
+                : 310;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
-                'Sale Product',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF151D51),
-                ),
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Sale Product',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF151D51),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: sectionHeight,
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : saleProducts.isEmpty
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: const Center(
+                              child: Text(
+                                'No data found',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: saleProducts.length,
+                            itemBuilder: (context, index) {
+                              final apiProduct = saleProducts[index];
+                              final mapped = {
+                                'image': apiProduct.thumbnail,
+                                'thumbnail': apiProduct.thumbnail,
+                                'id': apiProduct.id,
+                                'name': apiProduct.name,
+                                'sku': apiProduct.sku,
+                                'price': apiProduct.price,
+                                'previous_price': apiProduct.previousPrice,
+                                'currentPrice': apiProduct.price.toString(),
+                                'originalPrice':
+                                    apiProduct.previousPrice.toString(),
+                                'description':
+                                    apiProduct.shortDescription ??
+                                    'On sale — description coming soon.',
+                                'onSale': true,
+                                'out_of_stock': apiProduct.outOfStock,
+                              };
+                              return Container(
+                                width: 160,
+                                margin: const EdgeInsets.only(right: 12),
+                                child: SaleProductCard(product: mapped),
+                              );
+                            },
+                          ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 310,
-            child: homeProvider.isLoadingSaleProducts
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: saleProducts?.length ?? featuredProducts.length,
-                    itemBuilder: (context, index) {
-                      if (saleProducts != null) {
-                        final apiProduct = saleProducts[index];
-                        final mapped = {
-                          'image': apiProduct.thumbnail,
-                          'thumbnail': apiProduct.thumbnail,
-                          'id': apiProduct.id,
-                          'name': apiProduct.name,
-                          'sku': apiProduct.sku,
-                          'price': apiProduct.price,
-                          'previous_price': apiProduct.previousPrice,
-                          'description':
-                              apiProduct.shortDescription ??
-                              'On sale — description coming soon.',
-                          'onSale': true,
-                        };
-                        return SaleProductCard(
-                          product: mapped,
-                        );
-                      }
-
-                      final product = featuredProducts[index];
-                      return SaleProductCard(
-                        product: product,
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1499,7 +1635,30 @@ class _HomeScreenState extends State<HomeScreen> {
       'Category tapped: ${category.name} (ID: ${category.id}) - pageOpen: ${category.pageOpen}',
     );
 
-    final normalizedPageOpen = category.pageOpen.toLowerCase();
+    final normalizedPageOpen = category.pageOpen.toLowerCase().trim();
+
+    void _showCategoryLoadError([String? debugReason]) {
+      Logger.warning(
+        'Category navigation blocked. categoryId=${category.id}, pageOpen="$normalizedPageOpen", reason=${debugReason ?? "unknown"}',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            "We couldn’t load this category. Please try again. If the issue continues, close and restart the app.",
+          ),
+          duration: Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () {
+              // ignore: discarded_futures
+              unawaited(_navigateToCategory(category));
+            },
+          ),
+        ),
+      );
+    }
 
     if (normalizedPageOpen == 'product_listing_page') {
       Navigator.push(
@@ -1520,6 +1679,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final categoryData = await _loadFullCategoryData(category.id);
       if (!mounted) return;
 
+      // If full category data isn't available, don't navigate further.
+      if (categoryData == null) {
+        _showCategoryLoadError(
+          'CategoryFull not found in cache/all categories',
+        );
+        return;
+      }
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -1530,6 +1697,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       );
+      return;
+    }
+
+    // page_open is missing/unknown/unsupported (e.g., "other") — block navigation.
+    if (normalizedPageOpen.isEmpty || normalizedPageOpen == 'other') {
+      _showCategoryLoadError('Unsupported page_open value');
       return;
     }
 
@@ -1564,19 +1737,8 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (error, stackTrace) {
       Logger.error('Failed to fetch category details', error, stackTrace);
-      if (!mounted) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ProductListScreen(
-            categoryId: category.id,
-            categorySlug: category.slug,
-            categoryType: 'category',
-            title: category.name,
-          ),
-        ),
-      );
+      _showCategoryLoadError('Failed to fetch category details');
+      return;
     }
   }
 }

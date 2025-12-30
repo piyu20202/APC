@@ -172,6 +172,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       HomeScreen(
         onSearchTap: () => _onItemTapped(1),
         cartCount: _cartCount,
+        isActive: _selectedIndex == 0,
       ),
       const SearchScreen(),
       const WishlistScreen(),

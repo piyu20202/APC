@@ -22,6 +22,7 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _isProcessing = false;
   Map<String, dynamic>? _orderData;
   String? _orderNumber;
+  int? _orderId;
   double? _amount;
   String? _currency;
 
@@ -35,6 +36,11 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   void initState() {
     super.initState();
+    // Pre-fill test card details for testing
+    _cardNumberController.text = '4111 1111 1111 1111';
+    _cardholderNameController.text = 'Test User';
+    _expiryController.text = '12/25';
+    _cvvController.text = '123';
     _initializePayment();
   }
 
@@ -88,7 +94,9 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       final orderNumber = order?['order_number'] as String?;
+      final orderId = order?['id'] as int?;
       debugPrint('Order number: $orderNumber');
+      debugPrint('Order ID: $orderId');
 
       // Use 'pay_amount' instead of 'total' based on API response
       // Try multiple possible field names
@@ -114,6 +122,20 @@ class _PaymentPageState extends State<PaymentPage> {
         return;
       }
 
+      if (orderId == null) {
+        debugPrint('ERROR: Order ID is null');
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Invalid order ID. Please try again.',
+            toastLength: Toast.LENGTH_LONG,
+          );
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
       // Validate amount - allow 0 for now, just log warning
       if (amount <= 0) {
         debugPrint('WARNING: Payment amount is 0 or negative: $amount');
@@ -122,6 +144,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
       setState(() {
         _orderNumber = orderNumber;
+        _orderId = orderId;
         _amount = amount > 0 ? amount : 0.0;
         _currency = 'AUD';
       });
@@ -218,6 +241,68 @@ class _PaymentPageState extends State<PaymentPage> {
       final expiryMonth = expiryParts[0].padLeft(2, '0');
       final expiryYear = '20${expiryParts[1]}'; // Convert YY to YYYY
 
+      // If backend card-payment API is enabled, send raw JSON body to server.
+      // Otherwise, keep existing (tokenize-only) test flow.
+      if (PaymentService.enableCardPaymentApi) {
+        if (_orderId == null || _orderNumber == null) {
+          throw Exception(
+            'Order ID and Order Number are required for card payment',
+          );
+        }
+        final response = await _paymentService.processCardPaymentRaw(
+          orderId: _orderId!,
+          orderNumber: _orderNumber!,
+          amount: _amount ?? 0.0,
+          currency: _currency ?? 'AUD',
+          cardNumber: cardNumber,
+          expiryMonth: expiryMonth,
+          expiryYear: expiryYear,
+          cvv: _cvvController.text,
+          cardholderName: _cardholderNameController.text,
+        );
+
+        // Check response format: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
+        final showOrderSuccess = response['show_order_success'] as int? ?? 0;
+        final processPayment = response['process_payment'] as int? ?? 1;
+
+        debugPrint(
+          'Card Payment Response - show_order_success: $showOrderSuccess, process_payment: $processPayment',
+        );
+
+        // If we reach here, API call was successful (status code 200)
+        // Clear cart data ONLY after successful payment
+        await StorageService.clearCartData();
+
+        // Show success toast and navigate forward
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Payment successful!',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+          );
+
+          // Navigate to order success page if show_order_success is 1
+          if (showOrderSuccess == 1) {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/order-placed',
+              (route) => false,
+              arguments: {'payment_method': 'Card'},
+            );
+          } else {
+            // Fallback: still navigate to order-placed if flag is not set
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/order-placed',
+              (route) => false,
+              arguments: {'payment_method': 'Card'},
+            );
+          }
+        }
+        return;
+      }
+
       // === Cybersource transient token flow (mobile side) ===
       // Get (dummy) capture context from the plugin – this will later come
       // from backend / Cybersource, but for now enables end‑to‑end testing.
@@ -260,6 +345,11 @@ class _PaymentPageState extends State<PaymentPage> {
       // Once the backend is ready to accept transient tokens, the token
       // can be sent to the server from this method.
     } on ApiException catch (e) {
+      // Handle API exceptions - check status code
+      debugPrint(
+        'Card payment API error: ${e.message}, Status: ${e.statusCode}',
+      );
+
       if (mounted) {
         if (e.statusCode == 401) {
           final authProvider = Provider.of<AuthProvider>(
@@ -278,25 +368,73 @@ class _PaymentPageState extends State<PaymentPage> {
             '/signin',
             (route) => false,
           );
-        } else {
+        } else if (e.statusCode == 403) {
+          // Handle 403 Forbidden - Payment not successful
+          // Show API response message in toast
+          final errorMessage = e.message.isNotEmpty
+              ? e.message
+              : 'Payment is not successful, please try again later.';
           Fluttertoast.showToast(
-            msg: e.message,
+            msg: errorMessage,
             toastLength: Toast.LENGTH_LONG,
             backgroundColor: Colors.red,
             textColor: Colors.white,
           );
+          // User stays on the same page (no navigation)
+        } else if (e.statusCode == 200) {
+          // If status code is 200, clear cart and show success
+          // Clear cart data ONLY after successful payment
+          await StorageService.clearCartData();
+
+          Fluttertoast.showToast(
+            msg: 'Payment successful!',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+          );
+
+          // Navigate to order success page
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/order-placed',
+            (route) => false,
+            arguments: {'payment_method': 'Card'},
+          );
+        } else {
+          // Status code is not 200/401/403 - show error toast and stay on page
+          // Use API message if available, otherwise show generic message
+          final errorMessage = e.message.isNotEmpty
+              ? e.message
+              : 'Something went wrong. Please try again.';
+          Fluttertoast.showToast(
+            msg: errorMessage,
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+          // User stays on the same page (no navigation)
         }
       }
+
+      setState(() {
+        _isProcessing = false;
+      });
     } catch (e) {
+      // Handle other exceptions
+      debugPrint('Error processing card payment: $e');
       if (mounted) {
         Fluttertoast.showToast(
-          msg: 'Payment failed. Please try again.',
+          msg: 'Something went wrong Please try again',
           toastLength: Toast.LENGTH_LONG,
           backgroundColor: Colors.red,
           textColor: Colors.white,
         );
+        // User stays on the same page (no navigation)
       }
-      debugPrint('Error processing payment: $e');
+
+      setState(() {
+        _isProcessing = false;
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -339,37 +477,41 @@ class _PaymentPageState extends State<PaymentPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 16.0,
-                  right: 16.0,
-                  top: 16.0,
-                  bottom:
-                      MediaQuery.of(context).viewInsets.bottom +
-                      16.0, // Add keyboard padding
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Order Summary Card
-                      _buildOrderSummaryCard(),
-                      const SizedBox(height: 24),
+          : SafeArea(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 16.0,
+                    right: 16.0,
+                    top: 16.0,
+                    bottom:
+                        MediaQuery.of(context).viewInsets.bottom +
+                        16.0, // Add keyboard padding
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Order Summary Card
+                        _buildOrderSummaryCard(),
+                        const SizedBox(height: 24),
 
-                      // Payment Details Card
-                      _buildPaymentDetailsCard(),
-                      const SizedBox(height: 24),
+                        // Payment Details Card
+                        _buildPaymentDetailsCard(),
+                        const SizedBox(height: 24),
 
-                      // Security Notice
-                      _buildSecurityNotice(),
-                      const SizedBox(height: 24),
+                        // Security Notice
+                        _buildSecurityNotice(),
+                        const SizedBox(height: 24),
 
-                      // Submit Payment Button
-                      _buildSubmitButton(),
-                    ],
+                        // Submit Payment Button
+                        _buildSubmitButton(),
+                      ],
+                    ),
                   ),
                 ),
               ),

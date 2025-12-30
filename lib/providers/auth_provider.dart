@@ -135,11 +135,19 @@ class AuthProvider extends ChangeNotifier {
   /// Logout user
   Future<void> logout() async {
     Logger.info('Provider: Logging out user');
-    _loginResponse = null;
-    _currentUser = null;
-    _errorMessage = null;
-    await StorageService.clearAllData(); // Clear both login and settings data
-    notifyListeners();
+
+    try {
+      // Call server-side logout first (best-effort). Even if it fails, we still clear local data.
+      await _authRepository.logout();
+    } catch (e) {
+      Logger.warning('Provider: Logout API failed; clearing local data anyway');
+    } finally {
+      _loginResponse = null;
+      _currentUser = null;
+      _errorMessage = null;
+      await StorageService.clearAllData(); // Clear login + settings + cart + etc
+      notifyListeners();
+    }
   }
 
   /// Clear error message

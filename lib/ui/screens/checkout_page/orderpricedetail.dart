@@ -12,6 +12,7 @@ import 'package:apcproject/data/services/payment_service.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:pay/pay.dart';
 import 'package:flutter/services.dart';
+import 'package:apcproject/config/environment.dart';
 
 class OrderPriceDetailPage extends StatefulWidget {
   const OrderPriceDetailPage({super.key});
@@ -45,6 +46,17 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   bool _isGooglePayAvailable = false;
   bool _isInitializingGooglePay = true;
   StreamSubscription? _paymentResultSubscription;
+
+  /// Helper function to print long strings in chunks (to avoid truncation)
+  void _printLongString(String text, String label) {
+    debugPrint('=== $label (Length: ${text.length}) ===');
+    const int chunkSize = 800; // Print in chunks of 800 chars
+    for (int i = 0; i < text.length; i += chunkSize) {
+      final end = (i + chunkSize < text.length) ? i + chunkSize : text.length;
+      debugPrint(text.substring(i, end));
+    }
+    debugPrint('=== END $label ===');
+  }
 
   /// Safely convert API values (which may be num or String with commas) to double
   double? _toDouble(dynamic value) {
@@ -464,34 +476,47 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
               ),
             ),
             const SizedBox(height: 12),
-            // Google Pay Option
-            if (_isInitializingGooglePay)
-              Container(
-                padding: const EdgeInsets.all(12),
-                child: const Center(
-                  child: SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              )
-            else if (_isGooglePayAvailable)
-              GestureDetector(
-                onTap: () {
-                  // Update selected payment method first
-                  setState(() {
-                    _selectedPaymentMethod = 'Google Pay';
-                  });
-                  // Then trigger payment directly
-                  _handleGooglePayClick();
-                },
-                child: _buildPaymentOption(
-                  'Google Pay',
-                  Icons.account_balance_wallet,
-                  _selectedPaymentMethod == 'Google Pay',
-                ),
+            // Google Pay Option (always show; enable only when available)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedPaymentMethod = 'Google Pay';
+                });
+
+                if (_isInitializingGooglePay) {
+                  Fluttertoast.showToast(
+                    msg: 'Checking Google Pay availability...',
+                    toastLength: Toast.LENGTH_SHORT,
+                  );
+                  return;
+                }
+
+                if (!_isGooglePayAvailable) {
+                  Fluttertoast.showToast(
+                    msg:
+                        'Google Pay is not available on this device/emulator (requires Google Play services).',
+                    toastLength: Toast.LENGTH_LONG,
+                  );
+                  return;
+                }
+
+                // Trigger payment directly when available
+                _handleGooglePayClick();
+              },
+              child: _buildPaymentOption(
+                'Google Pay',
+                Icons.account_balance_wallet,
+                _selectedPaymentMethod == 'Google Pay',
+                isEnabled: !_isInitializingGooglePay && _isGooglePayAvailable,
+                trailing: _isInitializingGooglePay
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
               ),
+            ),
           ],
         ),
       ),
@@ -525,38 +550,49 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     );
   }
 
-  Widget _buildPaymentOption(String title, IconData icon, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? const Color(0xFF002e5b).withOpacity(0.1)
-            : Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isSelected ? const Color(0xFF002e5b) : Colors.grey[300]!,
-          width: isSelected ? 2 : 1,
+  Widget _buildPaymentOption(
+    String title,
+    IconData icon,
+    bool isSelected, {
+    bool isEnabled = true,
+    Widget? trailing,
+  }) {
+    final baseTextColor = isEnabled ? Colors.black : Colors.grey[600];
+    final selectedColor = const Color(0xFF002e5b);
+
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.55,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? selectedColor.withOpacity(0.1) : Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? selectedColor : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? const Color(0xFF002e5b) : Colors.grey[600],
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: TextStyle(
-              color: isSelected ? const Color(0xFF002e5b) : Colors.black,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? selectedColor : Colors.grey[600],
+              size: 20,
             ),
-          ),
-          const Spacer(),
-          if (isSelected)
-            Icon(Icons.check_circle, color: const Color(0xFF002e5b), size: 20),
-        ],
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? selectedColor : baseTextColor,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            const Spacer(),
+            if (trailing != null) trailing,
+            if (isSelected)
+              Icon(Icons.check_circle, color: selectedColor, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -682,8 +718,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         return;
       }
 
-      // Clear cart data after successful order placement
-      await StorageService.clearCartData();
+      // DO NOT clear cart here - cart will be cleared only after successful payment
+      // Cart will be cleared in payment.dart (card payment) or here (Google Pay) after payment success
 
       if (mounted) {
         // Show success toast
@@ -728,9 +764,28 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         // For Google Pay - it's handled directly when clicked, so this shouldn't be reached
         // But add it for safety
         if (_selectedPaymentMethod == 'Google Pay') {
-          debugPrint(
-            'Google Pay selected - Payment should be handled directly',
-          );
+          debugPrint('Google Pay selected - handling from proceed button');
+
+          if (_isInitializingGooglePay) {
+            Fluttertoast.showToast(
+              msg: 'Checking Google Pay availability...',
+              toastLength: Toast.LENGTH_SHORT,
+            );
+            return;
+          }
+
+          if (!_isGooglePayAvailable) {
+            Fluttertoast.showToast(
+              msg:
+                  'Google Pay is not available on this device/emulator (requires Google Play services).',
+              toastLength: Toast.LENGTH_LONG,
+            );
+            return;
+          }
+
+          // Attempt Google Pay flow if available
+          await StorageService.clearCheckoutData();
+          await _handleGooglePayClick();
           return;
         }
 
@@ -1002,7 +1057,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
 
       // Load Google Pay configuration
       _googlePayConfig = await PaymentConfiguration.fromAsset(
-        'google_pay_config.json',
+        BuildConfig.googlePayConfigAsset,
       );
 
       // Initialize Pay client
@@ -1098,7 +1153,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
 
         final response = await _orderService.storeOrder(orderPayload);
         await StorageService.saveOrderData(response);
-        await StorageService.clearCartData();
+        // DO NOT clear cart here - cart will be cleared only after successful payment
         await StorageService.clearCheckoutData();
 
         final order = response['order'] as Map<String, dynamic>?;
@@ -1131,71 +1186,112 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         paymentResult: paymentResult,
       );
 
-      final success = response['success'] as bool? ?? false;
-      final paymentToken =
-          response['payment_token'] as String?; // Extract token
+      final paymentToken = response['payment_token'] as String?;
 
-      // Debug: Print token before showing toast
-      debugPrint('=== TOKEN BEFORE TOAST ===');
-      debugPrint('Token: $paymentToken');
-      debugPrint('Token is null: ${paymentToken == null}');
-      debugPrint('Token is empty: ${paymentToken?.isEmpty ?? true}');
-      debugPrint('Response keys: ${response.keys}');
-      debugPrint('Full response: $response');
-
-      // Print Google Pay token as Base64 for easy identification in logs
+      // ===== ONLY TWO PRINTS (with chunking for long tokens) =====
       if (paymentToken != null && paymentToken.isNotEmpty) {
+        _printLongString(paymentToken, 'GOOGLE_PAY_TOKEN_RAW');
+
         final base64Token = base64Encode(utf8.encode(paymentToken));
-        debugPrint('============token =========');
-        debugPrint(base64Token);
-        debugPrint('============token =========');
+        _printLongString(base64Token, 'GOOGLE_PAY_TOKEN_BASE64');
+      } else {
+        debugPrint('=== GOOGLE_PAY_TOKEN_RAW ===');
+        debugPrint('null');
+        debugPrint('=== GOOGLE_PAY_TOKEN_BASE64 ===');
+        debugPrint('null');
       }
 
-      if (success && mounted) {
-        // Show toast with token if available
-        String toastMessage = 'Payment successful!';
-        // Do NOT show token in UI/toast (can cause overflow). Keep token only in debug logs.
-        if (paymentToken == null || paymentToken.isEmpty) {
-          debugPrint('Token is null or empty, showing toast without token');
-        }
+      // Check response format: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
+      final showOrderSuccess = response['show_order_success'] as int? ?? 0;
+      final processPayment = response['process_payment'] as int? ?? 1;
 
+      debugPrint(
+        'Google Pay Response - show_order_success: $showOrderSuccess, process_payment: $processPayment',
+      );
+
+      // If we reach here, API call was successful (status code 200)
+      // Clear cart data ONLY after successful payment
+      await StorageService.clearCartData();
+      
+      // Show success toast and navigate forward
+      if (mounted) {
         Fluttertoast.showToast(
-          msg: toastMessage,
-          toastLength: Toast.LENGTH_LONG, // LONG duration to show full token
+          msg: 'Payment successful!',
+          toastLength: Toast.LENGTH_LONG,
           backgroundColor: Colors.green,
           textColor: Colors.white,
         );
 
-        // Navigate to order success page with token
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/order-placed',
-          (route) => false,
-          arguments: {
-            'payment_token': paymentToken, // Pass token as argument
-            'payment_method': 'Google Pay',
-          },
-        );
-      } else {
-        final message = response['message'] as String? ?? 'Payment failed';
-        if (mounted) {
+        // Navigate to order success page if show_order_success is 1
+        if (showOrderSuccess == 1) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/order-placed',
+            (route) => false,
+            arguments: {
+              'payment_token': paymentToken, // Pass token as argument
+              'payment_method': 'Google Pay',
+            },
+          );
+        } else {
+          // Fallback: still navigate to order-placed if flag is not set
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/order-placed',
+            (route) => false,
+            arguments: {
+              'payment_token': paymentToken,
+              'payment_method': 'Google Pay',
+            },
+          );
+        }
+      }
+    } on ApiException catch (e) {
+      // Handle API exceptions - check status code
+      debugPrint('Google Pay API error: ${e.message}, Status: ${e.statusCode}');
+
+      if (mounted) {
+        // If status code is 200, show success and navigate
+        if (e.statusCode == 200) {
+          // Clear cart data ONLY after successful payment
+          await StorageService.clearCartData();
+          
           Fluttertoast.showToast(
-            msg: message,
+            msg: 'Payment successful!',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+          );
+
+          // Navigate to order success page
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/order-placed',
+            (route) => false,
+            arguments: {'payment_method': 'Google Pay'},
+          );
+        } else {
+          // Status code is not 200 - show error toast and stay on page
+          Fluttertoast.showToast(
+            msg: 'Something went wrong Please try again',
             toastLength: Toast.LENGTH_LONG,
             backgroundColor: Colors.red,
             textColor: Colors.white,
           );
+          // User stays on the same page (no navigation)
         }
       }
     } catch (e) {
+      // Handle other exceptions
       debugPrint('Error handling Google Pay result: $e');
       if (mounted) {
         Fluttertoast.showToast(
-          msg: 'Payment failed. Please try again.',
+          msg: 'Something went wrong Please try again',
           toastLength: Toast.LENGTH_LONG,
           backgroundColor: Colors.red,
           textColor: Colors.white,
         );
+        // User stays on the same page (no navigation)
       }
     } finally {
       if (mounted) {

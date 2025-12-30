@@ -1,0 +1,299 @@
+================================================================================
+                    RELEASE BUILD CONFIGURATION FORM
+                         Android App Release Setup
+================================================================================
+
+Project Name: APC Project
+Package Name: com.apc.automotionplus
+Current Version: 1.0.0+1
+
+================================================================================
+SECTION 1: KEYSTORE CREATION DETAILS
+================================================================================
+
+Keystore creation ke liye yeh information required hai:
+
+1. First and Last Name (CN): 
+   [Example: "APC Project" ya "Your Company Name"]
+   _________________________________________________
+
+2. Organizational Unit (OU): 
+   [Example: "IT Department" ya "Development"]
+   _________________________________________________
+
+3. Organization (O): 
+   [Example: "APC Company" ya "Your Company Name"]
+   _________________________________________________
+
+4. City/Locality (L): 
+   [Example: "Mumbai" ya "Delhi"]
+   _________________________________________________
+
+5. State/Province (ST): 
+   [Example: "Maharashtra" ya "Delhi"]
+   _________________________________________________
+
+6. Country Code (C): 
+   [Example: "IN" (India), "US", etc.]
+   _________________________________________________
+
+7. Store Password: 
+   [Minimum 6 characters, secure password]
+   _________________________________________________
+
+8. Key Password: 
+   [Can be same as Store Password or different]
+   _________________________________________________
+
+9. Key Alias: 
+   [Default: "upload" ya custom name]
+   _________________________________________________
+
+10. Validity Period: 
+    [Default: 10000 days (approximately 27 years)]
+    _________________________________________________
+
+
+================================================================================
+SECTION 2: APP METADATA (Google Play Console)
+================================================================================
+
+Google Play Store ke liye yeh information required hai:
+
+1. App Name: 
+   [Example: "APC Project" ya "Your App Name"]
+   _________________________________________________
+
+2. Package Name: 
+   [Current: com.apc.automotionplus]
+   [Change karna hai to: _________________________]
+
+3. App Version: 
+   [Current: 1.0.0]
+   [Update karna hai to: _________________________]
+
+4. Company/Developer Name: 
+   [Example: "APC Company"]
+   _________________________________________________
+
+5. Developer Email: 
+   [Example: developer@company.com]
+   _________________________________________________
+
+6. Developer Website: 
+   [Optional but recommended]
+   _________________________________________________
+
+7. Support Email: 
+   [Example: support@company.com]
+   _________________________________________________
+
+8. Privacy Policy URL: 
+   [REQUIRED - Must be publicly accessible]
+   [Example: https://www.company.com/privacy-policy]
+   _________________________________________________
+
+9. App Short Description: 
+   [Maximum 80 characters]
+   _________________________________________________
+   _________________________________________________
+
+10. App Full Description: 
+    [Maximum 4000 characters]
+    _________________________________________________
+    _________________________________________________
+    _________________________________________________
+    _________________________________________________
+
+11. App Category: 
+    [Example: Shopping, Business, Productivity, etc.]
+    _________________________________________________
+
+12. Content Rating: 
+    [Play Store will ask questions - usually: Everyone, Teen, Mature]
+    _________________________________________________
+
+
+================================================================================
+SECTION 3: APP ASSETS (Google Play Store)
+================================================================================
+
+Play Store listing ke liye yeh assets required hain:
+
+1. App Icon: 
+   [ ] 512x512 PNG format (REQUIRED)
+   [ ] Transparent background preferred
+   [ ] File location: _________________________
+
+2. Feature Graphic: 
+   [ ] 1024x500 PNG format (REQUIRED)
+   [ ] File location: _________________________
+
+3. Screenshots: 
+   [ ] Phone Screenshots: At least 2 required
+        - Minimum: 320px width
+        - Maximum: 3840px width
+        - Aspect ratio: 16:9 or 9:16
+        - File locations: 
+          _________________________________________________
+          _________________________________________________
+          _________________________________________________
+
+   [ ] Tablet Screenshots: Optional but recommended
+        - File locations: 
+          _________________________________________________
+          _________________________________________________
+
+4. Promo Video: 
+   [ ] Optional (YouTube URL)
+   [ ] URL: _________________________________________________
+
+
+================================================================================
+SECTION 4: LEGAL INFORMATION
+================================================================================
+
+1. Privacy Policy URL: 
+   [REQUIRED - Must be publicly accessible]
+   [Example: https://www.company.com/privacy-policy]
+   _________________________________________________
+
+2. Terms of Service URL: 
+   [Optional but recommended]
+   [Example: https://www.company.com/terms]
+   _________________________________________________
+
+3. Developer Address: 
+   [Required for paid apps]
+   [Complete address with city, state, country]
+   _________________________________________________
+   _________________________________________________
+
+
+================================================================================
+SECTION 5: GOOGLE PLAY DEVELOPER ACCOUNT
+================================================================================
+
+1. Google Play Developer Account: 
+   [ ] Account created? Yes / No
+   [ ] Account Email: _________________________________________________
+   [ ] One-time registration fee paid ($25 USD)? Yes / No
+
+2. Payment Method: 
+   [ ] Required if app is paid or has in-app purchases
+   [ ] Payment method added? Yes / No
+
+
+================================================================================
+SECTION 6: ADDITIONAL CONFIGURATION
+================================================================================
+
+1. App Type: 
+   [ ] Free App
+   [ ] Paid App
+   [ ] Free with In-App Purchases
+
+2. Target Audience: 
+   [ ] General Audience
+   [ ] Children
+   [ ] Specific Age Group: _________________________
+
+3. App Permissions Required: 
+   [List all permissions your app uses]
+   - Internet: Yes / No
+   - Location: Yes / No
+   - Camera: Yes / No
+   - Storage: Yes / No
+   - Others: _________________________________________________
+
+
+================================================================================
+SECTION 7: CURRENT APP INFORMATION
+================================================================================
+
+✓ Package Name: com.apc.automotionplus
+✓ App Name: apcproject (AndroidManifest mein)
+✓ Version: 1.0.0+1
+✓ Minimum SDK: Android 6.0 (API 23)
+✓ Target SDK: Latest (Android 15/16 compatible)
+
+
+================================================================================
+CHECKLIST - RELEASE BUILD PREPARATION
+================================================================================
+
+KEYSTORE:
+[ ] Company/Organization name provided
+[ ] City, State, Country provided
+[ ] Store password decided
+[ ] Key password decided
+[ ] Keystore file will be created
+
+APP METADATA:
+[ ] App display name decided
+[ ] App description written
+[ ] Developer email provided
+[ ] Support email provided
+[ ] Privacy policy URL ready
+
+APP ASSETS:
+[ ] App icon (512x512) ready
+[ ] Feature graphic (1024x500) ready
+[ ] Screenshots prepared (minimum 2)
+[ ] Tablet screenshots (optional)
+
+LEGAL:
+[ ] Privacy policy URL ready
+[ ] Terms of service URL (optional)
+[ ] Developer address (if paid app)
+
+GOOGLE PLAY:
+[ ] Developer account created
+[ ] Registration fee paid
+[ ] Payment method added (if needed)
+
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+1. Keystore file ko safe rakhein - agar kho gayi to app update nahi kar sakoge
+2. Password ko secure rakhein aur backup mein save karein
+3. Privacy Policy URL publicly accessible honi chahiye
+4. App icon aur screenshots high quality hone chahiye
+5. Google Play Developer account $25 one-time fee hai
+6. Release build test karein before publishing
+7. App size optimize karne ke liye ProGuard/R8 enable karenga
+
+
+================================================================================
+NEXT STEPS AFTER FILLING THIS FORM
+================================================================================
+
+1. Ye form complete karke developer ko dena hai
+2. Developer keystore file create karega
+3. Release build configuration setup karega
+4. App metadata update karega
+5. Release APK/AAB build generate karega
+6. Google Play Console mein upload karne ke liye ready hoga
+
+
+================================================================================
+CONTACT INFORMATION
+================================================================================
+
+Developer Contact: _________________________
+Email: _________________________________________________
+Phone: _________________________________________________
+Project Start Date: _________________________
+Expected Release Date: _________________________
+
+
+================================================================================
+                        END OF FORM
+================================================================================
+
+Date: _________________________
+Filled By: _________________________
+Reviewed By: _________________________
+

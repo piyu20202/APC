@@ -30,6 +30,16 @@ class _LatestProductCardState extends State<LatestProductCard> {
   final CartService _cartService = CartService();
   bool _isQuickAdding = false;
 
+  void _showWishlistComingSoon() {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Wishlist is under development and will be available soon.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
@@ -96,24 +106,27 @@ class _LatestProductCardState extends State<LatestProductCard> {
                     ),
                   ),
                   // Wishlist icon
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          spreadRadius: 0.5,
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.favorite_border,
-                      color: Colors.red[300],
-                      size: 18,
+                  GestureDetector(
+                    onTap: _showWishlistComingSoon,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            spreadRadius: 0.5,
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.favorite_border,
+                        color: Colors.red[300],
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
