@@ -66,23 +66,39 @@ class _CartPageState extends State<CartPage> {
       ),
       body: RefreshIndicator.adaptive(
         onRefresh: _onRefreshCart,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _isLoading
-                  ? const AppStateView(state: AppViewState.loading)
-                  : (_errorMessage != null)
-                  ? AppStateView(
+        child: _isLoading
+            ? const CustomScrollView(
+                physics: AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: AppStateView(state: AppViewState.loading),
+                  ),
+                ],
+              )
+            : (_errorMessage != null)
+            ? CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: AppStateView(
                       state: AppViewState.error,
                       title: 'Unable to load cart',
                       message: _errorMessage,
                       primaryActionLabel: 'Retry',
                       onPrimaryAction: _loadCartItems,
-                    )
-                  : (cartItems.isEmpty)
-                  ? AppStateView(
+                    ),
+                  ),
+                ],
+              )
+            : (cartItems.isEmpty)
+            ? CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: AppStateView(
                       state: AppViewState.empty,
                       title: 'Your cart is empty',
                       message:
@@ -99,11 +115,11 @@ class _CartPageState extends State<CartPage> {
                           navigator.popUntil((route) => route.isFirst);
                         }
                       },
-                    )
-                  : _buildCartWithItems(),
-            ),
-          ],
-        ),
+                    ),
+                  ),
+                ],
+              )
+            : _buildCartWithItems(),
       ),
     );
   }
@@ -667,202 +683,191 @@ class _CartPageState extends State<CartPage> {
     // Group items: main products with their add-ons
     final groupedItems = _groupCartItems();
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Cart Items
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: groupedItems.length,
-                  itemBuilder: (context, groupIndex) {
-                    final group = groupedItems[groupIndex];
-                    final mainItem = group['main'] as Map<String, dynamic>;
-                    final addons =
-                        (group['addons'] as List<Map<String, dynamic>>?) ?? [];
-                    final mainIndex = cartItems.indexWhere(
-                      (item) => item['id'] == mainItem['id'],
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, groupIndex) {
+              final group = groupedItems[groupIndex];
+              final mainItem = group['main'] as Map<String, dynamic>;
+              final addons =
+                  (group['addons'] as List<Map<String, dynamic>>?) ?? [];
+              final mainIndex = cartItems.indexWhere(
+                (item) => item['id'] == mainItem['id'],
+              );
+              final cartKey = mainItem['id'] as String?;
+
+              return Column(
+                children: [
+                  // Main product
+                  CartItemCard(
+                    item: mainItem,
+                    index: mainIndex,
+                    isMainProduct: addons.isNotEmpty,
+                    onQuantityDecrease: () {
+                      final itemId = cartItems[mainIndex]['itemId'] as String?;
+                      final currentQty =
+                          (cartItems[mainIndex]['quantity'] as num?)?.toInt() ??
+                          1;
+                      if (currentQty > 1) {
+                        setState(() {
+                          cartItems[mainIndex]['quantity'] = currentQty - 1;
+                          _serverReportedTotal = null;
+                          _serverReportedQty = null;
+                        });
+                        if (itemId != null) {
+                          _recordQuantityChange(itemId, -1);
+                        }
+                      }
+                    },
+                    onQuantityIncrease: () {
+                      final itemId = cartItems[mainIndex]['itemId'] as String?;
+                      final currentQty =
+                          (cartItems[mainIndex]['quantity'] as num?)?.toInt() ??
+                          0;
+                      setState(() {
+                        cartItems[mainIndex]['quantity'] = currentQty + 1;
+                        _serverReportedTotal = null;
+                        _serverReportedQty = null;
+                      });
+                      if (itemId != null) {
+                        _recordQuantityChange(itemId, 1);
+                      }
+                    },
+                    onDelete: () {
+                      if (cartKey != null && _deletingItems.contains(cartKey)) {
+                        return;
+                      }
+                      _handleDeleteItem(
+                        cartKey: cartKey,
+                        index: mainIndex,
+                        hasAddons: addons.isNotEmpty,
+                      );
+                    },
+                  ),
+
+                  // Add-on products
+                  ...addons.map((addonItem) {
+                    final addonIndex = cartItems.indexWhere(
+                      (item) => item['id'] == addonItem['id'],
                     );
-                    final cartKey = mainItem['id'] as String?;
+                    final addonCartKey = addonItem['id'] as String?;
 
-                    return Column(
-                      children: [
-                        // Main product
-                        CartItemCard(
-                          item: mainItem,
-                          index: mainIndex,
-                          isMainProduct: addons.isNotEmpty,
-                          onQuantityDecrease: () {
-                            final itemId =
-                                cartItems[mainIndex]['itemId'] as String?;
-                            final currentQty =
-                                (cartItems[mainIndex]['quantity'] as num?)
-                                    ?.toInt() ??
-                                1;
-                            if (currentQty > 1) {
-                              setState(() {
-                                cartItems[mainIndex]['quantity'] =
-                                    currentQty - 1;
-                                _serverReportedTotal = null;
-                                _serverReportedQty = null;
-                              });
-                              if (itemId != null) {
-                                _recordQuantityChange(itemId, -1);
-                              }
-                            }
-                          },
-                          onQuantityIncrease: () {
-                            final itemId =
-                                cartItems[mainIndex]['itemId'] as String?;
-                            final currentQty =
-                                (cartItems[mainIndex]['quantity'] as num?)
-                                    ?.toInt() ??
-                                0;
-                            setState(() {
-                              cartItems[mainIndex]['quantity'] = currentQty + 1;
-                              _serverReportedTotal = null;
-                              _serverReportedQty = null;
-                            });
-                            if (itemId != null) {
-                              _recordQuantityChange(itemId, 1);
-                            }
-                          },
-                          onDelete: () {
-                            if (cartKey != null &&
-                                _deletingItems.contains(cartKey)) {
-                              return;
-                            }
-                            _handleDeleteItem(
-                              cartKey: cartKey,
-                              index: mainIndex,
-                              hasAddons: addons.isNotEmpty,
-                            );
-                          },
-                        ),
-
-                        // Add-on products
-                        ...addons.map((addonItem) {
-                          final addonIndex = cartItems.indexWhere(
-                            (item) => item['id'] == addonItem['id'],
-                          );
-                          final addonCartKey = addonItem['id'] as String?;
-
-                          return CartItemCard(
-                            item: addonItem,
-                            index: addonIndex,
-                            isAddonProduct: true,
-                            onQuantityDecrease: () {
-                              final itemId =
-                                  cartItems[addonIndex]['itemId'] as String?;
-                              final currentQty =
-                                  (cartItems[addonIndex]['quantity'] as num?)
-                                      ?.toInt() ??
-                                  1;
-                              if (currentQty > 1) {
-                                setState(() {
-                                  cartItems[addonIndex]['quantity'] =
-                                      currentQty - 1;
-                                  _serverReportedTotal = null;
-                                  _serverReportedQty = null;
-                                });
-                                if (itemId != null) {
-                                  _recordQuantityChange(itemId, -1);
-                                }
-                              }
-                            },
-                            onQuantityIncrease: () {
-                              final itemId =
-                                  cartItems[addonIndex]['itemId'] as String?;
-                              final currentQty =
-                                  (cartItems[addonIndex]['quantity'] as num?)
-                                      ?.toInt() ??
-                                  0;
-                              setState(() {
-                                cartItems[addonIndex]['quantity'] =
-                                    currentQty + 1;
-                                _serverReportedTotal = null;
-                                _serverReportedQty = null;
-                              });
-                              if (itemId != null) {
-                                _recordQuantityChange(itemId, 1);
-                              }
-                            },
-                            onDelete: () {
-                              if (addonCartKey != null &&
-                                  _deletingItems.contains(addonCartKey)) {
-                                return;
-                              }
-                              _handleDeleteItem(
-                                cartKey: addonCartKey,
-                                index: addonIndex,
-                              );
-                            },
-                          );
-                        }).toList(),
-                      ],
+                    return CartItemCard(
+                      item: addonItem,
+                      index: addonIndex,
+                      isAddonProduct: true,
+                      onQuantityDecrease: () {
+                        final itemId =
+                            cartItems[addonIndex]['itemId'] as String?;
+                        final currentQty =
+                            (cartItems[addonIndex]['quantity'] as num?)
+                                ?.toInt() ??
+                            1;
+                        if (currentQty > 1) {
+                          setState(() {
+                            cartItems[addonIndex]['quantity'] = currentQty - 1;
+                            _serverReportedTotal = null;
+                            _serverReportedQty = null;
+                          });
+                          if (itemId != null) {
+                            _recordQuantityChange(itemId, -1);
+                          }
+                        }
+                      },
+                      onQuantityIncrease: () {
+                        final itemId =
+                            cartItems[addonIndex]['itemId'] as String?;
+                        final currentQty =
+                            (cartItems[addonIndex]['quantity'] as num?)
+                                ?.toInt() ??
+                            0;
+                        setState(() {
+                          cartItems[addonIndex]['quantity'] = currentQty + 1;
+                          _serverReportedTotal = null;
+                          _serverReportedQty = null;
+                        });
+                        if (itemId != null) {
+                          _recordQuantityChange(itemId, 1);
+                        }
+                      },
+                      onDelete: () {
+                        if (addonCartKey != null &&
+                            _deletingItems.contains(addonCartKey)) {
+                          return;
+                        }
+                        _handleDeleteItem(
+                          cartKey: addonCartKey,
+                          index: addonIndex,
+                        );
+                      },
                     );
-                  },
-                ),
-              ],
-            ),
+                  }),
+                ],
+              );
+            }, childCount: groupedItems.length),
           ),
         ),
 
         // Order Summary
-        _buildOrderSummary(subtotal, total, totalQty),
-        const SizedBox(height: 20),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildOrderSummary(subtotal, total, totalQty),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
         // Checkout Button
-        SafeArea(
-          top: false,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 3,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isCheckoutSubmitting ? null : _handleCheckout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF151D51),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+        SliverToBoxAdapter(
+          child: SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withValues(alpha: 0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, -2),
                   ),
-                ),
-                child: _isCheckoutSubmitting
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
+                ],
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isCheckoutSubmitting ? null : _handleCheckout,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF151D51),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isCheckoutSubmitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Text(
+                          'Checkout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      )
-                    : const Text(
-                        'Checkout',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                ),
               ),
             ),
           ),
@@ -879,7 +884,7 @@ class _CartPageState extends State<CartPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 3,
             offset: const Offset(0, 2),

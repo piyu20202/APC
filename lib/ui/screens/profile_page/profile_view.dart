@@ -7,9 +7,6 @@ import '../signup_view/trader_upgrade_flow.dart';
 import '../../../services/user_role_service.dart';
 import '../../../providers/auth_provider.dart';
 import 'accountinfo.dart';
-import 'myorder.dart';
-import 'editprofile.dart';
-import 'resetpassword.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -75,7 +72,7 @@ class _ProfileViewState extends State<ProfileView> {
                     border: Border.all(color: Colors.grey[300]!),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         spreadRadius: 1,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
@@ -103,13 +100,7 @@ class _ProfileViewState extends State<ProfileView> {
                         context: context,
                         title: 'My Orders',
                         onTap: () {
-                          // Navigate to My Orders page
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const MyOrdersPage(),
-                            ),
-                          );
+                          _showUnderDevelopmentMessage(context);
                         },
                       ),
                       _buildDivider(),
@@ -117,13 +108,7 @@ class _ProfileViewState extends State<ProfileView> {
                         context: context,
                         title: 'Edit Profile',
                         onTap: () {
-                          // Navigate to Edit Profile page
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const EditProfilePage(),
-                            ),
-                          );
+                          _showUnderDevelopmentMessage(context);
                         },
                       ),
                       _buildDivider(),
@@ -131,13 +116,7 @@ class _ProfileViewState extends State<ProfileView> {
                         context: context,
                         title: 'Reset Password',
                         onTap: () {
-                          // Navigate to Reset Password page
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ResetPasswordPage(),
-                            ),
-                          );
+                          _showUnderDevelopmentMessage(context);
                         },
                       ),
                       _buildDivider(),
@@ -175,7 +154,7 @@ class _ProfileViewState extends State<ProfileView> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.orange.withValues(alpha: 0.3),
             spreadRadius: 2,
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -190,7 +169,7 @@ class _ProfileViewState extends State<ProfileView> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -215,7 +194,7 @@ class _ProfileViewState extends State<ProfileView> {
                     Text(
                       'Unlock exclusive benefits',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                       ),
                     ),
@@ -246,7 +225,7 @@ class _ProfileViewState extends State<ProfileView> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white, width: 1),
                     shape: RoundedRectangleBorder(
@@ -351,6 +330,19 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
+  void _showUnderDevelopmentMessage(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'This feature is under development',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        backgroundColor: Color(0xFF151D51),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -406,9 +398,8 @@ class _ProfileViewState extends State<ProfileView> {
                       showDialog(
                         context: this.context,
                         barrierDismissible: false,
-                        builder: (_) => const Center(
-                          child: CircularProgressIndicator(),
-                        ),
+                        builder: (_) =>
+                            const Center(child: CircularProgressIndicator()),
                       );
 
                       try {

@@ -22,7 +22,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.yellow.withOpacity(0.3)),
+            border: Border.all(color: Colors.yellow.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

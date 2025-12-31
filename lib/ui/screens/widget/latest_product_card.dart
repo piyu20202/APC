@@ -63,7 +63,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               spreadRadius: 1,
               blurRadius: 3,
               offset: const Offset(0, 2),
@@ -88,7 +88,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
                       borderRadius: BorderRadius.circular(6),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           spreadRadius: 0.5,
                           blurRadius: 2,
                           offset: const Offset(0, 1),
@@ -115,7 +115,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             spreadRadius: 0.5,
                             blurRadius: 2,
                             offset: const Offset(0, 1),
@@ -178,7 +178,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
                           borderRadius: BorderRadius.circular(6),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -390,12 +390,14 @@ class _LatestProductCardState extends State<LatestProductCard> {
       final payload = await builder.buildPayload();
       final response = await _cartService.addProducts(payload);
       await StorageService.saveCartData(response);
+      if (!context.mounted) return;
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
       NavigationService.instance.switchToTab(3);
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
+      if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text('Unable to add to cart: $e')),
       );
@@ -459,7 +461,7 @@ Widget _buildProductImage(Map<String, dynamic> product) {
           ),
         ),
       ),
-      errorWidget: (context, url, error) => Container(
+      errorWidget: (context, url, error) => SizedBox(
         width: double.infinity,
         height: 120,
         child: _imageFallback(),
@@ -492,7 +494,7 @@ Widget _buildProductImage(Map<String, dynamic> product) {
         width: double.infinity,
         height: 120,
         fit: BoxFit.contain,
-        errorWidget: (context, url, error) => Container(
+        errorWidget: (context, url, error) => SizedBox(
           width: double.infinity,
           height: 120,
           child: _imageFallback(),
@@ -507,7 +509,7 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     height: 120,
     fit: BoxFit.contain,
     errorBuilder: (context, error, stackTrace) =>
-        Container(width: double.infinity, height: 120, child: _imageFallback()),
+        SizedBox(width: double.infinity, height: 120, child: _imageFallback()),
   );
 }
 

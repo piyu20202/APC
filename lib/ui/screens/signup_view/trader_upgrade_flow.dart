@@ -90,7 +90,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
         iconTheme: const IconThemeData(color: Colors.black),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
-          child: Container(
+          child: SizedBox(
             height: 4,
             child: LinearProgressIndicator(
               value: (_currentStep + 1) / 3,
@@ -139,7 +139,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -166,7 +166,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
                       ? 'Unlock exclusive benefits for your business'
                       : 'Access wholesale pricing and professional tools',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
@@ -395,7 +395,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
                 contentPadding: EdgeInsets.zero,
               ),
             );
-          }).toList(),
+          }),
 
           const SizedBox(height: 24),
 
@@ -612,7 +612,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
                   ),
                 ),
               )
-              .toList(),
+              ,
 
           const SizedBox(height: 32),
 
@@ -680,7 +680,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 4,
             offset: const Offset(0, 2),
@@ -692,7 +692,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -861,6 +861,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
     try {
       // Set user as trader after successful registration
       await UserRoleService.setAsTrader();
+      if (!mounted) return;
 
       // Show success dialog
       showDialog(
@@ -927,6 +928,7 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
         },
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error submitting application: $e'),

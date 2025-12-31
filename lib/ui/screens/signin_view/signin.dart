@@ -54,10 +54,12 @@ class _SigninScreenState extends State<SigninScreen> {
         if (success) {
           // Check if settings already exist (first time login check)
           final existingSettings = await StorageService.getSettings();
+          if (!mounted) return;
 
           if (existingSettings == null) {
             // First time login - fetch settings from API
             await _fetchSettingsFirstTime();
+            if (!mounted) return;
           }
 
           // Get user name from the provider
@@ -109,7 +111,10 @@ class _SigninScreenState extends State<SigninScreen> {
     }
   }
 
+  // Social login is currently hidden/disabled in the UI (see Visibility(visible: false)),
+  // but we keep the handlers for when configuration is completed.
   /// Handle Facebook login
+  // ignore: unused_element
   Future<void> _handleFacebookLogin() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -148,9 +153,11 @@ class _SigninScreenState extends State<SigninScreen> {
           if (success) {
             // Check if settings already exist (first time login check)
             final existingSettings = await StorageService.getSettings();
+            if (!mounted) return;
 
             if (existingSettings == null) {
               await _fetchSettingsFirstTime();
+              if (!mounted) return;
             }
 
             final userName = authProvider.currentUser?.name ?? 'User';
@@ -217,6 +224,7 @@ class _SigninScreenState extends State<SigninScreen> {
   }
 
   /// Handle Google login
+  // ignore: unused_element
   Future<void> _handleGoogleLogin() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -273,9 +281,11 @@ class _SigninScreenState extends State<SigninScreen> {
         if (success) {
           // Check if settings already exist (first time login check)
           final existingSettings = await StorageService.getSettings();
+          if (!mounted) return;
 
           if (existingSettings == null) {
             await _fetchSettingsFirstTime();
+            if (!mounted) return;
           }
 
           final userName = authProvider.currentUser?.name ?? 'User';
@@ -496,7 +506,7 @@ class _SigninScreenState extends State<SigninScreen> {
                       textAlign: TextAlign.center,
                       text: TextSpan(
                         style: TextStyle(
-                          color: Color(0xFF151D51).withOpacity(0.7),
+                          color: Color(0xFF151D51).withValues(alpha: 0.7),
                           fontSize: 14,
                         ),
                         children: [
@@ -632,7 +642,7 @@ class _SigninScreenState extends State<SigninScreen> {
                         Text(
                           "Didn't have an account? ",
                           style: TextStyle(
-                            color: Color(0xFF151D51).withOpacity(0.7),
+                            color: Color(0xFF151D51).withValues(alpha: 0.7),
                             fontSize: 16,
                           ),
                         ),
@@ -714,7 +724,7 @@ class _SigninScreenState extends State<SigninScreen> {
                       decoration: InputDecoration(
                         hintText: placeholder,
                         hintStyle: TextStyle(
-                          color: Color(0xFF151D51).withOpacity(0.6),
+                          color: Color(0xFF151D51).withValues(alpha: 0.6),
                           fontSize: 16,
                         ),
                         border: InputBorder.none,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
 import 'ui/screens/home_view/home.dart';
 import 'ui/screens/cart_view/cart.dart';
 import 'ui/screens/profile_page/profile_view.dart';
@@ -89,15 +91,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return shouldExit ?? false;
   }
 
+  Future<void> _handleSystemBack() async {
+    final shouldExit = await _maybeExitApp();
+    if (!mounted) return;
+    if (shouldExit) {
+      SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        final navigator = Navigator.of(context);
-        if (navigator.canPop()) {
-          return true;
-        }
-        return _maybeExitApp();
+    final navigator = Navigator.of(context);
+
+    return PopScope(
+      canPop: navigator.canPop(),
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // We're at the root route: show exit confirmation.
+        unawaited(_handleSystemBack());
       },
       child: Scaffold(
         body: IndexedStack(index: _selectedIndex, children: _buildScreens()),
@@ -185,9 +196,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Icon(
-          active ? Icons.shopping_cart : Icons.shopping_cart_outlined,
-        ),
+        Icon(active ? Icons.shopping_cart : Icons.shopping_cart_outlined),
         if (_cartCount > 0)
           Positioned(
             top: -4,

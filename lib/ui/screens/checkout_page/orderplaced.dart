@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import '../../../services/navigation_service.dart';
 
 class OrderPlacedPage extends StatelessWidget {
   const OrderPlacedPage({super.key});
@@ -54,7 +56,7 @@ class OrderPlacedPage extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.green.withOpacity(0.3),
+                      color: Colors.green.withValues(alpha: 0.3),
                       spreadRadius: 5,
                       blurRadius: 15,
                       offset: const Offset(0, 5),
@@ -88,7 +90,7 @@ class OrderPlacedPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.grey.withValues(alpha: 0.1),
                       spreadRadius: 1,
                       blurRadius: 5,
                       offset: const Offset(0, 2),
@@ -142,12 +144,16 @@ class OrderPlacedPage extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        // Navigate back to home
+                        // Navigate back to main navigation and switch to home tab
                         Navigator.pushNamedAndRemoveUntil(
                           context,
-                          '/home',
+                          '/main',
                           (route) => false,
                         );
+                        // Switch to home tab (index 0) after navigation
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          NavigationService.instance.switchToTab(0);
+                        });
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF002e5b)),
@@ -171,8 +177,15 @@ class OrderPlacedPage extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        // Navigate to order tracking or history
-                        Navigator.pushNamed(context, '/order-tracking');
+                        // Show toast message that feature is under development
+                        Fluttertoast.showToast(
+                          msg: 'Track Order is under development',
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM,
+                          backgroundColor: Colors.orange,
+                          textColor: Colors.white,
+                          fontSize: 16.0,
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF002e5b),

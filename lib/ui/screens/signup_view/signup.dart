@@ -55,7 +55,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           spreadRadius: 2,
                           blurRadius: 10,
                           offset: const Offset(0, 4),
@@ -191,7 +191,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         Text(
                           'Already have an account? ',
                           style: TextStyle(
-                            color: Color(0xFF151D51).withOpacity(0.7),
+                            color: Color(0xFF151D51).withValues(alpha: 0.7),
                             fontSize: 16,
                           ),
                         ),
@@ -269,7 +269,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     decoration: InputDecoration(
                       hintText: placeholder,
                       hintStyle: TextStyle(
-                        color: Color(0xFF151D51).withOpacity(0.6),
+                        color: Color(0xFF151D51).withValues(alpha: 0.6),
                         fontSize: 16,
                       ),
                       border: InputBorder.none,

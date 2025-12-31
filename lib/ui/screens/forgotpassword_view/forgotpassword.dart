@@ -120,7 +120,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       child: Text(
                         'Back to Sign In',
                         style: TextStyle(
-                          color: Color(0xFF151D51).withOpacity(0.7),
+                          color: Color(0xFF151D51).withValues(alpha: 0.7),
                           fontSize: 16,
                         ),
                       ),
@@ -182,7 +182,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     decoration: InputDecoration(
                       hintText: placeholder,
                       hintStyle: TextStyle(
-                        color: Color(0xFF151D51).withOpacity(0.6),
+                        color: Color(0xFF151D51).withValues(alpha: 0.6),
                         fontSize: 16,
                       ),
                       border: InputBorder.none,

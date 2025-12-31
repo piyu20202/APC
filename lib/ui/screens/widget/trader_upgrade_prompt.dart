@@ -125,7 +125,7 @@ class _TraderUpgradePromptState extends State<TraderUpgradePrompt> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.orange.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 6,
             offset: const Offset(0, 3),
@@ -140,7 +140,7 @@ class _TraderUpgradePromptState extends State<TraderUpgradePrompt> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Icon(
@@ -166,7 +166,7 @@ class _TraderUpgradePromptState extends State<TraderUpgradePrompt> {
                       Text(
                         widget.contextMessage!,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 12,
                         ),
                       ),
@@ -197,7 +197,7 @@ class _TraderUpgradePromptState extends State<TraderUpgradePrompt> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white, width: 1),
                     shape: RoundedRectangleBorder(
@@ -345,7 +345,7 @@ class ProductTraderPrompt extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.orange.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 6,
             offset: const Offset(0, 3),
@@ -360,7 +360,7 @@ class ProductTraderPrompt extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -385,7 +385,7 @@ class ProductTraderPrompt extends StatelessWidget {
                     Text(
                       'Get better pricing on $productName',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 12,
                       ),
                     ),
@@ -398,7 +398,7 @@ class ProductTraderPrompt extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -480,7 +480,7 @@ class ProductTraderPrompt extends StatelessWidget {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white, width: 1),
                     shape: RoundedRectangleBorder(

@@ -36,6 +36,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
   String _selectedAreaCode = '02';
   String _selectedBillingAreaCode = '02';
   String _selectedState = 'ACT';
+  // ignore: unused_field
   final String _selectedCountry = 'Australia';
   bool _agreeToTerms = false;
 
@@ -63,6 +64,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
     'VIC',
     'WA',
   ];
+  // ignore: unused_field
   final List<String> _countries = ['Australia'];
 
   @override
@@ -637,6 +639,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
       try {
         // Set user as trader after successful registration
         await UserRoleService.setAsTrader();
+        if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -653,6 +656,7 @@ class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
 
         // TODO: Implement actual registration logic (API calls, etc.)
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Registration failed: $e'),

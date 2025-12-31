@@ -713,11 +713,11 @@ class _DetailViewState extends State<DetailView> {
                                   vertical: 12,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.75),
+                                  color: Colors.black.withValues(alpha: 0.75),
                                   borderRadius: BorderRadius.circular(30),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.3),
+                                      color: Colors.black.withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
@@ -793,7 +793,7 @@ class _DetailViewState extends State<DetailView> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.12),
+                        color: Colors.grey.withValues(alpha: 0.12),
                         spreadRadius: 1,
                         blurRadius: 6,
                         offset: const Offset(0, 3),
@@ -1367,7 +1367,7 @@ class _DetailViewState extends State<DetailView> {
                           ),
                         );
                       })
-                      .toList(),
+                      ,
                 ],
 
                 // Upgrade Items (only if user selected an upgrade)
@@ -1441,7 +1441,7 @@ class _DetailViewState extends State<DetailView> {
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ],
             ),
@@ -1542,8 +1542,7 @@ class _DetailViewState extends State<DetailView> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       );
-                    })
-                    .toList(),
+                    }),
               ],
 
               // Upgrades Summary
@@ -1585,7 +1584,7 @@ class _DetailViewState extends State<DetailView> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ],
           ),
@@ -1965,7 +1964,7 @@ class _DetailViewState extends State<DetailView> {
                           subIndex,
                           selectedSubIndex,
                         );
-                      }).toList(),
+                      }),
                   ],
                 );
               },

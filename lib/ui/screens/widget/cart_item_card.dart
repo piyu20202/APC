@@ -81,7 +81,7 @@ class _CartItemCardState extends State<CartItemCard>
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 3,
             offset: const Offset(0, 2),
@@ -132,7 +132,7 @@ class _CartItemCardState extends State<CartItemCard>
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.15),
+                  color: Colors.red.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

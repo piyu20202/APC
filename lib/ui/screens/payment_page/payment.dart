@@ -179,6 +179,7 @@ class _PaymentPageState extends State<PaymentPage> {
             listen: false,
           );
           await authProvider.logout();
+          if (!mounted) return;
           Fluttertoast.showToast(
             msg: 'Session expired. Please login again.',
             toastLength: Toast.LENGTH_LONG,
@@ -357,6 +358,7 @@ class _PaymentPageState extends State<PaymentPage> {
             listen: false,
           );
           await authProvider.logout();
+          if (!mounted) return;
           Fluttertoast.showToast(
             msg: 'Session expired. Please login again.',
             toastLength: Toast.LENGTH_LONG,
@@ -385,6 +387,7 @@ class _PaymentPageState extends State<PaymentPage> {
           // If status code is 200, clear cart and show success
           // Clear cart data ONLY after successful payment
           await StorageService.clearCartData();
+          if (!mounted) return;
 
           Fluttertoast.showToast(
             msg: 'Payment successful!',

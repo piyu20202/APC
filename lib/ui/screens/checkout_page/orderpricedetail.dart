@@ -46,6 +46,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   bool _isGooglePayAvailable = false;
   bool _isInitializingGooglePay = true;
   StreamSubscription? _paymentResultSubscription;
+  bool _isPaymentProcessing =
+      false; // Flag to prevent duplicate payment processing
+  bool _hasNavigatedAway =
+      false; // Flag to track if we've navigated away after successful payment
 
   /// Helper function to print long strings in chunks (to avoid truncation)
   void _printLongString(String text, String label) {
@@ -479,29 +483,11 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             // Google Pay Option (always show; enable only when available)
             GestureDetector(
               onTap: () {
+                // Only select Google Pay, don't trigger payment yet
+                // Payment will be triggered when user presses "Proceed Payment" button
                 setState(() {
                   _selectedPaymentMethod = 'Google Pay';
                 });
-
-                if (_isInitializingGooglePay) {
-                  Fluttertoast.showToast(
-                    msg: 'Checking Google Pay availability...',
-                    toastLength: Toast.LENGTH_SHORT,
-                  );
-                  return;
-                }
-
-                if (!_isGooglePayAvailable) {
-                  Fluttertoast.showToast(
-                    msg:
-                        'Google Pay is not available on this device/emulator (requires Google Play services).',
-                    toastLength: Toast.LENGTH_LONG,
-                  );
-                  return;
-                }
-
-                // Trigger payment directly when available
-                _handleGooglePayClick();
               },
               child: _buildPaymentOption(
                 'Google Pay',
@@ -565,7 +551,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? selectedColor.withOpacity(0.1) : Colors.grey[50],
+          color: isSelected
+              ? selectedColor.withValues(alpha: 0.1)
+              : Colors.grey[50],
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? selectedColor : Colors.grey[300]!,
@@ -761,8 +749,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           return;
         }
 
-        // For Google Pay - it's handled directly when clicked, so this shouldn't be reached
-        // But add it for safety
+        // For Google Pay - trigger payment when proceed button is pressed
         if (_selectedPaymentMethod == 'Google Pay') {
           debugPrint('Google Pay selected - handling from proceed button');
 
@@ -794,9 +781,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             _selectedPaymentMethod == 'Afterpay' ||
             _selectedPaymentMethod == 'Zip Pay') {
           debugPrint(
-            '${_selectedPaymentMethod} selected - Navigating to payment page',
+            '$_selectedPaymentMethod selected - Navigating to payment page',
           );
           await StorageService.clearCheckoutData();
+          if (!mounted) return;
           Navigator.pushNamed(
             context,
             '/payment',
@@ -809,6 +797,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         debugPrint('Default case - checking process_payment flag');
         final processPayment = response['process_payment'] as int? ?? 0;
         await StorageService.clearCheckoutData();
+        if (!mounted) return;
         if (processPayment == 1) {
           debugPrint('Process payment = 1, navigating to payment page');
           Navigator.pushNamed(context, '/payment');
@@ -827,6 +816,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             listen: false,
           );
           await authProvider.logout();
+          if (!mounted) return;
 
           // Show error message
           Fluttertoast.showToast(
@@ -1116,7 +1106,22 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   Future<void> _handleGooglePayResult(
     Map<String, dynamic> paymentResult,
   ) async {
+    // Prevent duplicate processing
+    if (_isPaymentProcessing || _hasNavigatedAway) {
+      debugPrint(
+        'Google Pay payment already being processed or navigated away, ignoring duplicate event',
+      );
+      return;
+    }
+
+    // Check if widget is still mounted and on the correct page
+    if (!mounted) {
+      debugPrint('Widget not mounted, ignoring Google Pay result');
+      return;
+    }
+
     try {
+      _isPaymentProcessing = true;
       setState(() {
         _isSubmitting = true;
       });
@@ -1212,7 +1217,11 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       // If we reach here, API call was successful (status code 200)
       // Clear cart data ONLY after successful payment
       await StorageService.clearCartData();
-      
+
+      // Cancel payment result subscription to prevent duplicate processing
+      _paymentResultSubscription?.cancel();
+      _paymentResultSubscription = null;
+
       // Show success toast and navigate forward
       if (mounted) {
         Fluttertoast.showToast(
@@ -1221,6 +1230,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           backgroundColor: Colors.green,
           textColor: Colors.white,
         );
+
+        // Mark that we're navigating away BEFORE navigation to prevent duplicate processing
+        _hasNavigatedAway = true;
 
         // Navigate to order success page if show_order_success is 1
         if (showOrderSuccess == 1) {
@@ -1245,6 +1257,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             },
           );
         }
+      } else {
+        // If widget is not mounted, reset flags
+        _isPaymentProcessing = false;
+        _hasNavigatedAway = false;
       }
     } on ApiException catch (e) {
       // Handle API exceptions - check status code
@@ -1255,13 +1271,26 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         if (e.statusCode == 200) {
           // Clear cart data ONLY after successful payment
           await StorageService.clearCartData();
-          
+
+          // Cancel payment result subscription to prevent duplicate processing
+          _paymentResultSubscription?.cancel();
+          _paymentResultSubscription = null;
+
+          if (!mounted) {
+            _isPaymentProcessing = false;
+            _hasNavigatedAway = false;
+            return;
+          }
+
           Fluttertoast.showToast(
             msg: 'Payment successful!',
             toastLength: Toast.LENGTH_LONG,
             backgroundColor: Colors.green,
             textColor: Colors.white,
           );
+
+          // Mark that we're navigating away BEFORE navigation to prevent duplicate processing
+          _hasNavigatedAway = true;
 
           // Navigate to order success page
           Navigator.pushNamedAndRemoveUntil(
@@ -1279,6 +1308,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             textColor: Colors.white,
           );
           // User stays on the same page (no navigation)
+          // Reset flag so user can try again
+          _isPaymentProcessing = false;
         }
       }
     } catch (e) {
@@ -1292,12 +1323,17 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           textColor: Colors.white,
         );
         // User stays on the same page (no navigation)
+        // Reset flag so user can try again
+        _isPaymentProcessing = false;
       }
     } finally {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
         });
+      } else {
+        // If widget is disposed, reset the flag
+        _isPaymentProcessing = false;
       }
     }
   }
@@ -1314,6 +1350,22 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       return;
     }
 
+    // Prevent multiple simultaneous payment attempts
+    if (_isPaymentProcessing) {
+      debugPrint('Google Pay payment already in progress, ignoring click');
+      Fluttertoast.showToast(
+        msg: 'Payment is already being processed. Please wait...',
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
+
+    // If we've already navigated away, don't allow new payment
+    if (_hasNavigatedAway) {
+      debugPrint('Already navigated away, cannot start new payment');
+      return;
+    }
+
     try {
       final amount = _totalPayable ?? 0.0;
 
@@ -1324,6 +1376,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           status: PaymentItemStatus.final_price,
         ),
       ];
+
+      // Don't set _isPaymentProcessing here - it will be set when result is received
+      // This allows the first payment result to be processed
 
       // For Android, use showPaymentSelector (result comes via event channel)
       if (Theme.of(context).platform == TargetPlatform.android) {
@@ -1341,6 +1396,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       }
     } catch (e) {
       debugPrint('Google Pay error: $e');
+      // Reset flag on error so user can try again
+      _isPaymentProcessing = false;
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Google Pay failed. Please try again.',

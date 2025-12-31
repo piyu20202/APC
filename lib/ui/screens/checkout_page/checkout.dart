@@ -90,15 +90,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _addressController.text = '1 George St';
     }
     // This field is labeled "Suburb" in the UI; treat it as the city.
-    if (_suburbController.text.trim().isEmpty)
+    if (_suburbController.text.trim().isEmpty) {
       _suburbController.text = 'Sydney';
+    }
     if (_postCodeController.text.trim().isEmpty) {
       _postCodeController.text = '2000';
     }
 
     // Phone (area code dropdown + landline)
-    if (_areaCodeController.text.trim().isEmpty)
+    if (_areaCodeController.text.trim().isEmpty) {
       _areaCodeController.text = '+61';
+    }
     if (_landlineController.text.trim().isEmpty) {
       _landlineController.text = '2 1234 5678';
     }

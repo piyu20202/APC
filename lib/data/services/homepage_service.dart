@@ -78,7 +78,7 @@ class HomepageService {
     return [
       SubCategory(
         id: categoryId * 10 + 1,
-        name: 'SubCategory ${categoryId}-1',
+        name: 'SubCategory $categoryId-1',
         image: 'assets/images/product${(categoryId * 10 + 1) % 5}.png',
         categoryId: categoryId,
         // All subcategories of Remote category have childcategories
@@ -92,7 +92,7 @@ class HomepageService {
       ),
       SubCategory(
         id: categoryId * 10 + 2,
-        name: 'SubCategory ${categoryId}-2',
+        name: 'SubCategory $categoryId-2',
         image: 'assets/images/product${(categoryId * 10 + 2) % 5}.png',
         categoryId: categoryId,
         // All subcategories of Remote category have childcategories
@@ -114,7 +114,7 @@ class HomepageService {
     return [
       ChildCategory(
         id: subcategoryId * 10 + 1,
-        name: 'ChildCategory ${subcategoryId}-1',
+        name: 'ChildCategory $subcategoryId-1',
         image: 'assets/images/product${(subcategoryId * 10 + 1) % 5}.png',
         subcategoryId: subcategoryId,
         categoryId: (subcategoryId ~/ 10),
@@ -124,7 +124,7 @@ class HomepageService {
       ),
       ChildCategory(
         id: subcategoryId * 10 + 2,
-        name: 'ChildCategory ${subcategoryId}-2',
+        name: 'ChildCategory $subcategoryId-2',
         image: 'assets/images/product${(subcategoryId * 10 + 2) % 5}.png',
         subcategoryId: subcategoryId,
         categoryId: (subcategoryId ~/ 10),
@@ -145,7 +145,7 @@ class HomepageService {
       return [
         SubChildCategory(
           id: childcategoryId * 10 + 1,
-          name: 'SubChildCategory ${childcategoryId}-1',
+          name: 'SubChildCategory $childcategoryId-1',
           image: 'assets/images/product${(childcategoryId * 10 + 1) % 5}.png',
           childcategoryId: childcategoryId,
           subcategoryId: (childcategoryId ~/ 10),
@@ -162,7 +162,7 @@ class HomepageService {
     return [
       SubChildCategory(
         id: childcategoryId * 10 + 1,
-        name: 'SubChildCategory ${childcategoryId}-1',
+        name: 'SubChildCategory $childcategoryId-1',
         image: 'assets/images/product${(childcategoryId * 10 + 1) % 5}.png',
         childcategoryId: childcategoryId,
         subcategoryId: (childcategoryId ~/ 10),
@@ -170,7 +170,7 @@ class HomepageService {
       ),
       SubChildCategory(
         id: childcategoryId * 10 + 2,
-        name: 'SubChildCategory ${childcategoryId}-2',
+        name: 'SubChildCategory $childcategoryId-2',
         image: 'assets/images/product${(childcategoryId * 10 + 2) % 5}.png',
         childcategoryId: childcategoryId,
         subcategoryId: (childcategoryId ~/ 10),
@@ -193,7 +193,7 @@ class HomepageService {
     return [
       SubChildCategory(
         id: nestedSubchildcategoryId,
-        name: 'SubChildCategory ${parentChildcategoryId}-2',
+        name: 'SubChildCategory $parentChildcategoryId-2',
         image: 'assets/images/product${nestedSubchildcategoryId % 5}.png',
         childcategoryId: parentChildcategoryId,
         subcategoryId: (parentChildcategoryId ~/ 10),
@@ -220,8 +220,8 @@ class HomepageService {
       products.add(
         LatestProduct(
           id: baseId * 100 + i,
-          sku: 'SKU-${baseId}-$i',
-          name: 'Product ${baseId}-$i - Sample Product Item',
+          sku: 'SKU-$baseId-$i',
+          name: 'Product $baseId-$i - Sample Product Item',
           slug: 'product-$baseId-$i',
           thumbnail: 'assets/images/product${i % 5}.png',
           price: 100.0 + (i * 25),
@@ -870,7 +870,7 @@ class HomepageService {
 
         return ChildCategory(
           id: childcategoryId,
-          name: 'ChildCategory ${subcategoryId}-${childcategoryId % 10}',
+          name: 'ChildCategory $subcategoryId-${childcategoryId % 10}',
           image: 'assets/images/product${childcategoryId % 5}.png',
           subcategoryId: subcategoryId,
           categoryId: categoryId,

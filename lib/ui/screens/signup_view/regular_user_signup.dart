@@ -75,7 +75,10 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
     }
   }
 
+  // Social signup is currently hidden/disabled in the UI (see Visibility(visible: false)),
+  // but we keep the handlers for when configuration is completed.
   /// Handle Facebook signup
+  // ignore: unused_element
   Future<void> _handleFacebookSignup() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -156,6 +159,7 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
   }
 
   /// Handle Google signup
+  // ignore: unused_element
   Future<void> _handleGoogleSignup() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -360,7 +364,7 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                   textAlign: TextAlign.center,
                   text: TextSpan(
                     style: TextStyle(
-                      color: Color(0xFF151D51).withOpacity(0.7),
+                      color: Color(0xFF151D51).withValues(alpha: 0.7),
                       fontSize: 14,
                     ),
                     children: [
@@ -492,7 +496,7 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                     Text(
                       'Already have an account? ',
                       style: TextStyle(
-                        color: Color(0xFF151D51).withOpacity(0.7),
+                        color: Color(0xFF151D51).withValues(alpha: 0.7),
                         fontSize: 16,
                       ),
                     ),
@@ -562,7 +566,7 @@ class _RegularUserSignupState extends State<RegularUserSignup> {
                     decoration: InputDecoration(
                       hintText: placeholder,
                       hintStyle: TextStyle(
-                        color: Color(0xFF151D51).withOpacity(0.6),
+                        color: Color(0xFF151D51).withValues(alpha: 0.6),
                         fontSize: 16,
                       ),
                       border: InputBorder.none,

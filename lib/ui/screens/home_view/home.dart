@@ -723,7 +723,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                   colors: [
-                                    Colors.black.withOpacity(0.4),
+                                    Colors.black.withValues(alpha: 0.4),
                                     Colors.transparent,
                                   ],
                                 ),
@@ -757,7 +757,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                         end: Alignment.bottomRight,
                                         colors: [
                                           banner['backgroundColor'],
-                                          banner['backgroundColor'].withOpacity(
+                                          banner['backgroundColor'].withValues(alpha: 
                                             0.8,
                                           ),
                                         ],
@@ -766,7 +766,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                     child: Center(
                                       child: Icon(
                                         Icons.image,
-                                        color: Colors.white.withOpacity(0.5),
+                                        color: Colors.white.withValues(alpha: 0.5),
                                         size: 60,
                                       ),
                                     ),
@@ -783,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                   colors: [
-                                    Colors.black.withOpacity(0.6),
+                                    Colors.black.withValues(alpha: 0.6),
                                     Colors.transparent,
                                     Colors.transparent,
                                   ],
@@ -815,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         shape: BoxShape.circle,
                         color: _currentBannerIndex == index
                             ? Colors.white
-                            : Colors.white.withOpacity(0.5),
+                            : Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -830,16 +830,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
   Widget _buildCategoriesSection() {
     final homeProvider = Provider.of<HomepageProvider>(context);
-    final _isLoadingHomepage = homeProvider.isLoading;
-    final _homepageData = homeProvider.homepageData;
+    final isLoadingHomepage = homeProvider.isLoading;
+    final homepageData = homeProvider.homepageData;
 
     if (kDebugMode && !_didLogCategoriesOnce) {
       Logger.info(
-        'Building categories section - isLoading: $_isLoadingHomepage, hasData: ${_homepageData != null}, categoriesCount: ${_homepageData?.categories.length ?? 0}',
+        'Building categories section - isLoading: $isLoadingHomepage, hasData: ${homepageData != null}, categoriesCount: ${homepageData?.categories.length ?? 0}',
       );
     }
 
-    if (_isLoadingHomepage) {
+    if (isLoadingHomepage) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
@@ -871,7 +871,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         spreadRadius: 1,
                         blurRadius: 3,
                         offset: const Offset(0, 2),
@@ -887,17 +887,17 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       );
     }
 
-    final categories = _homepageData?.categories ?? [];
+    final categories = homepageData?.categories ?? [];
 
     // Debug log
     if (kDebugMode && !_didLogCategoriesOnce) {
       if (categories.isEmpty) {
         Logger.info(
-          'No categories received from API - _homepageData is null: ${_homepageData == null}',
+          'No categories received from API - homepageData is null: ${homepageData == null}',
         );
-        if (_homepageData != null) {
+        if (homepageData != null) {
           Logger.info('Homepage data exists but categories array is empty');
-          final keys = _homepageData.toJson().keys.join(", ");
+          final keys = homepageData.toJson().keys.join(", ");
           Logger.info('Available keys: $keys');
         }
       } else {
@@ -998,7 +998,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         spreadRadius: 1,
                         blurRadius: 3,
                         offset: const Offset(0, 2),
@@ -1186,7 +1186,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.08),
+                color: Colors.grey.withValues(alpha: 0.08),
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),
@@ -1256,7 +1256,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           shape: BoxShape.circle,
                           color: _currentMidBannerIndex == index
                               ? Colors.white
-                              : Colors.white.withOpacity(0.6),
+                              : Colors.white.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -1397,7 +1397,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       border: Border.all(color: Colors.grey[300]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.08),
+                          color: Colors.grey.withValues(alpha: 0.08),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1428,7 +1428,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       border: Border.all(color: Colors.grey[300]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.08),
+                          color: Colors.grey.withValues(alpha: 0.08),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1534,7 +1534,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       border: Border.all(color: Colors.grey[300]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.08),
+                          color: Colors.grey.withValues(alpha: 0.08),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1561,7 +1561,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       border: Border.all(color: Colors.grey[300]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.08),
+                          color: Colors.grey.withValues(alpha: 0.08),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1637,7 +1637,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
     final normalizedPageOpen = category.pageOpen.toLowerCase().trim();
 
-    void _showCategoryLoadError([String? debugReason]) {
+    void showCategoryLoadError([String? debugReason]) {
       Logger.warning(
         'Category navigation blocked. categoryId=${category.id}, pageOpen="$normalizedPageOpen", reason=${debugReason ?? "unknown"}',
       );
@@ -1681,7 +1681,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
       // If full category data isn't available, don't navigate further.
       if (categoryData == null) {
-        _showCategoryLoadError(
+        showCategoryLoadError(
           'CategoryFull not found in cache/all categories',
         );
         return;
@@ -1702,7 +1702,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
     // page_open is missing/unknown/unsupported (e.g., "other") — block navigation.
     if (normalizedPageOpen.isEmpty || normalizedPageOpen == 'other') {
-      _showCategoryLoadError('Unsupported page_open value');
+      showCategoryLoadError('Unsupported page_open value');
       return;
     }
 
@@ -1737,7 +1737,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       }
     } catch (error, stackTrace) {
       Logger.error('Failed to fetch category details', error, stackTrace);
-      _showCategoryLoadError('Failed to fetch category details');
+      showCategoryLoadError('Failed to fetch category details');
       return;
     }
   }

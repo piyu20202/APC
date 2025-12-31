@@ -157,7 +157,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: Colors.grey.withValues(alpha: 0.1),
                             spreadRadius: 1,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -205,12 +205,12 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: order['statusColor'].withOpacity(
+                                    color: order['statusColor'].withValues(alpha: 
                                       0.1,
                                     ),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: order['statusColor'].withOpacity(
+                                      color: order['statusColor'].withValues(alpha: 
                                         0.3,
                                       ),
                                     ),

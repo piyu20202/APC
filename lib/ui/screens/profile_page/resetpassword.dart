@@ -234,6 +234,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
       // Simulate API call
       Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
         Navigator.of(context).pop(); // Close loading dialog
 
         // Show success message
