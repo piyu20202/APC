@@ -1,0 +1,24 @@
+# Codemagic.yaml — Appetize.io के लिए iOS Simulator Build (Flutter)
+# Simulator build में Apple Developer / code signing की जरूरत नहीं।
+
+workflows:
+  ios-simulator-build:
+    name: iOS Simulator Build for Appetize
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter dependencies
+        script: |
+          flutter pub get
+      - name: CocoaPods
+        script: |
+          cd ios && pod install && cd ..
+      - name: Build for iOS Simulator
+        script: |
+          flutter build ios --simulator --debug --no-codesign
+    artifacts:
+      - build/ios/iphonesimulator/*.app
