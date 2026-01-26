@@ -132,7 +132,7 @@ packages:
   cybersource_inapp:
     dependency: "direct main"
     description:
-      path: "../cybersource_inapp"
+      path: "packages/cybersource_inapp"
       relative: true
     source: path
     version: "0.0.1"

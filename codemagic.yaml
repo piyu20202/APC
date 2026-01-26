@@ -1,5 +1,6 @@
 # Codemagic.yaml — Appetize.io के लिए iOS Simulator Build (Flutter)
-# Simulator build में Apple Developer / code signing की जरूरत नहीं।
+# Simulator build — Apple Developer / code signing की जरूरत नहीं.
+# cybersource_inapp इसी repo में packages/cybersource_inapp के रूप में है.
 
 workflows:
   ios-simulator-build:
