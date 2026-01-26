@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../services/user_role_service.dart';
-import '../signup_view/trade_welcome_page.dart';
 import '../signup_view/trader_upgrade_flow.dart';
 
 class TraderBenefitsShowcase extends StatefulWidget {
@@ -452,72 +451,73 @@ class TraderBenefitsInfoScreen extends StatelessWidget {
               'Get approved and start enjoying trade benefits immediately',
             ),
 
-            const SizedBox(height: 32),
+            // Ready to Upgrade section is hidden
+            // const SizedBox(height: 32),
 
-            // CTA Section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    spreadRadius: 2,
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Ready to Upgrade?',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF151D51),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Join our community of professional traders today',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const TradeWelcomePage(),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange.shade600,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text(
-                        'Start Trade Application',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // // CTA Section
+            // Container(
+            //   width: double.infinity,
+            //   padding: const EdgeInsets.all(24),
+            //   decoration: BoxDecoration(
+            //     color: Colors.white,
+            //     borderRadius: BorderRadius.circular(16),
+            //     boxShadow: [
+            //       BoxShadow(
+            //         color: Colors.grey.withValues(alpha: 0.1),
+            //         spreadRadius: 2,
+            //         blurRadius: 8,
+            //         offset: const Offset(0, 4),
+            //       ),
+            //     ],
+            //   ),
+            //   child: Column(
+            //     children: [
+            //       const Text(
+            //         'Ready to Upgrade?',
+            //         style: TextStyle(
+            //           fontSize: 20,
+            //           fontWeight: FontWeight.bold,
+            //           color: Color(0xFF151D51),
+            //         ),
+            //       ),
+            //       const SizedBox(height: 8),
+            //       Text(
+            //         'Join our community of professional traders today',
+            //         style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            //         textAlign: TextAlign.center,
+            //       ),
+            //       const SizedBox(height: 20),
+            //       SizedBox(
+            //         width: double.infinity,
+            //         child: ElevatedButton(
+            //           onPressed: () {
+            //             Navigator.push(
+            //               context,
+            //               MaterialPageRoute(
+            //                 builder: (context) => const TradeWelcomePage(),
+            //               ),
+            //             );
+            //           },
+            //           style: ElevatedButton.styleFrom(
+            //             backgroundColor: Colors.orange.shade600,
+            //             foregroundColor: Colors.white,
+            //             shape: RoundedRectangleBorder(
+            //               borderRadius: BorderRadius.circular(12),
+            //             ),
+            //             padding: const EdgeInsets.symmetric(vertical: 16),
+            //           ),
+            //           child: const Text(
+            //             'Start Trade Application',
+            //             style: TextStyle(
+            //               fontSize: 16,
+            //               fontWeight: FontWeight.bold,
+            //             ),
+            //           ),
+            //         ),
+            //       ),
+            //     ],
+            //   ),
+            // ),
 
             const SizedBox(height: 20),
           ],

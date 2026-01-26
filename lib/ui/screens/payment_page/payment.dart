@@ -6,6 +6,9 @@ import 'package:apcproject/core/exceptions/api_exception.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:apcproject/providers/auth_provider.dart';
+import 'package:flutter_paypal/flutter_paypal.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 
 class PaymentPage extends StatefulWidget {
   final Map<String, dynamic>? arguments;
@@ -33,6 +36,9 @@ class _PaymentPageState extends State<PaymentPage> {
   final _cardholderNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  // PayPal config cache
+  Map<String, dynamic>? _paypalConfig;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +48,20 @@ class _PaymentPageState extends State<PaymentPage> {
     _expiryController.text = '12/25';
     _cvvController.text = '123';
     _initializePayment();
+    _loadPayPalConfig();
+  }
+
+  /// Load PayPal configuration from assets
+  Future<void> _loadPayPalConfig() async {
+    try {
+      final String jsonString =
+          await rootBundle.loadString('assets/paypal_config.json');
+      _paypalConfig = jsonDecode(jsonString) as Map<String, dynamic>;
+      debugPrint('PayPal config loaded: ${_paypalConfig?['mode']}');
+    } catch (e) {
+      debugPrint('Error loading PayPal config: $e');
+      _paypalConfig = null;
+    }
   }
 
   @override
@@ -447,6 +467,7 @@ class _PaymentPageState extends State<PaymentPage> {
     }
   }
 
+
   /// Format card number with spaces
   String _formatCardNumber(String value) {
     final cleaned = value.replaceAll(' ', '');
@@ -509,6 +530,14 @@ class _PaymentPageState extends State<PaymentPage> {
 
                         // Security Notice
                         _buildSecurityNotice(),
+                        const SizedBox(height: 24),
+
+                        // Divider with "OR" text
+                        _buildDivider(),
+                        const SizedBox(height: 24),
+
+                        // PayPal Payment Button
+                        _buildPayPalButton(),
                         const SizedBox(height: 24),
 
                         // Submit Payment Button
@@ -750,6 +779,396 @@ class _PaymentPageState extends State<PaymentPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildDivider() {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: Colors.grey[300])),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'OR',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: Colors.grey[300])),
+      ],
+    );
+  }
+
+  Widget _buildPayPalButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: _isProcessing ? null : _handlePayPalPayment,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF0070BA), // PayPal blue
+          side: const BorderSide(color: Color(0xFF0070BA), width: 2),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Pay with',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0070BA),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'PayPal',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Handle PayPal payment using flutter_paypal SDK
+  Future<void> _handlePayPalPayment() async {
+    if (_isProcessing) {
+      return;
+    }
+
+    if (_orderNumber == null || _orderId == null || _amount == null) {
+      Fluttertoast.showToast(
+        msg: 'Payment data is incomplete. Please try again.',
+        toastLength: Toast.LENGTH_LONG,
+      );
+      return;
+    }
+
+    // Load PayPal credentials from config file or use placeholders
+    // Note: Client needs to provide PayPal Client ID and Secret Key from PayPal Developer Dashboard
+    // The API username/password/secret provided are for backend/server-side only
+    String paypalClientId = _paypalConfig?['client_id'] as String? ?? '';
+    String paypalSecretKey = _paypalConfig?['secret_key'] as String? ?? '';
+
+    // For testing: If credentials not configured, use mock/test mode
+    if (paypalClientId.isEmpty || paypalSecretKey.isEmpty) {
+      debugPrint('PayPal Client ID/Secret not configured. Using test mode.');
+      
+      // For testing: Use mock PayPal flow (no real SDK call)
+      setState(() {
+        _isProcessing = true;
+      });
+
+      try {
+        // Simulate PayPal payment with test token (for testing only)
+        final testToken = 'PP_TEST_ORDER_${DateTime.now().millisecondsSinceEpoch}';
+        
+        final response = await _paymentService.processPayPal(
+          orderNumber: _orderNumber!,
+          orderId: _orderId!,
+          amount: _amount!,
+          currency: _currency ?? 'AUD',
+          paymentResult: {
+            'orderID': testToken, // Test token for console logging
+          },
+        );
+
+        // Log token for debugging
+        final paymentToken = response['payment_token'] as String?;
+        debugPrint('=== PAYPAL PAYMENT TOKEN (TEST MODE) ===');
+        debugPrint('Token: $paymentToken');
+        debugPrint('Token Length: ${paymentToken?.length ?? 0}');
+        debugPrint('=== END PAYPAL TOKEN ===');
+
+        final showOrderSuccess = response['show_order_success'] as int? ?? 0;
+        final processPayment = response['process_payment'] as int? ?? 1;
+
+        debugPrint(
+          'PayPal Payment Response - show_order_success: $showOrderSuccess, process_payment: $processPayment',
+        );
+
+        // Clear cart after successful payment
+        await StorageService.clearCartData();
+
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'PayPal payment successful! (Test Mode)',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+          );
+
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/order-placed',
+            (route) => false,
+            arguments: {'payment_method': 'PayPal'},
+          );
+        }
+      } catch (e) {
+        debugPrint('Error in PayPal test mode: $e');
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'PayPal test payment failed. Please try again.',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
+        }
+      }
+      return; // Exit early - using test mode
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      // Navigate to PayPal checkout page (WebView-based)
+      if (!mounted) return;
+
+      final amount = _amount!;
+      final amountString = amount.toStringAsFixed(2);
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (BuildContext context) => UsePaypal(
+            sandboxMode: true, // Set to false for production
+            clientId: paypalClientId,
+            secretKey: paypalSecretKey,
+            returnURL: "https://samplesite.com/return",
+            cancelURL: "https://samplesite.com/cancel",
+            transactions: [
+              {
+                "amount": {
+                  "total": amountString,
+                  "currency": _currency ?? "AUD",
+                  "details": {
+                    "subtotal": amountString,
+                    "shipping": "0",
+                  }
+                },
+              }
+            ],
+            note: "Order #${_orderNumber}",
+            onSuccess: (Map params) async {
+              debugPrint('PayPal onSuccess: $params');
+              
+              // Extract orderID/token from PayPal response
+              String? paypalOrderId;
+              try {
+                final response = params["response"] as Map<String, dynamic>?;
+                if (response != null) {
+                  paypalOrderId = response["id"] as String?;
+                }
+              } catch (e) {
+                debugPrint('Error extracting PayPal orderID: $e');
+              }
+
+              // Fallback: try other possible keys
+              if (paypalOrderId == null || paypalOrderId.isEmpty) {
+                paypalOrderId = params["id"] as String?;
+              }
+              if (paypalOrderId == null || paypalOrderId.isEmpty) {
+                paypalOrderId = params["orderID"] as String?;
+              }
+              if (paypalOrderId == null || paypalOrderId.isEmpty) {
+                paypalOrderId = params["token"] as String?;
+              }
+
+              debugPrint('PayPal OrderID/Token extracted: $paypalOrderId');
+
+              if (paypalOrderId == null || paypalOrderId.isEmpty) {
+                if (mounted) {
+                  Fluttertoast.showToast(
+                    msg: 'Failed to get PayPal payment token. Please try again.',
+                    toastLength: Toast.LENGTH_LONG,
+                    backgroundColor: Colors.red,
+                    textColor: Colors.white,
+                  );
+                  Navigator.pop(context); // Close PayPal page
+                }
+                return;
+              }
+
+              // Process PayPal payment through backend with token (Google Pay style)
+              try {
+                final response = await _paymentService.processPayPal(
+                  orderNumber: _orderNumber!,
+                  orderId: _orderId!,
+                  amount: amount,
+                  currency: _currency ?? 'AUD',
+                  paymentResult: {
+                    'orderID': paypalOrderId, // Real PayPal orderID token
+                  },
+                );
+
+                // Log token for debugging
+                final paymentToken = response['payment_token'] as String?;
+                debugPrint('=== PAYPAL PAYMENT TOKEN ===');
+                debugPrint('Token: $paymentToken');
+                debugPrint('Token Length: ${paymentToken?.length ?? 0}');
+                debugPrint('=== END PAYPAL TOKEN ===');
+
+                final showOrderSuccess =
+                    response['show_order_success'] as int? ?? 0;
+                final processPayment =
+                    response['process_payment'] as int? ?? 1;
+
+                debugPrint(
+                  'PayPal Payment Response - show_order_success: $showOrderSuccess, process_payment: $processPayment',
+                );
+
+                // Close PayPal page first
+                if (mounted) {
+                  Navigator.pop(context);
+                }
+
+                // Clear cart after successful payment
+                await StorageService.clearCartData();
+
+                if (mounted) {
+                  Fluttertoast.showToast(
+                    msg: 'PayPal payment successful!',
+                    toastLength: Toast.LENGTH_LONG,
+                    backgroundColor: Colors.green,
+                    textColor: Colors.white,
+                  );
+
+                  // Navigate to order success page
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/order-placed',
+                    (route) => false,
+                    arguments: {'payment_method': 'PayPal'},
+                  );
+                }
+              } on ApiException catch (e) {
+                debugPrint(
+                  'PayPal payment API error: ${e.message}, Status: ${e.statusCode}',
+                );
+
+                if (mounted) {
+                  Navigator.pop(context); // Close PayPal page
+
+                  if (e.statusCode == 401) {
+                    final authProvider = Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    );
+                    await authProvider.logout();
+                    if (!mounted) return;
+                    Fluttertoast.showToast(
+                      msg: 'Session expired. Please login again.',
+                      toastLength: Toast.LENGTH_LONG,
+                      backgroundColor: Colors.red,
+                      textColor: Colors.white,
+                    );
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/signin',
+                      (route) => false,
+                    );
+                  } else {
+                    final errorMessage = e.message.isNotEmpty
+                        ? e.message
+                        : 'PayPal payment failed. Please try again.';
+                    Fluttertoast.showToast(
+                      msg: errorMessage,
+                      toastLength: Toast.LENGTH_LONG,
+                      backgroundColor: Colors.red,
+                      textColor: Colors.white,
+                    );
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error processing PayPal payment: $e');
+                if (mounted) {
+                  Navigator.pop(context); // Close PayPal page
+                  Fluttertoast.showToast(
+                    msg: 'Something went wrong. Please try again',
+                    toastLength: Toast.LENGTH_LONG,
+                    backgroundColor: Colors.red,
+                    textColor: Colors.white,
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() {
+                    _isProcessing = false;
+                  });
+                }
+              }
+            },
+            onError: (error) {
+              debugPrint('PayPal onError: $error');
+              if (mounted) {
+                Navigator.pop(context); // Close PayPal page
+                Fluttertoast.showToast(
+                  msg: 'PayPal payment error: $error',
+                  toastLength: Toast.LENGTH_LONG,
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                );
+                setState(() {
+                  _isProcessing = false;
+                });
+              }
+            },
+            onCancel: (params) {
+              debugPrint('PayPal onCancel: $params');
+              if (mounted) {
+                Navigator.pop(context); // Close PayPal page
+                Fluttertoast.showToast(
+                  msg: 'PayPal payment cancelled',
+                  toastLength: Toast.LENGTH_SHORT,
+                );
+                setState(() {
+                  _isProcessing = false;
+                });
+              }
+            },
+          ),
+        ),
+      );
+
+      // Reset processing flag when PayPal page is closed (user navigates back)
+      setState(() {
+        _isProcessing = false;
+      });
+    } catch (e) {
+      debugPrint('Error starting PayPal checkout: $e');
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Failed to start PayPal payment. Please try again.',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+
+      setState(() {
+        _isProcessing = false;
+      });
+    }
   }
 
   Widget _buildSubmitButton() {

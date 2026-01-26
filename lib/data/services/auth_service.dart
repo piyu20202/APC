@@ -183,4 +183,33 @@ class AuthService {
       throw ApiException(message: 'Logout failed: ${e.toString()}');
     }
   }
+
+  /// Change password for the current user (requires auth token)
+  /// Body: { "current_password": "", "new_password": "" }
+  /// Expected 200 response on success
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      Logger.info('Attempting to change password');
+
+      await ApiClient.post(
+        endpoint: ApiEndpoints.changePassword,
+        body: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+        contentType: 'application/json',
+        requireAuth: true,
+      );
+
+      Logger.info('Change password successful');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Change password failed', e);
+      throw ApiException(message: 'Change password failed: ${e.toString()}');
+    }
+  }
 }

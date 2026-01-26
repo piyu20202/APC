@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
+import '../../../core/exceptions/api_exception.dart';
+import '../../../services/storage_service.dart';
+import '../../../data/models/user_model.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -9,50 +14,167 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+  bool _isLoadingData = true;
 
   // Controllers for form fields
-  final TextEditingController _nameController = TextEditingController(
-    text: 'Vikram Soni',
-  );
-  final TextEditingController _emailController = TextEditingController(
-    text: 'vikram@vmail.in',
-  );
-  final TextEditingController _landlineController = TextEditingController(
-    text: '33333333',
-  );
-  final TextEditingController _unitController = TextEditingController(
-    text: 'Unit/Apartment',
-  );
-  final TextEditingController _suburbController = TextEditingController(
-    text: 'Sydney',
-  );
-  final TextEditingController _deliveryNotesController = TextEditingController(
-    text: 'Delivery notes',
-  );
-  final TextEditingController _companyController = TextEditingController(
-    text: 'Company Name',
-  );
-  final TextEditingController _mobileController = TextEditingController(
-    text: '0400000000',
-  );
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _landlineController = TextEditingController();
+  final TextEditingController _unitController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _postCodeController = TextEditingController(
-    text: '3000',
-  );
+  final TextEditingController _zipController = TextEditingController();
 
-  String _selectedAreaCode = '03';
-  String _selectedCountry = 'Australia';
+  String _selectedAreaCode = '02';
   String _selectedState = 'ACT';
+  String _selectedCity = '';
+  String _selectedCountry = 'AU';
+
+  // Australia States and Cities mapping
+  final Map<String, List<String>> _australiaStatesCities = {
+    'ACT': ['Canberra'],
+    'NSW': [
+      'Sydney',
+      'Newcastle',
+      'Wollongong',
+      'Albury',
+      'Wagga Wagga',
+      'Tamworth',
+      'Orange',
+      'Dubbo',
+      'Nowra',
+      'Bathurst',
+    ],
+    'VIC': [
+      'Melbourne',
+      'Geelong',
+      'Ballarat',
+      'Bendigo',
+      'Shepparton',
+      'Warrnambool',
+      'Mildura',
+      'Horsham',
+      'Traralgon',
+      'Sale',
+    ],
+    'QLD': [
+      'Brisbane',
+      'Gold Coast',
+      'Cairns',
+      'Townsville',
+      'Toowoomba',
+      'Rockhampton',
+      'Mackay',
+      'Bundaberg',
+      'Hervey Bay',
+      'Gladstone',
+    ],
+    'SA': [
+      'Adelaide',
+      'Mount Gambier',
+      'Whyalla',
+      'Murray Bridge',
+      'Port Augusta',
+      'Port Pirie',
+      'Port Lincoln',
+      'Victor Harbor',
+      'Gawler',
+      'Kadina',
+    ],
+    'WA': [
+      'Perth',
+      'Fremantle',
+      'Bunbury',
+      'Geraldton',
+      'Kalgoorlie',
+      'Albany',
+      'Broome',
+      'Port Hedland',
+      'Karratha',
+      'Busselton',
+    ],
+    'TAS': [
+      'Hobart',
+      'Launceston',
+      'Devonport',
+      'Burnie',
+      'Ulverstone',
+      'George Town',
+      'Scottsdale',
+      'Queenstown',
+      'Smithton',
+      'Currie',
+    ],
+    'NT': [
+      'Darwin',
+      'Alice Springs',
+      'Palmerston',
+      'Katherine',
+      'Nhulunbuy',
+      'Tennant Creek',
+      'Yulara',
+      'Nhulunbuy',
+      'Casuarina',
+      'Humpty Doo',
+    ],
+  };
+
+  // Australia area codes
+  final List<String> _areaCodes = ['02', '03', '07', '08'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoadingData = true;
+    });
+
+    try {
+      final userData = await StorageService.getUserData();
+      if (userData != null) {
+        setState(() {
+          _nameController.text = userData.name;
+          _phoneController.text = userData.phone;
+          _landlineController.text = userData.landline ?? '';
+          _unitController.text = userData.unitApartmentNo ?? '';
+          _addressController.text = userData.address ?? '';
+          _zipController.text = userData.zip ?? '';
+          _selectedAreaCode = userData.areaCode ?? '02';
+          _selectedState = userData.state ?? 'ACT';
+          _selectedCity = userData.city ?? '';
+          _selectedCountry = userData.country ?? 'AU';
+
+          // Update city list based on state
+          if (_australiaStatesCities.containsKey(_selectedState)) {
+            final cities = _australiaStatesCities[_selectedState]!;
+            if (!cities.contains(_selectedCity) && cities.isNotEmpty) {
+              _selectedCity = cities.first;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+    } finally {
+      setState(() {
+        _isLoadingData = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text(
           'Edit Profile',
           style: TextStyle(
-            color: Color(0xFF1A365D), // Dark blue color
+            color: Color(0xFF1A365D),
             fontWeight: FontWeight.bold,
             fontSize: 24,
           ),
@@ -65,166 +187,109 @@ class _EditProfilePageState extends State<EditProfilePage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Vertical form layout
-                _buildFormField(
-                  label: 'Name*',
-                  controller: _nameController,
-                  isRequired: true,
-                ),
-                const SizedBox(height: 20),
+      body: _isLoadingData
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Name field
+                      _buildFormField(
+                        label: 'Name',
+                        controller: _nameController,
+                        isRequired: true,
+                      ),
+                      const SizedBox(height: 16),
 
-                _buildFormField(
-                  label: 'Email Address*',
-                  controller: _emailController,
-                  isRequired: true,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 20),
+                      // Phone field
+                      _buildFormField(
+                        label: 'Phone',
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 16),
 
-                _buildFormField(
-                  label: 'Company Name',
-                  controller: _companyController,
-                ),
-                const SizedBox(height: 20),
+                      // Landline field with area code
+                      _buildLandlineField(),
+                      const SizedBox(height: 16),
 
-                _buildFormField(
-                  label: 'Mobile Number',
-                  controller: _mobileController,
-                  keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: 20),
+                      // Unit/Apartment field
+                      _buildFormField(
+                        label: 'Unit/Apartment No',
+                        controller: _unitController,
+                      ),
+                      const SizedBox(height: 16),
 
-                _buildLandlineField(),
-                const SizedBox(height: 20),
+                      // Address field
+                      _buildFormField(
+                        label: 'Address',
+                        controller: _addressController,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 16),
 
-                _buildFormField(
-                  label: 'Address*',
-                  controller: _addressController,
-                  isRequired: true,
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 20),
+                      // State dropdown
+                      _buildStateDropdown(),
+                      const SizedBox(height: 16),
 
-                _buildFormField(
-                  label: 'Unit/Apartment',
-                  controller: _unitController,
-                ),
-                const SizedBox(height: 20),
+                      // City dropdown
+                      _buildCityDropdown(),
+                      const SizedBox(height: 16),
 
-                _buildFormField(
-                  label: 'Suburb*',
-                  controller: _suburbController,
-                  isRequired: true,
-                ),
-                const SizedBox(height: 20),
+                      // Postcode field
+                      _buildFormField(
+                        label: 'Postcode',
+                        controller: _zipController,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 16),
 
-                _buildDropdownField(
-                  label: 'State*',
-                  value: _selectedState,
-                  items: ['ACT', 'NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT'],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedState = value!;
-                    });
-                  },
-                  isRequired: true,
-                ),
-                const SizedBox(height: 20),
+                      // Country (fixed as AU)
+                      _buildCountryField(),
+                      const SizedBox(height: 32),
 
-                _buildFormField(
-                  label: 'Post Code*',
-                  controller: _postCodeController,
-                  isRequired: true,
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 20),
-
-                _buildDropdownField(
-                  label: 'Country*',
-                  value: _selectedCountry,
-                  items: ['Australia'],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedCountry = value!;
-                    });
-                  },
-                  isRequired: true,
-                ),
-                const SizedBox(height: 20),
-
-                _buildFormField(
-                  label: 'Delivery notes',
-                  controller: _deliveryNotesController,
-                  maxLines: 3,
-                ),
-
-                const SizedBox(height: 40),
-
-                // Buttons Row
-                Row(
-                  children: [
-                    // Cancel Button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      // Save Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _saveProfile,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF151D51),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          elevation: 1,
-                        ),
-                        child: const Text(
-                          'CANCEL',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Text(
+                                  'SAVE',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Save Button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _saveProfile,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(
-                            0xFF151D51,
-                          ), // Same as login page button
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: const Text(
-                          'SAVE',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -239,11 +304,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          label + (isRequired ? '*' : ''),
           style: const TextStyle(
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: Color(0xFF1A365D), // Dark blue color
+            color: Color(0xFF1A365D),
           ),
         ),
         const SizedBox(height: 8),
@@ -254,15 +319,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
             ),
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: const BorderSide(color: Color(0xFF1A365D)),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -289,11 +354,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '(Area Code) Landline Number*',
+          'Landline',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: Color(0xFF1A365D), // Dark blue color
+            color: Color(0xFF1A365D),
           ),
         ),
         const SizedBox(height: 8),
@@ -304,24 +369,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
                 color: Colors.white,
               ),
               child: DropdownButton<String>(
                 value: _selectedAreaCode,
                 underline: const SizedBox(),
+                isExpanded: true,
                 style: const TextStyle(fontSize: 14, color: Colors.black87),
                 dropdownColor: Colors.white,
-                items: ['02', '03', '07', '08'].map((String value) {
+                items: _areaCodes.map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        color: Colors.black87,
-                        fontSize: 14,
-                      ),
-                    ),
+                    child: Text(value),
                   );
                 }).toList(),
                 onChanged: (String? newValue) {
@@ -339,15 +399,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.grey[300]!),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.grey[300]!),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: const BorderSide(color: Color(0xFF1A365D)),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -356,12 +416,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'This field is required';
-                  }
-                  return null;
-                },
               ),
             ),
           ],
@@ -370,22 +424,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildDropdownField({
-    required String label,
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-    bool isRequired = false,
-  }) {
+  Widget _buildStateDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
+        const Text(
+          'State*',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: Color(0xFF1A365D), // Dark blue color
+            color: Color(0xFF1A365D),
           ),
         ),
         const SizedBox(height: 8),
@@ -393,68 +441,250 @@ class _EditProfilePageState extends State<EditProfilePage> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             color: Colors.white,
           ),
           child: DropdownButtonFormField<String>(
-            value: value,
+            value: _selectedState,
             decoration: const InputDecoration(
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(vertical: 12),
             ),
             style: const TextStyle(fontSize: 14, color: Colors.black87),
             dropdownColor: Colors.white,
-            items: items.map((String item) {
-              return DropdownMenuItem<String>(
-                value: item,
-                child: Text(
-                  item,
-                  style: const TextStyle(color: Colors.black87, fontSize: 14),
-                ),
-              );
+            items: _australiaStatesCities.keys.map((String state) {
+              return DropdownMenuItem<String>(value: state, child: Text(state));
             }).toList(),
-            onChanged: onChanged,
-            validator: isRequired
-                ? (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'This field is required';
-                    }
-                    return null;
-                  }
-                : null,
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedState = newValue!;
+                // Reset city when state changes
+                final cities = _australiaStatesCities[_selectedState]!;
+                _selectedCity = cities.isNotEmpty ? cities.first : '';
+              });
+            },
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select a state';
+              }
+              return null;
+            },
           ),
         ),
       ],
     );
   }
 
-  void _saveProfile() {
-    if (_formKey.currentState!.validate()) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully!'),
-          backgroundColor: Colors.green,
+  Widget _buildCityDropdown() {
+    final cities = _australiaStatesCities[_selectedState] ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'City*',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Color(0xFF1A365D),
+          ),
         ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          child: DropdownButtonFormField<String>(
+            value: _selectedCity.isNotEmpty && cities.contains(_selectedCity)
+                ? _selectedCity
+                : cities.isNotEmpty
+                ? cities.first
+                : null,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
+            ),
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            dropdownColor: Colors.white,
+            items: cities.map((String city) {
+              return DropdownMenuItem<String>(value: city, child: Text(city));
+            }).toList(),
+            onChanged: cities.isNotEmpty
+                ? (String? newValue) {
+                    setState(() {
+                      _selectedCity = newValue!;
+                    });
+                  }
+                : null,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select a city';
+              }
+              return null;
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountryField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Country*',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Color(0xFF1A365D),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey[200],
+          ),
+          child: const Row(
+            children: [
+              Text(
+                'Australia (AU)',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Prepare form data - सभी fields UI से map करें
+      // POST body: name, phone, landline, area_code, unit_apartmentno, address, city, state, country, zip
+      // notes और photo नहीं है - जैसा आपने कहा
+      final Map<String, dynamic> formData = {
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'landline': _landlineController.text.trim(),
+        'area_code': _selectedAreaCode,
+        'unit_apartmentno': _unitController.text.trim(),
+        'address': _addressController.text.trim(),
+        'city': _selectedCity,
+        'state': _selectedState,
+        'country': _selectedCountry,
+        'zip': _zipController.text.trim(),
+      };
+
+      // Remove empty fields
+      formData.removeWhere((key, value) => value.toString().isEmpty);
+
+      // Make API call
+      await ApiClient.post(
+        endpoint: ApiEndpoints.updateProfile,
+        body: formData,
+        contentType: 'application/x-www-form-urlencoded',
+        requireAuth: true,
       );
 
-      // Navigate back
-      Navigator.of(context).pop();
+      // Update local storage with new data
+      final userData = await StorageService.getUserData();
+      if (userData != null) {
+        // Create updated user model
+        final updatedUser = userData.copyWith(
+          name: formData['name'] ?? userData.name,
+          phone: formData['phone'] ?? userData.phone,
+          landline: formData['landline'] as String?,
+          areaCode: formData['area_code'] as String?,
+          unitApartmentNo: formData['unit_apartmentno'] as String?,
+          address: formData['address'] as String?,
+          city: formData['city'] as String?,
+          state: formData['state'] as String?,
+          country: formData['country'] as String?,
+          zip: formData['zip'] as String?,
+        );
+
+        // Save updated user data
+        final loginResponse = await StorageService.getLoginResponse();
+        if (loginResponse != null) {
+          await StorageService.saveLoginData(
+            LoginResponse(
+              accessToken: loginResponse.accessToken,
+              tokenType: loginResponse.tokenType,
+              user: updatedUser,
+            ),
+          );
+        }
+      }
+
+      if (mounted) {
+        // Success message - status code 200
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your profile is updated successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } on ApiException {
+      // API error - status code 200 के अलावा कुछ भी
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Something went wrong'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (_) {
+      // Any other error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Something went wrong'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
+    _phoneController.dispose();
     _landlineController.dispose();
     _unitController.dispose();
-    _suburbController.dispose();
-    _deliveryNotesController.dispose();
-    _companyController.dispose();
-    _mobileController.dispose();
     _addressController.dispose();
-    _postCodeController.dispose();
+    _zipController.dispose();
     super.dispose();
   }
 }

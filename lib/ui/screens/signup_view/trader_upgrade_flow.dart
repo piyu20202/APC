@@ -117,137 +117,159 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
   }
 
   Widget _buildWelcomeStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.orange.shade400, Colors.orange.shade600],
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
+    return Column(
+      children: [
+        // Scrollable content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.orange.shade400, Colors.orange.shade600],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
-                    Icons.business,
-                    color: Colors.white,
-                    size: 48,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.business,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.isExistingUser
+                            ? 'Upgrade Your Account'
+                            : 'Join Our Trade Community',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.isExistingUser
+                            ? 'Unlock exclusive benefits for your business'
+                            : 'Access wholesale pricing and professional tools',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Benefits
+                const Text(
+                  'What You\'ll Get',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF151D51),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  widget.isExistingUser
-                      ? 'Upgrade Your Account'
-                      : 'Join Our Trade Community',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
+
+                _buildBenefitItem(
+                  Icons.local_offer,
+                  'Exclusive Trade Pricing',
+                  'Save up to 30% with wholesale rates',
+                  Colors.green,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.isExistingUser
-                      ? 'Unlock exclusive benefits for your business'
-                      : 'Access wholesale pricing and professional tools',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
+                const SizedBox(height: 12),
+                _buildBenefitItem(
+                  Icons.speed,
+                  'Priority Support',
+                  'Get faster response times and expert help',
+                  Colors.blue,
                 ),
+                const SizedBox(height: 12),
+                _buildBenefitItem(
+                  Icons.inventory,
+                  'Bulk Ordering',
+                  'Order larger quantities with special pricing',
+                  Colors.purple,
+                ),
+                const SizedBox(height: 12),
+                _buildBenefitItem(
+                  Icons.description,
+                  'Technical Resources',
+                  'Access manuals, guides, and documentation',
+                  Colors.orange,
+                ),
+
+                const SizedBox(height: 32),
               ],
             ),
           ),
+        ),
 
-          const SizedBox(height: 24),
-
-          // Benefits
-          const Text(
-            'What You\'ll Get',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF151D51),
-            ),
+        // Fixed button at bottom
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withValues(alpha: 0.2),
+                blurRadius: 4,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-
-          _buildBenefitItem(
-            Icons.local_offer,
-            'Exclusive Trade Pricing',
-            'Save up to 30% with wholesale rates',
-            Colors.green,
-          ),
-          const SizedBox(height: 12),
-          _buildBenefitItem(
-            Icons.speed,
-            'Priority Support',
-            'Get faster response times and expert help',
-            Colors.blue,
-          ),
-          const SizedBox(height: 12),
-          _buildBenefitItem(
-            Icons.inventory,
-            'Bulk Ordering',
-            'Order larger quantities with special pricing',
-            Colors.purple,
-          ),
-          const SizedBox(height: 12),
-          _buildBenefitItem(
-            Icons.description,
-            'Technical Resources',
-            'Access manuals, guides, and documentation',
-            Colors.orange,
-          ),
-
-          const SizedBox(height: 32),
-
-          // Next Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // Navigate to the signup page with trader selection
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const SignupScreen(autoSelectTrader: true),
+          child: SafeArea(
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Navigate to the signup page with trader selection
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const SignupScreen(autoSelectTrader: true),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade600,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade600,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text(
-                'Get Started',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                child: const Text(
+                  'Get Started',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

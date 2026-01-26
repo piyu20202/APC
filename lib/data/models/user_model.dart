@@ -76,6 +76,42 @@ class UserModel {
       'free_shipping_threshold': freeShippingThreshold,
     };
   }
+
+  UserModel copyWith({
+    int? id,
+    String? name,
+    String? email,
+    String? phone,
+    String? areaCode,
+    String? landline,
+    String? unitApartmentNo,
+    String? address,
+    String? city,
+    String? state,
+    String? country,
+    String? zip,
+    int? isTradeUser,
+    int? specialUser,
+    int? freeShippingThreshold,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      areaCode: areaCode ?? this.areaCode,
+      landline: landline ?? this.landline,
+      unitApartmentNo: unitApartmentNo ?? this.unitApartmentNo,
+      address: address ?? this.address,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      country: country ?? this.country,
+      zip: zip ?? this.zip,
+      isTradeUser: isTradeUser ?? this.isTradeUser,
+      specialUser: specialUser ?? this.specialUser,
+      freeShippingThreshold: freeShippingThreshold ?? this.freeShippingThreshold,
+    );
+  }
 }
 
 class LoginResponse {

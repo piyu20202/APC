@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>com.apple.developer.in-app-payments</key>
+	<array>
+		<string>merchant.automotionplus.com.au</string>
+	</array>
 </dict>
 </plist>

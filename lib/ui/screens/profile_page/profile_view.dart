@@ -7,6 +7,9 @@ import '../signup_view/trader_upgrade_flow.dart';
 import '../../../services/user_role_service.dart';
 import '../../../providers/auth_provider.dart';
 import 'accountinfo.dart';
+import 'myorder.dart';
+import 'editprofile.dart';
+import 'resetpassword.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -100,7 +103,12 @@ class _ProfileViewState extends State<ProfileView> {
                         context: context,
                         title: 'My Orders',
                         onTap: () {
-                          _showUnderDevelopmentMessage(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MyOrdersPage(),
+                            ),
+                          );
                         },
                       ),
                       _buildDivider(),
@@ -108,7 +116,12 @@ class _ProfileViewState extends State<ProfileView> {
                         context: context,
                         title: 'Edit Profile',
                         onTap: () {
-                          _showUnderDevelopmentMessage(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfilePage(),
+                            ),
+                          );
                         },
                       ),
                       _buildDivider(),
@@ -116,7 +129,12 @@ class _ProfileViewState extends State<ProfileView> {
                         context: context,
                         title: 'Reset Password',
                         onTap: () {
-                          _showUnderDevelopmentMessage(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ResetPasswordPage(),
+                            ),
+                          );
                         },
                       ),
                       _buildDivider(),
@@ -326,19 +344,6 @@ class _ProfileViewState extends State<ProfileView> {
             style: BorderStyle.solid,
           ),
         ),
-      ),
-    );
-  }
-
-  void _showUnderDevelopmentMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'This feature is under development',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        backgroundColor: Color(0xFF151D51),
-        duration: Duration(seconds: 2),
       ),
     );
   }

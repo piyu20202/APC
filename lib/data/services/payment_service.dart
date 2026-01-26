@@ -25,6 +25,14 @@ class PaymentService {
   // Card payment API (raw card fields)
   static const bool enableCardPaymentApi = true;
 
+  // Apple Pay: Use mock mode (true) or real backend API (false)
+  // Set to false to use CyberSource backend integration
+  static const bool useMockApplePay = true; // Set to false when backend is ready
+
+  // PayPal: Use mock mode (true) or real backend API (false)
+  // Set to false when backend PayPal endpoint is ready
+  static const bool useMockPayPal = true; // Set to false when backend is ready
+
   /// Helper function to print long strings in chunks (to avoid truncation)
   void _printLongString(String text, String label) {
     debugPrint('=== $label (Length: ${text.length}) ===');
@@ -509,6 +517,272 @@ class PaymentService {
       return {...response, 'payment_token': token};
     } catch (e, stackTrace) {
       Logger.error('Failed to process Google Pay', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Process Apple Pay payment
+  /// Supports both mock mode (for testing) and real CyberSource backend integration
+  Future<Map<String, dynamic>> processApplePay({
+    required String orderNumber,
+    required double amount,
+    required Map<String, dynamic> paymentResult,
+  }) async {
+    try {
+      // Extract payment token from Apple Pay response
+      String? token;
+
+      // Apple Pay returns token in paymentData structure
+      final paymentData = paymentResult['paymentData'] as Map<String, dynamic>?;
+      if (paymentData != null) {
+        // Apple Pay token is a JSON object that needs to be encoded
+        final tokenData = paymentData['token'] as Map<String, dynamic>?;
+        if (tokenData != null) {
+          // Convert token to JSON string
+          token = jsonEncode(tokenData);
+        } else {
+          // Fallback: check if token is already a string
+          token = paymentData['token'] as String?;
+        }
+      }
+
+      // Method 2: Direct token in paymentResult
+      if (token == null || token.isEmpty) {
+        token = paymentResult['token'] as String?;
+      }
+
+      // Print token for debugging (with chunking for long tokens)
+      if (token != null && token.isNotEmpty) {
+        _printLongString(token, 'APPLE_PAY_TOKEN_RAW');
+
+        final base64Token = base64Encode(utf8.encode(token));
+        _printLongString(base64Token, 'APPLE_PAY_TOKEN_BASE64');
+      } else {
+        debugPrint('=== APPLE_PAY_TOKEN_RAW ===');
+        debugPrint('null');
+        debugPrint('=== APPLE_PAY_TOKEN_BASE64 ===');
+        debugPrint('null');
+      }
+
+      // ============ MOCK MODE (for testing without backend) ============
+      if (useMockApplePay) {
+        await Future.delayed(const Duration(seconds: 2));
+
+        return {
+          'success': true,
+          'transaction_id': 'ap_test_${DateTime.now().millisecondsSinceEpoch}',
+          'order_status': 'paid',
+          'payment_status': 'completed',
+          'message': 'Apple Pay processed successfully (TEST MODE)',
+          'order_number': orderNumber,
+          'amount': amount,
+          'payment_token': token,
+        };
+      }
+
+      // ============ PRODUCTION MODE ============
+      if (token == null || token.isEmpty) {
+        throw ApiException(
+          message: 'Invalid payment token from Apple Pay',
+          statusCode: 400,
+        );
+      }
+
+      // Backend requires base64 encoded token
+      final tokenBase64 = base64Encode(utf8.encode(token));
+
+      // Get user email
+      final user = await StorageService.getUserData();
+      final email = user?.email;
+      if (email == null || email.isEmpty) {
+        throw ApiException(message: 'User email not found', statusCode: 400);
+      }
+
+      Logger.info('Processing Apple Pay for order: $orderNumber');
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.applePayToken,
+        body: {
+          'token': tokenBase64,
+          'orderid': orderNumber,
+          'email': email,
+        },
+        contentType: 'application/json',
+        requireAuth: true,
+      );
+
+      // Validate response format for success case
+      // Expected: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
+      if (response['order'] != null) {
+        final order = response['order'] as Map<String, dynamic>?;
+        if (order != null) {
+          // Ensure required fields are present
+          final requiredFields = [
+            'id',
+            'user_id',
+            'pay_amount',
+            'payment_status',
+            'order_number',
+          ];
+          for (final field in requiredFields) {
+            if (!order.containsKey(field)) {
+              Logger.warning('Missing field in order response: $field');
+            }
+          }
+        }
+
+        // Save updated order data to storage
+        await StorageService.saveOrderData(response);
+        Logger.info('Order data updated after Apple Pay payment');
+      }
+
+      // UI expects 'payment_token' key (used by checkout flow)
+      return {...response, 'payment_token': token};
+    } catch (e, stackTrace) {
+      Logger.error('Failed to process Apple Pay', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Process PayPal payment
+  /// Supports both mock mode (for testing) and real backend integration
+  /// Similar to Google Pay - extracts token from paymentResult and sends to backend
+  Future<Map<String, dynamic>> processPayPal({
+    required String orderNumber,
+    required int orderId,
+    required double amount,
+    required String currency,
+    Map<String, dynamic>? paymentResult,
+  }) async {
+    try {
+      // Extract payment token from PayPal payment result (similar to Google Pay)
+      String? token;
+
+      if (paymentResult != null) {
+        // Method 1: PayPal order ID (most common)
+        token = paymentResult['orderID'] as String?;
+        
+        // Method 2: PayPal payment ID
+        if (token == null || token.isEmpty) {
+          token = paymentResult['paymentID'] as String?;
+        }
+        
+        // Method 3: Direct token in paymentResult
+        if (token == null || token.isEmpty) {
+          token = paymentResult['token'] as String?;
+        }
+        
+        // Method 4: Check nested structure
+        if (token == null || token.isEmpty) {
+          final details = paymentResult['details'] as Map<String, dynamic>?;
+          if (details != null) {
+            token = details['orderID'] as String? ?? details['paymentID'] as String?;
+          }
+        }
+      }
+
+      // ===== Print token for debugging (with chunking for long tokens) =====
+      if (token != null && token.isNotEmpty) {
+        _printLongString(token, 'PAYPAL_TOKEN_RAW');
+
+        final base64Token = base64Encode(utf8.encode(token));
+        _printLongString(base64Token, 'PAYPAL_TOKEN_BASE64');
+      } else {
+        debugPrint('=== PAYPAL_TOKEN_RAW ===');
+        debugPrint('null');
+        debugPrint('=== PAYPAL_TOKEN_BASE64 ===');
+        debugPrint('null');
+      }
+
+      // ============ MOCK MODE (for testing without backend) ============
+      if (useMockPayPal) {
+        await Future.delayed(const Duration(seconds: 2));
+
+        Logger.info('MOCK: Processing PayPal payment for order: $orderNumber');
+
+        return {
+          'success': true,
+          'transaction_id': 'pp_test_${DateTime.now().millisecondsSinceEpoch}',
+          'order_status': 'paid',
+          'payment_status': 'completed',
+          'message': 'PayPal payment processed successfully (TEST MODE)',
+          'order_number': orderNumber,
+          'amount': amount,
+          'payment_token': token ?? 'mock_paypal_token',
+        };
+      }
+
+      // ============ PRODUCTION MODE ============
+      // Get user email
+      final user = await StorageService.getUserData();
+      final email = user?.email;
+      if (email == null || email.isEmpty) {
+        throw ApiException(message: 'User email not found', statusCode: 400);
+      }
+
+      Logger.info('Processing PayPal payment for order: $orderNumber');
+
+      // Prepare request body
+      final requestBody = {
+        'orderid': orderId,
+        'order_number': orderNumber,
+        'amount': amount,
+        'currency': currency,
+        'email': email,
+      };
+
+      // Add payment token - REQUIRED for PayPal (like Google Pay)
+      if (token != null && token.isNotEmpty) {
+        requestBody['payment_token'] = token;
+      } else {
+        // Token is required for PayPal payment processing
+        throw ApiException(
+          message: 'Invalid payment token from PayPal',
+          statusCode: 400,
+        );
+      }
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.processPayPal,
+        body: requestBody,
+        contentType: 'application/json',
+        requireAuth: true,
+      );
+
+      // Validate response format for success case
+      // Expected: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
+      if (response['order'] != null) {
+        final order = response['order'] as Map<String, dynamic>?;
+        if (order != null) {
+          // Ensure required fields are present
+          final requiredFields = [
+            'id',
+            'user_id',
+            'pay_amount',
+            'payment_status',
+            'order_number',
+          ];
+          for (final field in requiredFields) {
+            if (!order.containsKey(field)) {
+              Logger.warning('Missing field in order response: $field');
+            }
+          }
+        }
+
+        // Save updated order data to storage
+        await StorageService.saveOrderData(response);
+        Logger.info('Order data updated after PayPal payment');
+      }
+
+      // UI expects 'payment_token' key (used by checkout flow)
+      // In production mode token is guaranteed non-null (we throw above if invalid).
+      // In mock mode, token may be null, so provide empty string fallback.
+      final String safeToken = token ?? '';
+      return {...response, 'payment_token': safeToken};
+    } catch (e, stackTrace) {
+      Logger.error('Failed to process PayPal payment', e);
       Logger.error('Stack trace', null, stackTrace);
       rethrow;
     }

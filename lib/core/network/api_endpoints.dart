@@ -10,6 +10,7 @@ class ApiEndpoints {
   static const String socialLogin = '/social/login';
   static const String socialRegister = '/social/register';
   static const String logout = '/logout';
+  static const String changePassword = '/user/change-password';
 
   // Settings endpoints
   static const String settings = '/settings';
@@ -53,6 +54,11 @@ class ApiEndpoints {
 
   // Order endpoints
   static const String storeOrder = '/user/store/order';
+  static const String getUserOrders = '/user/orders';
+  static const String getOrderDetails = '/user/orders/details';
+
+  // Profile endpoints
+  static const String updateProfile = '/user/profile';
 
   // Payment endpoints (CyberSource)
   static const String createPaymentIntent = '/user/payment/create-intent';
@@ -61,9 +67,16 @@ class ApiEndpoints {
   // Google Pay token -> CyberSource (base64 token payload)
   static const String googlePayToken =
       '/user/payment/cybersource/googlepay/token';
+  // Apple Pay token -> CyberSource (base64 token payload)
+  static const String applePayToken =
+      '/user/payment/cybersource/applepay/token';
   // Card payment (raw card details payload)
   static const String cybersourceCardPayment = '/user/payment/cybersource/card';
   static const String verifyPaymentStatus = '/user/payment/verify-status';
+
+  // PayPal payment endpoints
+  static const String processPayPal = '/user/payment/paypal/process';
+  static const String verifyPayPalStatus = '/user/payment/paypal/verify-status';
 
   // Add more endpoints here as needed
   // static const String register = '/register';

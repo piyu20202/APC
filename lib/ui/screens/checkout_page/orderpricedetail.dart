@@ -51,6 +51,12 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   bool _hasNavigatedAway =
       false; // Flag to track if we've navigated away after successful payment
 
+  // Apple Pay variables
+  Pay? _applePayClient;
+  PaymentConfiguration? _applePayConfig;
+  bool _isApplePayAvailable = false;
+  bool _isInitializingApplePay = false;
+
   /// Helper function to print long strings in chunks (to avoid truncation)
   void _printLongString(String text, String label) {
     debugPrint('=== $label (Length: ${text.length}) ===');
@@ -79,6 +85,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     super.initState();
     _loadCartTotals();
     _initializeGooglePay(); // Initialize Google Pay
+    _initializeApplePay(); // Initialize Apple Pay
     // Add listener to enable/disable apply button based on input length
     _couponController.addListener(_onCouponTextChanged);
   }
@@ -503,6 +510,31 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                     : null,
               ),
             ),
+            const SizedBox(height: 12),
+            // Apple Pay Option (iOS only)
+            if (Theme.of(context).platform == TargetPlatform.iOS)
+              GestureDetector(
+                onTap: () {
+                  // Only select Apple Pay, don't trigger payment yet
+                  // Payment will be triggered when user presses "Proceed Payment" button
+                  setState(() {
+                    _selectedPaymentMethod = 'Apple Pay';
+                  });
+                },
+                child: _buildPaymentOption(
+                  'Apple Pay',
+                  Icons.apple,
+                  _selectedPaymentMethod == 'Apple Pay',
+                  isEnabled: !_isInitializingApplePay && _isApplePayAvailable,
+                  trailing: _isInitializingApplePay
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                ),
+              ),
           ],
         ),
       ),
@@ -773,6 +805,31 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           // Attempt Google Pay flow if available
           await StorageService.clearCheckoutData();
           await _handleGooglePayClick();
+          return;
+        }
+
+        // For Apple Pay - trigger payment when proceed button is pressed
+        if (_selectedPaymentMethod == 'Apple Pay') {
+          debugPrint('Apple Pay selected - handling from proceed button');
+
+          if (_isInitializingApplePay) {
+            Fluttertoast.showToast(
+              msg: 'Checking Apple Pay availability...',
+              toastLength: Toast.LENGTH_SHORT,
+            );
+            return;
+          }
+
+          if (!_isApplePayAvailable) {
+            Fluttertoast.showToast(
+              msg: 'Apple Pay is not available on this device.',
+              toastLength: Toast.LENGTH_LONG,
+            );
+            return;
+          }
+
+          await StorageService.clearCheckoutData();
+          await _handleApplePayClick();
           return;
         }
 
@@ -1102,6 +1159,44 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         );
   }
 
+  /// Initialize Apple Pay
+  Future<void> _initializeApplePay() async {
+    // Only initialize on iOS
+    if (Theme.of(context).platform != TargetPlatform.iOS) {
+      return;
+    }
+
+    try {
+      setState(() {
+        _isInitializingApplePay = true;
+      });
+
+      // Load Apple Pay configuration
+      _applePayConfig = await PaymentConfiguration.fromAsset(
+        BuildConfig.applePayConfigAsset,
+      );
+
+      // Initialize Pay client
+      _applePayClient = Pay({PayProvider.apple_pay: _applePayConfig!});
+
+      // Check if Apple Pay is available
+      _isApplePayAvailable = await _applePayClient!.userCanPay(
+        PayProvider.apple_pay,
+      );
+
+      debugPrint('Apple Pay initialized. Available: $_isApplePayAvailable');
+
+      setState(() {
+        _isInitializingApplePay = false;
+      });
+    } catch (e) {
+      debugPrint('Error initializing Apple Pay: $e');
+      _isApplePayAvailable = false;
+      _isInitializingApplePay = false;
+      setState(() {});
+    }
+  }
+
   /// Handle Google Pay payment result
   Future<void> _handleGooglePayResult(
     Map<String, dynamic> paymentResult,
@@ -1405,6 +1500,264 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           backgroundColor: Colors.red,
           textColor: Colors.white,
         );
+      }
+    }
+  }
+
+  /// Handle Apple Pay option click
+  Future<void> _handleApplePayClick() async {
+    if (!_isApplePayAvailable ||
+        _applePayClient == null ||
+        _applePayConfig == null) {
+      Fluttertoast.showToast(
+        msg: 'Apple Pay is not available on this device',
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
+
+    // Prevent multiple simultaneous payment attempts
+    if (_isPaymentProcessing) {
+      debugPrint('Apple Pay payment already in progress, ignoring click');
+      Fluttertoast.showToast(
+        msg: 'Payment is already being processed. Please wait...',
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
+
+    // If we've already navigated away, don't allow new payment
+    if (_hasNavigatedAway) {
+      debugPrint('Already navigated away, cannot start new payment');
+      return;
+    }
+
+    try {
+      final amount = _totalPayable ?? 0.0;
+
+      final paymentItems = [
+        PaymentItem(
+          label: 'Total',
+          amount: amount.toStringAsFixed(2),
+          status: PaymentItemStatus.final_price,
+        ),
+      ];
+
+      // Apple Pay result comes directly (not via event channel like Android)
+      final result = await _applePayClient!.showPaymentSelector(
+        PayProvider.apple_pay,
+        paymentItems,
+      );
+
+      await _handleApplePayResult(result);
+    } catch (e) {
+      debugPrint('Apple Pay error: $e');
+      // Reset flag on error so user can try again
+      _isPaymentProcessing = false;
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Apple Pay failed. Please try again.',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    }
+  }
+
+  /// Handle Apple Pay payment result
+  Future<void> _handleApplePayResult(
+    Map<String, dynamic> paymentResult,
+  ) async {
+    // Prevent duplicate processing
+    if (_isPaymentProcessing || _hasNavigatedAway) {
+      debugPrint(
+        'Apple Pay payment already being processed or navigated away, ignoring duplicate event',
+      );
+      return;
+    }
+
+    // Check if widget is still mounted
+    if (!mounted) {
+      debugPrint('Widget not mounted, ignoring Apple Pay result');
+      return;
+    }
+
+    try {
+      _isPaymentProcessing = true;
+      setState(() {
+        _isSubmitting = true;
+      });
+
+      // First, place the order if not already placed
+      final orderData = await StorageService.getOrderData();
+      String? orderNumber;
+      double amount = _totalPayable ?? 0.0;
+
+      if (orderData == null) {
+        // Order not placed yet, need to place order first
+        final userData = await StorageService.getUserData();
+        if (userData == null) {
+          throw Exception('User not logged in');
+        }
+
+        final cartResponse = await StorageService.getCartData();
+        if (cartResponse == null || cartResponse['cart'] == null) {
+          throw Exception('Cart is empty');
+        }
+
+        final checkoutData = await StorageService.getCheckoutData();
+        if (checkoutData == null) {
+          throw Exception('Checkout data not found');
+        }
+
+        final orderPayload = await _buildOrderPayload(
+          userData: userData,
+          cartResponse: cartResponse,
+          checkoutData: checkoutData,
+        );
+
+        orderPayload['payment_method'] = 'Apple Pay';
+
+        final response = await _orderService.storeOrder(orderPayload);
+        await StorageService.saveOrderData(response);
+        // DO NOT clear cart here - cart will be cleared only after successful payment
+        await StorageService.clearCheckoutData();
+
+        final order = response['order'] as Map<String, dynamic>?;
+        orderNumber = order?['order_number'] as String?;
+        if (orderNumber == null) {
+          throw Exception('Failed to get order number');
+        }
+        amount = (order?['pay_amount'] as num?)?.toDouble() ?? amount;
+      } else {
+        orderNumber = orderData['order']?['order_number'] as String?;
+        amount = (orderData['order']?['pay_amount'] as num?)?.toDouble() ?? amount;
+      }
+
+      if (orderNumber == null) {
+        throw Exception('Order number not found');
+      }
+
+      // Process Apple Pay payment
+      final paymentResponse = await _paymentService.processApplePay(
+        orderNumber: orderNumber,
+        amount: amount,
+        paymentResult: paymentResult,
+      );
+
+      debugPrint('Apple Pay payment processed: $paymentResponse');
+
+      // Check response format
+      final showOrderSuccess = paymentResponse['show_order_success'] as int? ?? 0;
+
+      // Clear cart data ONLY after successful payment
+      await StorageService.clearCartData();
+
+      if (!mounted) return;
+
+      // Mark as navigated to prevent duplicate navigation
+      _hasNavigatedAway = true;
+
+      // Show success toast
+      Fluttertoast.showToast(
+        msg: 'Payment successful!',
+        toastLength: Toast.LENGTH_LONG,
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+      );
+
+      // Navigate to order success page
+      if (showOrderSuccess == 1) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/order-placed',
+          (route) => false,
+          arguments: {
+            'payment_method': 'Apple Pay',
+            'payment_token': paymentResponse['payment_token'],
+          },
+        );
+      } else {
+        // Fallback: still navigate to order-placed
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/order-placed',
+          (route) => false,
+          arguments: {
+            'payment_method': 'Apple Pay',
+            'payment_token': paymentResponse['payment_token'],
+          },
+        );
+      }
+    } on ApiException catch (e) {
+      debugPrint('Apple Pay API error: ${e.message}, Status: ${e.statusCode}');
+
+      if (mounted) {
+        if (e.statusCode == 401) {
+          final authProvider = Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          );
+          await authProvider.logout();
+          if (!mounted) return;
+          Fluttertoast.showToast(
+            msg: 'Session expired. Please login again.',
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/signin',
+            (route) => false,
+          );
+        } else if (e.statusCode == 403) {
+          // Handle 403 Forbidden - Payment not successful
+          final errorMessage = e.message.isNotEmpty
+              ? e.message
+              : 'Payment is not successful, please try again later.';
+          Fluttertoast.showToast(
+            msg: errorMessage,
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+        } else {
+          final errorMessage = e.message.isNotEmpty
+              ? e.message
+              : 'Something went wrong. Please try again.';
+          Fluttertoast.showToast(
+            msg: errorMessage,
+            toastLength: Toast.LENGTH_LONG,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+        }
+      }
+
+      setState(() {
+        _isPaymentProcessing = false;
+      });
+    } catch (e) {
+      // Handle other exceptions
+      debugPrint('Error handling Apple Pay result: $e');
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Something went wrong Please try again',
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+        _isPaymentProcessing = false;
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      } else {
+        _isPaymentProcessing = false;
       }
     }
   }

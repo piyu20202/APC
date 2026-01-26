@@ -1,0 +1,97 @@
+================================================================================
+PAYPAL MOBILE APP INTEGRATION - MINIMUM REQUIREMENTS
+================================================================================
+Project: APC Ecommerce Flutter App
+Integration: PayPal Mobile SDK (Flutter)
+
+================================================================================
+1. PAYPAL CREDENTIALS (MUST HAVE)
+================================================================================
+
+Required from Client:
+- PayPal Client ID (Sandbox) - [Required for testing]
+- PayPal Client ID (Production) - [Required for live app]
+- PayPal Environment: Sandbox/Production
+
+Where to get:
+- Client needs PayPal Business Account
+- Get from PayPal Developer Dashboard: https://developer.paypal.com
+
+================================================================================
+2. BACKEND API ENDPOINT (MUST HAVE)
+================================================================================
+
+Required Backend Endpoint:
+- Endpoint: /user/payment/paypal/process (or similar)
+- Method: POST
+- What it should accept:
+  * order_id or order_number
+  * payment_token (from PayPal SDK)
+  * amount
+  * currency
+  * user email
+
+- What it should return:
+  * success: true/false
+  * order: { order details }
+  * payment_status: completed/pending/failed
+
+Note: Similar to existing Apple Pay and Google Pay endpoints
+
+================================================================================
+3. PAYPAL CONFIGURATION (MUST HAVE)
+================================================================================
+
+Configuration Details:
+- Currency: AUD (Australian Dollar) - [Confirm]
+- Country: Australia - [Confirm]
+- Business Name: [For display in PayPal checkout]
+
+================================================================================
+4. TESTING ACCOUNTS (FOR TESTING)
+================================================================================
+
+For Testing:
+- PayPal Sandbox Test Account (Buyer) - [For testing payments]
+- Or test credit card numbers - [If available]
+
+================================================================================
+5. INTEGRATION APPROACH (CONFIRMATION)
+================================================================================
+
+Integration Method:
+- PayPal Checkout SDK (Web-based) - Recommended for Flutter
+- OR PayPal Native SDK - If available for Flutter
+
+Confirm with Client:
+- Which method does backend support?
+- Should we follow same pattern as Apple Pay/Google Pay?
+
+================================================================================
+SUMMARY - ONLY 3 THINGS CLIENT MUST PROVIDE
+================================================================================
+
+1. PayPal Client ID (Sandbox + Production)
+2. Backend API Endpoint URL for PayPal payment processing
+3. Currency and Country confirmation (AUD, Australia)
+
+That's it! Rest we can handle in mobile app code.
+
+================================================================================
+QUESTIONS TO ASK CLIENT
+================================================================================
+
+1. Do you have PayPal Business Account? (Yes/No)
+2. Can you provide PayPal Client ID? (Sandbox + Production)
+3. Will backend team create PayPal payment endpoint? (Similar to Apple Pay endpoint)
+4. When will backend endpoint be ready?
+5. Currency is AUD, correct?
+
+================================================================================
+NOTES
+================================================================================
+
+- Webhook is backend responsibility, not needed for mobile app
+- Business details are for PayPal account setup (client's responsibility)
+- Mobile app only needs Client ID and backend endpoint
+- We'll handle SDK integration, UI, and payment flow in Flutter code

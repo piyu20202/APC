@@ -1,0 +1,9 @@
+{
+  "mode": "sandbox",
+  "currency": "AUD",
+  "country": "AU",
+  "business_name": "Automotion Plus",
+  "client_id": "",
+  "secret_key": "",
+  "note": "For testing: Add PayPal Client ID and Secret Key from PayPal Developer Dashboard (REST API apps section). The API username/password/secret provided are for backend/server-side only."
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'register_traderuser.dart';
+import '../../../services/storage_service.dart';
 
 class TradeWelcomePage extends StatefulWidget {
   const TradeWelcomePage({super.key});
@@ -223,13 +224,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
                 child: ElevatedButton(
                   onPressed: _agreeToTerms
                       ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const RegisterTraderUserPage(),
-                            ),
-                          );
+                          _handleRegistrationButton();
                         }
                       : () {
                           // Show message when button is disabled
@@ -303,7 +298,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
               height: 50,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/signin');
+                  _handleLoginButton();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.yellow,
@@ -365,5 +360,151 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleRegistrationButton() async {
+    // Check if user is already logged in
+    final isLoggedIn = await StorageService.isLoggedIn();
+    
+    if (isLoggedIn) {
+      // Show confirmation dialog
+      final shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text(
+              'Already Logged In',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF151D51),
+              ),
+            ),
+            content: const Text(
+              'You are already logged in. Do you want to logout and proceed with registration?',
+              style: TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                },
+                child: const Text(
+                  'No',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop(true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text(
+                  'Yes, Logout',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldLogout == true) {
+        // Logout user
+        await StorageService.clearLoginData();
+        
+        // Navigate to registration page
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RegisterTraderUserPage(),
+            ),
+          );
+        }
+      }
+    } else {
+      // User is not logged in, directly navigate to registration
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const RegisterTraderUserPage(),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleLoginButton() async {
+    // Check if user is already logged in
+    final isLoggedIn = await StorageService.isLoggedIn();
+    
+    if (isLoggedIn) {
+      // Show confirmation dialog
+      final shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text(
+              'Already Logged In',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF151D51),
+              ),
+            ),
+            content: const Text(
+              'You are already logged in. Do you want to logout and proceed to login page?',
+              style: TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                },
+                child: const Text(
+                  'No',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop(true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text(
+                  'Yes, Logout',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldLogout == true) {
+        // Logout user
+        await StorageService.clearLoginData();
+        
+        // Navigate to login page
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/signin');
+        }
+      }
+    } else {
+      // User is not logged in, directly navigate to login
+      Navigator.pushReplacementNamed(context, '/signin');
+    }
   }
 }

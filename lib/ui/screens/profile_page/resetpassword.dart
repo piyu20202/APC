@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../core/exceptions/api_exception.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
@@ -18,6 +21,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
+
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +123,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     // Submit Button
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _submitResetPassword,
+                        onPressed: _isLoading ? null : _submitResetPassword,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(
                             0xFF151D51,
@@ -129,13 +135,23 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           ),
                           elevation: 2,
                         ),
-                        child: const Text(
-                          'SUBMIT',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'SUBMIT',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ],
@@ -221,42 +237,49 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     );
   }
 
-  void _submitResetPassword() {
-    if (_formKey.currentState!.validate()) {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const Center(child: CircularProgressIndicator());
-        },
+  Future<void> _submitResetPassword() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    // Validate that new password and confirm password match
+    if (_newPasswordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
+      Fluttertoast.showToast(msg: 'New password and confirm password do not match');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.changePassword(
+        currentPassword: _currentPasswordController.text.trim(),
+        newPassword: _newPasswordController.text.trim(),
       );
 
-      // Simulate API call
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        Navigator.of(context).pop(); // Close loading dialog
-
-        // Show success message
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Success'),
-              content: const Text('Your password has been reset successfully!'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(); // Close success dialog
-                    Navigator.of(context).pop(); // Go back to profile
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
-      });
+      // Success (status 200) - show toast and navigate back
+      if (mounted) {
+        Fluttertoast.showToast(msg: 'Password has been updated');
+        Navigator.of(context).pop();
+      }
+    } on ApiException {
+      // Handle API errors - status code is not 200
+      if (mounted) {
+        Fluttertoast.showToast(msg: 'Something went wrong');
+      }
+    } catch (_) {
+      // Handle any other errors
+      if (mounted) {
+        Fluttertoast.showToast(msg: 'Something went wrong');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
