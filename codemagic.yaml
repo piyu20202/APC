@@ -21,8 +21,12 @@ workflows:
       - name: Build for iOS Simulator
         script: |
           flutter build ios --simulator --debug --no-codesign
+      - name: Zip for Appetize
+        script: |
+          cd build/ios/iphonesimulator
+          zip -r ios_simulator_build.zip Runner.app
     artifacts:
-      - build/ios/iphonesimulator/*.app
+      - build/ios/iphonesimulator/*.zip
 
   ios-testing-build:
     name: iOS Testing Build with Test Credentials
@@ -46,8 +50,12 @@ workflows:
             --dart-define=ALLOW_TEST_CREDS=true \
             --dart-define=TEST_EMAIL=vikram@vmail.in \
             --dart-define=TEST_PASSWORD=apc@2023
+      - name: Zip for Appetize
+        script: |
+          cd build/ios/iphonesimulator
+          zip -r ios_simulator_build.zip Runner.app
     artifacts:
-      - build/ios/iphonesimulator/*.app
+      - build/ios/iphonesimulator/*.zip
 
   ios-device-testing-build:
     name: iOS Device Testing Build with Test Credentials
