@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "com.apc.cybersource_inapp_example"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Match the NDK version required by the cybersource_inapp plugin.
+    // This avoids the Gradle warning about mixed NDK versions (26.x vs 27.x).
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

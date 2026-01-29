@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# PayPal config with real keys (use paypal_config.example.json as template)
+/assets/paypal_config.json

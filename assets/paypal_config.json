@@ -3,7 +3,9 @@
   "currency": "AUD",
   "country": "AU",
   "business_name": "Automotion Plus",
-  "client_id": "",
-  "secret_key": "",
-  "note": "For testing: Add PayPal Client ID and Secret Key from PayPal Developer Dashboard (REST API apps section). The API username/password/secret provided are for backend/server-side only."
+  "sandbox_client_id": "AayuMMk6vTSmDqXJrn6_s3NW1SbDrrbf7Xnjc_Q0z5Y-Tc_thRwL4aFPDzI4rai-Mq161PjpUjQM_mxp",
+  "sandbox_secret_key": "EBvUGfE-RVNqpNsmmFNSr9q0ZdIdz6j9HY3Df4lrDLss-eTK7NSd6jRXBjgveIFkTvRUFY6EGp0pPZTu",
+  "production_client_id": "AWv-HTzflQL-2T34Yqpu9wiET4bLpYcn23gnJkcqpBcrmA7sVl4Rx8_K1PSSScWWOabBWiOyR7MyqmMB",
+  "production_secret_key": "EKMn7FIjf5LfylyzI7Tvf9okIO616ZJc_e3x6gOvDEaRJcaVMiD7pio1DvmIOepIlZeElf799HAigr0v",
+  "note": "Set mode to 'production' when going live. Keep this file out of version control (.gitignore)."
 }

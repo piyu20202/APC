@@ -17,6 +17,10 @@ class CybersourceInappPlugin : FlutterPlugin, MethodCallHandler {
 
   override fun onMethodCall(call: MethodCall, result: Result) {
     when (call.method) {
+      "getPlatformVersion" -> {
+        result.success("Android ${android.os.Build.VERSION.RELEASE}")
+      }
+
       "getCaptureContext" -> {
         // Abhi ke liye dummy capture context – sirf testing flow ke liye
         result.success("DUMMY_CAPTURE_CONTEXT_ANDROID")

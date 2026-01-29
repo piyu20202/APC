@@ -54,8 +54,9 @@ class _PaymentPageState extends State<PaymentPage> {
   /// Load PayPal configuration from assets
   Future<void> _loadPayPalConfig() async {
     try {
-      final String jsonString =
-          await rootBundle.loadString('assets/paypal_config.json');
+      final String jsonString = await rootBundle.loadString(
+        'assets/paypal_config.json',
+      );
       _paypalConfig = jsonDecode(jsonString) as Map<String, dynamic>;
       debugPrint('PayPal config loaded: ${_paypalConfig?['mode']}');
     } catch (e) {
@@ -467,7 +468,6 @@ class _PaymentPageState extends State<PaymentPage> {
     }
   }
 
-
   /// Format card number with spaces
   String _formatCardNumber(String value) {
     final cleaned = value.replaceAll(' ', '');
@@ -856,16 +856,28 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    // Load PayPal credentials from config file or use placeholders
-    // Note: Client needs to provide PayPal Client ID and Secret Key from PayPal Developer Dashboard
-    // The API username/password/secret provided are for backend/server-side only
-    String paypalClientId = _paypalConfig?['client_id'] as String? ?? '';
-    String paypalSecretKey = _paypalConfig?['secret_key'] as String? ?? '';
+    // Load PayPal credentials from config (sandbox or production based on mode)
+    final String paypalMode = _paypalConfig?['mode'] as String? ?? 'sandbox';
+    final bool isSandbox = paypalMode != 'production';
+    String paypalClientId = isSandbox
+        ? (_paypalConfig?['sandbox_client_id'] as String? ??
+              _paypalConfig?['client_id'] as String? ??
+              '')
+        : (_paypalConfig?['production_client_id'] as String? ??
+              _paypalConfig?['client_id'] as String? ??
+              '');
+    String paypalSecretKey = isSandbox
+        ? (_paypalConfig?['sandbox_secret_key'] as String? ??
+              _paypalConfig?['secret_key'] as String? ??
+              '')
+        : (_paypalConfig?['production_secret_key'] as String? ??
+              _paypalConfig?['secret_key'] as String? ??
+              '');
 
     // For testing: If credentials not configured, use mock/test mode
     if (paypalClientId.isEmpty || paypalSecretKey.isEmpty) {
       debugPrint('PayPal Client ID/Secret not configured. Using test mode.');
-      
+
       // For testing: Use mock PayPal flow (no real SDK call)
       setState(() {
         _isProcessing = true;
@@ -873,8 +885,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
       try {
         // Simulate PayPal payment with test token (for testing only)
-        final testToken = 'PP_TEST_ORDER_${DateTime.now().millisecondsSinceEpoch}';
-        
+        final testToken =
+            'PP_TEST_ORDER_${DateTime.now().millisecondsSinceEpoch}';
+
         final response = await _paymentService.processPayPal(
           orderNumber: _orderNumber!,
           orderId: _orderId!,
@@ -951,7 +964,7 @@ class _PaymentPageState extends State<PaymentPage> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (BuildContext context) => UsePaypal(
-            sandboxMode: true, // Set to false for production
+            sandboxMode: isSandbox,
             clientId: paypalClientId,
             secretKey: paypalSecretKey,
             returnURL: "https://samplesite.com/return",
@@ -961,17 +974,14 @@ class _PaymentPageState extends State<PaymentPage> {
                 "amount": {
                   "total": amountString,
                   "currency": _currency ?? "AUD",
-                  "details": {
-                    "subtotal": amountString,
-                    "shipping": "0",
-                  }
+                  "details": {"subtotal": amountString, "shipping": "0"},
                 },
-              }
+              },
             ],
             note: "Order #${_orderNumber}",
             onSuccess: (Map params) async {
               debugPrint('PayPal onSuccess: $params');
-              
+
               // Extract orderID/token from PayPal response
               String? paypalOrderId;
               try {
@@ -999,7 +1009,8 @@ class _PaymentPageState extends State<PaymentPage> {
               if (paypalOrderId == null || paypalOrderId.isEmpty) {
                 if (mounted) {
                   Fluttertoast.showToast(
-                    msg: 'Failed to get PayPal payment token. Please try again.',
+                    msg:
+                        'Failed to get PayPal payment token. Please try again.',
                     toastLength: Toast.LENGTH_LONG,
                     backgroundColor: Colors.red,
                     textColor: Colors.white,
@@ -1030,8 +1041,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
                 final showOrderSuccess =
                     response['show_order_success'] as int? ?? 0;
-                final processPayment =
-                    response['process_payment'] as int? ?? 1;
+                final processPayment = response['process_payment'] as int? ?? 1;
 
                 debugPrint(
                   'PayPal Payment Response - show_order_success: $showOrderSuccess, process_payment: $processPayment',

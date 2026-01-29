@@ -1,6 +1,8 @@
 
 import 'package:flutter/services.dart';
 
+import 'cybersource_inapp_platform_interface.dart';
+
 /// Simple Flutter-facing API for Cybersource In‑app SDK.
 ///
 /// NOTE:
@@ -11,6 +13,11 @@ import 'package:flutter/services.dart';
 ///        currently returns a dummy transient token for wiring up the flow.
 class CybersourceInapp {
   static const MethodChannel _channel = MethodChannel('cybersource_inapp');
+
+  /// Get the platform version.
+  Future<String?> getPlatformVersion() {
+    return CybersourceInappPlatform.instance.getPlatformVersion();
+  }
 
   /// Get capture context for Cybersource tokenisation.
   ///

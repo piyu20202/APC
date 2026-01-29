@@ -10,6 +10,9 @@ public class CybersourceInappPlugin: NSObject, FlutterPlugin {
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "getPlatformVersion":
+      result("iOS \(UIDevice.current.systemVersion)")
+
     case "getCaptureContext":
       // TODO: Replace with real capture context from backend / Cybersource SDK.
       // For now we return a simple dummy value so that the Flutter side can

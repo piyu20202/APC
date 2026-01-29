@@ -1,0 +1,11 @@
+{
+  "mode": "sandbox",
+  "currency": "AUD",
+  "country": "AU",
+  "business_name": "Automotion Plus",
+  "sandbox_client_id": "YOUR_SANDBOX_CLIENT_ID",
+  "sandbox_secret_key": "YOUR_SANDBOX_SECRET_KEY",
+  "production_client_id": "YOUR_PRODUCTION_CLIENT_ID",
+  "production_secret_key": "YOUR_PRODUCTION_SECRET_KEY",
+  "note": "Copy this file to paypal_config.json and fill in keys from PayPal Developer Dashboard. Set mode to 'production' when going live."
+}
