@@ -69,45 +69,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
   void initState() {
     super.initState();
     _checkLoginAndPrefillForm();
+    _addAddressListenersForShippingSummary();
+  }
+
+  VoidCallback? _shippingSummaryRebuild;
+
+  void _addAddressListenersForShippingSummary() {
+    _shippingSummaryRebuild = () {
+      if (mounted) setState(() {});
+    };
+    _unitController.addListener(_shippingSummaryRebuild!);
+    _addressController.addListener(_shippingSummaryRebuild!);
+    _suburbController.addListener(_shippingSummaryRebuild!);
+    _postCodeController.addListener(_shippingSummaryRebuild!);
   }
 
   void _prefillDummyBillingDetailsIfEmpty() {
-    // Only fill fields that are currently empty, so we don't override user input.
-    if (_nameController.text.trim().isEmpty) _nameController.text = 'Vikram';
-    if (_emailController.text.trim().isEmpty) {
-      _emailController.text = 'vikram@vmail.in';
-    }
-    if (_mobileController.text.trim().isEmpty) {
-      _mobileController.text = '+61 400 000 000';
-    }
-    if (_companyController.text.trim().isEmpty) {
-      _companyController.text = 'ABC PVT LTD';
-    }
-
-    // Address details (Australia)
-    if (_unitController.text.trim().isEmpty) _unitController.text = 'Unit 10';
-    if (_addressController.text.trim().isEmpty) {
-      _addressController.text = '1 George St';
-    }
-    // This field is labeled "Suburb" in the UI; treat it as the city.
-    if (_suburbController.text.trim().isEmpty) {
-      _suburbController.text = 'Sydney';
-    }
-    if (_postCodeController.text.trim().isEmpty) {
-      _postCodeController.text = '2000';
-    }
-
-    // Phone (area code dropdown + landline)
-    if (_areaCodeController.text.trim().isEmpty) {
-      _areaCodeController.text = '+61';
-    }
-    if (_landlineController.text.trim().isEmpty) {
-      _landlineController.text = '2 1234 5678';
-    }
-
-    // Dropdowns
-    _selectedState ??= 'NSW';
-    _selectedCountry ??= 'Australia';
+    // No dummy prefill - user enters all fields manually
   }
 
   /// Check login status and pre-fill form with logged-in user data
@@ -128,10 +106,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     // User is logged in - get user data.
-    //
-    // NOTE: This app currently doesn't prefill from user profile here.
-    // To avoid an empty Order Price Details screen during demos/testing,
-    // we fill dummy values when fields are blank (without overriding user input).
+    // No dummy prefill - user enters all billing/address fields manually.
     _prefillDummyBillingDetailsIfEmpty();
 
     setState(() {
@@ -141,6 +116,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   void dispose() {
+    if (_shippingSummaryRebuild != null) {
+      _unitController.removeListener(_shippingSummaryRebuild!);
+      _addressController.removeListener(_shippingSummaryRebuild!);
+      _suburbController.removeListener(_shippingSummaryRebuild!);
+      _postCodeController.removeListener(_shippingSummaryRebuild!);
+    }
     _nameController.dispose();
     _emailController.dispose();
     _mobileController.dispose();
@@ -209,6 +190,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                 // Billing Details Section
                 _buildBillingDetailsSection(),
+                const SizedBox(height: 24),
+
+                // Shipping Details Summary
+                _buildShippingDetailsSummary(),
                 const SizedBox(height: 24),
 
                 // Order Note
@@ -300,6 +285,102 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildShippingDetailsSummary() {
+    return Card(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_shipping, color: Colors.blue[700], size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  'Shipping Details',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF151D51),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildDetailRow('Method', _shippingMethod),
+            if (_shippingMethod == 'Ship to Address') ...[
+              _buildDetailRow(
+                'Address',
+                [
+                  _unitController.text.trim(),
+                  _addressController.text.trim(),
+                  _suburbController.text.trim(),
+                  _selectedState ?? '',
+                  _postCodeController.text.trim(),
+                  _selectedCountry ?? '',
+                ].where((s) => s.isNotEmpty).join(', '),
+              ),
+              if (_addressController.text.trim().isEmpty &&
+                  _unitController.text.trim().isEmpty)
+                Text(
+                  'Enter address in Billing Details above',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+            ] else if (_shippingMethod == 'Pickup' &&
+                _selectedPickupLocation != null) ...[
+              _buildDetailRow('Pickup Location', _selectedPickupLocation!),
+            ] else if (_shippingMethod == 'Pickup') ...[
+              Text(
+                'Select pickup location above',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: TextStyle(
+                fontSize: 14,
+                color: value.isEmpty ? Colors.grey : Colors.black87,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

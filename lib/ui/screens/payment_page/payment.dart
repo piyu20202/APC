@@ -29,6 +29,12 @@ class _PaymentPageState extends State<PaymentPage> {
   double? _amount;
   String? _currency;
 
+  // Order breakdown (from cart, for display before payment)
+  double? _subtotalExclGst;
+  double? _shippingCost;
+  double? _gstAmount;
+  double? _discountAmount;
+
   // Payment form controllers
   final _cardNumberController = TextEditingController();
   final _expiryController = TextEditingController();
@@ -163,11 +169,47 @@ class _PaymentPageState extends State<PaymentPage> {
         // Don't block navigation, just show warning
       }
 
+      // Load cart data for breakdown (taxes, shipping, discount)
+      double? subtotalExclGst;
+      double? shippingCost;
+      double? gstAmount;
+      double? discountAmount;
+      try {
+        final cartResponse = await StorageService.getCartData();
+        if (cartResponse != null) {
+          double? toDouble(dynamic v) {
+            if (v == null) return null;
+            if (v is num) return v.toDouble();
+            if (v is String) return double.tryParse(v.replaceAll(',', ''));
+            return null;
+          }
+
+          final totalPrice = toDouble(cartResponse['totalPrice']);
+          final tax = toDouble(cartResponse['tax']);
+          final shipping = toDouble(cartResponse['shipping']);
+          final totalWithGst = toDouble(cartResponse['total_with_gst']);
+          final discount = toDouble(cartResponse['discount']);
+          final couponDiscount = toDouble(cartResponse['coupon_discount']);
+          subtotalExclGst = totalPrice;
+          shippingCost = shipping;
+          gstAmount =
+              tax ??
+              (totalWithGst != null && totalPrice != null && shipping != null
+                  ? totalWithGst - totalPrice - (shipping)
+                  : null);
+          discountAmount = discount ?? couponDiscount;
+        }
+      } catch (_) {}
+
       setState(() {
         _orderNumber = orderNumber;
         _orderId = orderId;
         _amount = amount > 0 ? amount : 0.0;
         _currency = 'AUD';
+        _subtotalExclGst = subtotalExclGst;
+        _shippingCost = shippingCost;
+        _gstAmount = gstAmount;
+        _discountAmount = discountAmount;
       });
 
       debugPrint(
@@ -567,6 +609,9 @@ class _PaymentPageState extends State<PaymentPage> {
       total = _amount!;
     }
 
+    String formatPrice(double? v) =>
+        v != null ? '\$${v.toStringAsFixed(2)}' : '-';
+
     return Card(
       color: Colors.white,
       child: Padding(
@@ -576,7 +621,11 @@ class _PaymentPageState extends State<PaymentPage> {
           children: [
             const Text(
               'Order Summary',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF151D51),
+              ),
             ),
             const SizedBox(height: 16),
             Row(
@@ -592,13 +641,31 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            // Taxes, shipping, discount breakdown
+            _buildSummaryRow(
+              'Subtotal (excl. GST)',
+              formatPrice(_subtotalExclGst),
+            ),
+            _buildSummaryRow('Shipping', formatPrice(_shippingCost)),
+            if (_discountAmount != null && _discountAmount! > 0)
+              _buildSummaryRow('Discount', '-${formatPrice(_discountAmount)}'),
+            _buildSummaryRow('GST @ 10%', formatPrice(_gstAmount)),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Total Amount:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  'Total Payable:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
                 Text(
                   '\$${total.toStringAsFixed(2)}',
@@ -612,6 +679,19 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 14)),
+          Text(value, style: const TextStyle(fontSize: 14)),
+        ],
       ),
     );
   }

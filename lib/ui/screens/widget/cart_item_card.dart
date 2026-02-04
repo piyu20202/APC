@@ -130,7 +130,7 @@ class _CartItemCardState extends State<CartItemCard>
             child: GestureDetector(
               onTap: widget.onDelete,
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.red.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
@@ -138,7 +138,7 @@ class _CartItemCardState extends State<CartItemCard>
                 child: Icon(
                   Icons.delete_outline,
                   color: Colors.red[700],
-                  size: 22,
+                  size: 32,
                 ),
               ),
             ),
@@ -182,7 +182,7 @@ class _CartItemCardState extends State<CartItemCard>
                           color: Colors.black,
                           height: 1.3, // Line height for better spacing
                         ),
-                        maxLines: widget.isAddonProduct ? 3 : 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

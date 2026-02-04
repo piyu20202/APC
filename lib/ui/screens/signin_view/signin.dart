@@ -8,7 +8,6 @@ import '../forgotpassword_view/forgotpassword.dart';
 import '../../../data/services/settings_service.dart';
 import '../../../services/storage_service.dart';
 import '../../../core/utils/logger.dart';
-import '../../../config/environment.dart';
 
 class SigninScreen extends StatefulWidget {
   const SigninScreen({super.key});
@@ -26,19 +25,6 @@ class _SigninScreenState extends State<SigninScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Closed testing / internal builds: prefill test credentials (still editable).
-    if (BuildConfig.allowTestCreds) {
-      final email = BuildConfig.testEmail.trim();
-      if (email.isNotEmpty) {
-        _emailController.text = email;
-      }
-
-      final password = BuildConfig.testPassword;
-      if (password.isNotEmpty) {
-        _passwordController.text = password;
-      }
-    }
   }
 
   void _handleLogin() async {

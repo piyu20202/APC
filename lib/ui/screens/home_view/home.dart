@@ -243,7 +243,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No internet connection. Please try again.')),
+          const SnackBar(
+            content: Text('No internet connection. Please try again.'),
+          ),
         );
       }
       return;
@@ -432,9 +434,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 } else {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Unable to make phone call'),
-                    ),
+                    const SnackBar(content: Text('Unable to make phone call')),
                   );
                 }
               } else {
@@ -549,7 +549,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       // Cart Icon
                       GestureDetector(
                         onTap: () {
-                          NavigationService.instance.switchToTab(3);
+                          NavigationService.instance.switchToTab(
+                            2,
+                          ); // Cart is now at index 2 (after removing wishlist)
                         },
                         child: Stack(
                           clipBehavior: Clip.none,
@@ -757,8 +759,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                         end: Alignment.bottomRight,
                                         colors: [
                                           banner['backgroundColor'],
-                                          banner['backgroundColor'].withValues(alpha: 
-                                            0.8,
+                                          banner['backgroundColor'].withValues(
+                                            alpha: 0.8,
                                           ),
                                         ],
                                       ),
@@ -766,7 +768,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                     child: Center(
                                       child: Icon(
                                         Icons.image,
-                                        color: Colors.white.withValues(alpha: 0.5),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.5,
+                                        ),
                                         size: 60,
                                       ),
                                     ),
@@ -1277,8 +1281,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final double sectionHeight = isLoading
             ? 310
             : saleProducts.isEmpty
-                ? 90
-                : 310;
+            ? 90
+            : 310;
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -1304,50 +1308,50 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 child: isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : saleProducts.isEmpty
-                        ? Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                            child: const Center(
-                              child: Text(
-                                'No data found',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey,
-                                ),
-                              ),
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: const Center(
+                          child: Text(
+                            'No data found',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey,
                             ),
-                          )
-                        : ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: saleProducts.length,
-                            itemBuilder: (context, index) {
-                              final apiProduct = saleProducts[index];
-                              final mapped = {
-                                'image': apiProduct.thumbnail,
-                                'thumbnail': apiProduct.thumbnail,
-                                'id': apiProduct.id,
-                                'name': apiProduct.name,
-                                'sku': apiProduct.sku,
-                                'price': apiProduct.price,
-                                'previous_price': apiProduct.previousPrice,
-                                'currentPrice': apiProduct.price.toString(),
-                                'originalPrice':
-                                    apiProduct.previousPrice.toString(),
-                                'description':
-                                    apiProduct.shortDescription ??
-                                    'On sale — description coming soon.',
-                                'onSale': true,
-                                'out_of_stock': apiProduct.outOfStock,
-                              };
-                              return Container(
-                                width: 160,
-                                margin: const EdgeInsets.only(right: 12),
-                                child: SaleProductCard(product: mapped),
-                              );
-                            },
                           ),
+                        ),
+                      )
+                    : ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: saleProducts.length,
+                        itemBuilder: (context, index) {
+                          final apiProduct = saleProducts[index];
+                          final mapped = {
+                            'image': apiProduct.thumbnail,
+                            'thumbnail': apiProduct.thumbnail,
+                            'id': apiProduct.id,
+                            'name': apiProduct.name,
+                            'sku': apiProduct.sku,
+                            'price': apiProduct.price,
+                            'previous_price': apiProduct.previousPrice,
+                            'currentPrice': apiProduct.price.toString(),
+                            'originalPrice': apiProduct.previousPrice
+                                .toString(),
+                            'description':
+                                apiProduct.shortDescription ??
+                                'On sale — description coming soon.',
+                            'onSale': true,
+                            'out_of_stock': apiProduct.outOfStock,
+                          };
+                          return Container(
+                            width: 160,
+                            margin: const EdgeInsets.only(right: 12),
+                            child: SaleProductCard(product: mapped),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -1681,9 +1685,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
       // If full category data isn't available, don't navigate further.
       if (categoryData == null) {
-        showCategoryLoadError(
-          'CategoryFull not found in cache/all categories',
-        );
+        showCategoryLoadError('CategoryFull not found in cache/all categories');
         return;
       }
 

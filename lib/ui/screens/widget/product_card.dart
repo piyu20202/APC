@@ -30,16 +30,6 @@ class _ProductCardState extends State<ProductCard> {
   final CartService _cartService = CartService();
   bool _isQuickAdding = false;
 
-  void _showWishlistComingSoon() {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Wishlist is under development and will be available soon.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
@@ -75,39 +65,7 @@ class _ProductCardState extends State<ProductCard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: Wishlist icon (right only)
-            Padding(
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    onTap: _showWishlistComingSoon,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            spreadRadius: 0.5,
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.favorite_border,
-                        color: Colors.red[300],
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 8),
             // Product Image
             Container(
               height: 120,
@@ -439,7 +397,9 @@ class _ProductCardState extends State<ProductCard> {
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
-      NavigationService.instance.switchToTab(3);
+      NavigationService.instance.switchToTab(
+        2,
+      ); // Cart is now at index 2 (after removing wishlist)
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!context.mounted) return;

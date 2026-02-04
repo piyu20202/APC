@@ -11,9 +11,9 @@ class RegisterTraderUserPage extends StatefulWidget {
 class _RegisterTraderUserPageState extends State<RegisterTraderUserPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _emailController = TextEditingController(text: 'vikram@umallin');
+  final _emailController = TextEditingController();
   final _mobileController = TextEditingController();
-  final _passwordController = TextEditingController(text: '******');
+  final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _companyNameController = TextEditingController();
   final _companyWebsiteController = TextEditingController();

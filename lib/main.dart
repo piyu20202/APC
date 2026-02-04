@@ -38,7 +38,13 @@ class MyApp extends StatelessWidget {
         navigatorObservers: [routeObserver],
         home: const SplashScreen(),
         routes: {
-          '/main': (context) => const MainNavigationScreen(),
+          '/main': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            final tabIndex = (args is Map && args['tabIndex'] is int)
+                ? args['tabIndex'] as int
+                : 0;
+            return MainNavigationScreen(initialTabIndex: tabIndex);
+          },
           '/signin': (context) => const SigninScreen(),
           '/signup': (context) => const SignupScreen(),
           '/checkout': (context) => const CheckoutPage(),

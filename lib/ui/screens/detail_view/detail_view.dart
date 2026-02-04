@@ -717,7 +717,9 @@ class _DetailViewState extends State<DetailView> {
                                   borderRadius: BorderRadius.circular(30),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.3,
+                                      ),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
@@ -988,12 +990,70 @@ class _DetailViewState extends State<DetailView> {
 
     final isInStock = _product!.outOfStock == 0;
 
+    final hasAddonOrUpgrade =
+        _isKitProduct &&
+        (_upgradeProducts.isNotEmpty || _addonProducts.isNotEmpty);
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Strong indication for addon/upgrade items in KIT
+          if (hasAddonOrUpgrade) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade300, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.add_circle,
+                    color: Colors.orange.shade700,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ADD-ON & UPGRADE ITEMS AVAILABLE',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'This KIT includes customisation options. Scroll down to add upgrades and add-ons.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade800,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           Text(
             _product!.name,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -1366,8 +1426,7 @@ class _DetailViewState extends State<DetailView> {
                             ],
                           ),
                         );
-                      })
-                      ,
+                      }),
                 ],
 
                 // Upgrade Items (only if user selected an upgrade)
@@ -2635,7 +2694,9 @@ class _DetailViewState extends State<DetailView> {
       NavigationService.instance.refreshCartItems();
 
       if (!mounted) return;
-      NavigationService.instance.switchToTab(3);
+      NavigationService.instance.switchToTab(
+        2,
+      ); // Cart is now at index 2 (after removing wishlist)
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       debugPrint('Add-to-cart failed: $e');

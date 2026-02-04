@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../../../services/navigation_service.dart';
 
 class OrderPlacedPage extends StatelessWidget {
   const OrderPlacedPage({super.key});
@@ -38,11 +37,7 @@ class OrderPlacedPage extends StatelessWidget {
                   'assets/images/logo.png',
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.image,
-                      size: 80,
-                      color: Colors.grey,
-                    );
+                    return Icon(Icons.image, size: 80, color: Colors.grey);
                   },
                 ),
               ),
@@ -144,16 +139,13 @@ class OrderPlacedPage extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        // Navigate back to main navigation and switch to home tab
+                        // Navigate to main with home tab (index 0) as initial tab
                         Navigator.pushNamedAndRemoveUntil(
                           context,
                           '/main',
                           (route) => false,
+                          arguments: {'tabIndex': 0},
                         );
-                        // Switch to home tab (index 0) after navigation
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          NavigationService.instance.switchToTab(0);
-                        });
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF002e5b)),

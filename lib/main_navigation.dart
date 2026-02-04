@@ -4,27 +4,29 @@ import 'dart:async';
 import 'ui/screens/home_view/home.dart';
 import 'ui/screens/cart_view/cart.dart';
 import 'ui/screens/profile_page/profile_view.dart';
-import 'ui/screens/wishlist_view/wishlist.dart';
 import 'ui/screens/search_view/search.dart';
 import 'services/user_role_service.dart';
 import 'services/navigation_service.dart';
 import 'services/storage_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+  final int initialTabIndex;
+
+  const MainNavigationScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
   bool _isTrader = false;
   int _cartCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialTabIndex.clamp(0, 3);
     NavigationService.instance.registerTabController(_onItemTapped);
     NavigationService.instance.registerCartCountRefresher(_loadCartCount);
     _checkTraderStatus();
@@ -64,7 +66,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-      if (index == 3) {
+      if (index == 2) {
         _loadCartCount();
       }
     });
@@ -155,11 +157,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   activeIcon: Icon(Icons.search),
                   label: 'Search',
                 ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.favorite_border),
-                  activeIcon: Icon(Icons.favorite),
-                  label: 'Wishlist',
-                ),
                 BottomNavigationBarItem(
                   icon: _buildCartNavIcon(false),
                   activeIcon: _buildCartNavIcon(true),
@@ -186,7 +183,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         isActive: _selectedIndex == 0,
       ),
       const SearchScreen(),
-      const WishlistScreen(),
       const CartPage(),
       const ProfileView(),
     ];
