@@ -70,6 +70,8 @@ class ApiClient {
     required String endpoint,
     Map<String, String>? headers,
     Map<String, String>? queryParameters,
+    Map<String, dynamic>? body,
+    String? contentType,
     bool requireAuth = false,
   }) async {
     try {
@@ -82,7 +84,15 @@ class ApiClient {
       }
 
       // Default headers
-      final Map<String, String> defaultHeaders = {'Accept': 'application/json'};
+      final Map<String, String> defaultHeaders = {
+        'Accept': 'application/json',
+      };
+
+      // Add Content-Type if body is provided
+      if (body != null) {
+        defaultHeaders['Content-Type'] =
+            contentType ?? 'application/json';
+      }
 
       // Add authorization header if required
       if (requireAuth) {
@@ -99,10 +109,30 @@ class ApiClient {
 
       // Log request in debug mode
       debugPrint('GET Request: $url');
+      debugPrint('Headers: $defaultHeaders');
+      if (body != null) {
+        debugPrint('Body: $body');
+      }
 
-      final response = await http
-          .get(url, headers: defaultHeaders)
-          .timeout(_timeout);
+      http.Response response;
+      
+      // If body is provided, use Request to send GET with body
+      if (body != null) {
+        final request = http.Request('GET', url);
+        request.headers.addAll(defaultHeaders);
+        request.body = contentType == 'application/json'
+            ? jsonEncode(body)
+            : _encodeFormData(body);
+        
+        final streamedResponse = await http.Client()
+            .send(request)
+            .timeout(_timeout);
+        response = await http.Response.fromStream(streamedResponse);
+      } else {
+        response = await http
+            .get(url, headers: defaultHeaders)
+            .timeout(_timeout);
+      }
 
       return _handleResponse(response);
     } on http.ClientException catch (e) {

@@ -351,9 +351,9 @@ class _DetailViewState extends State<DetailView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Kit Quantity:',
-                          style: TextStyle(
+                        Text(
+                          _isKitProduct ? 'Kit Quantity:' : 'Quantity',
+                          style: const TextStyle(
                             fontSize: 11,
                             color: Colors.black87,
                             fontWeight: FontWeight.w500,
@@ -515,7 +515,7 @@ class _DetailViewState extends State<DetailView> {
                                           ),
                                           SizedBox(width: 4),
                                           Text(
-                                            'Cart',
+                                            'Add',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 14,
@@ -686,16 +686,16 @@ class _DetailViewState extends State<DetailView> {
                     ],
                   ),
                 ),
-                // Scroll Indicator
-                AnimatedOpacity(
-                  opacity: _showScrollIndicator ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: _showScrollIndicator
-                      ? Positioned(
-                          bottom: 20,
-                          left: 0,
-                          right: 0,
-                          child: Center(
+                // Scroll Indicator - Positioned must be direct child of Stack
+                Positioned(
+                  bottom: 20,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedOpacity(
+                    opacity: _showScrollIndicator ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: _showScrollIndicator
+                        ? Center(
                             child: GestureDetector(
                               onTap: () {
                                 if (_scrollController.hasClients) {
@@ -746,9 +746,9 @@ class _DetailViewState extends State<DetailView> {
                                 ),
                               ),
                             ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 ),
               ],
             ),
@@ -804,48 +804,43 @@ class _DetailViewState extends State<DetailView> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      color: Colors.grey[100],
-                      child: isNetwork
-                          ? CachedNetworkImage(
-                              imageUrl: imageUrl,
-                              width: double.infinity,
-                              height: double.infinity,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => Container(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImageGallery(
+                              images: images,
+                              initialIndex: index,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        color: Colors.grey[100],
+                        child: isNetwork
+                            ? CachedNetworkImage(
+                                imageUrl: imageUrl,
                                 width: double.infinity,
                                 height: double.infinity,
-                                color: Colors.grey[200],
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                                fit: BoxFit.contain,
+                                placeholder: (context, url) => Container(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  color: Colors.grey[200],
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              errorWidget: (context, url, error) => Container(
-                                width: double.infinity,
-                                height: double.infinity,
-                                color: Colors.grey[200],
-                                child: const Icon(
-                                  Icons.image,
-                                  size: 48,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            )
-                          : Image.asset(
-                              imageUrl,
-                              width: double.infinity,
-                              height: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
+                                errorWidget: (context, url, error) => Container(
                                   width: double.infinity,
                                   height: double.infinity,
                                   color: Colors.grey[200],
@@ -854,9 +849,27 @@ class _DetailViewState extends State<DetailView> {
                                     size: 48,
                                     color: Colors.grey,
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              )
+                            : Image.asset(
+                                imageUrl,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    color: Colors.grey[200],
+                                    child: const Icon(
+                                      Icons.image,
+                                      size: 48,
+                                      color: Colors.grey,
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
                     ),
                   ),
                 );
@@ -2872,6 +2885,68 @@ class _DetailViewState extends State<DetailView> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class FullScreenImageGallery extends StatelessWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const FullScreenImageGallery({
+    super.key,
+    required this.images,
+    this.initialIndex = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (images.isEmpty) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Icon(
+            Icons.image,
+            color: Colors.white54,
+            size: 64,
+          ),
+        ),
+      );
+    }
+
+    final clampedInitialIndex =
+        initialIndex.clamp(0, images.length - 1);
+    final pageController = PageController(initialPage: clampedInitialIndex);
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: PageView.builder(
+        controller: pageController,
+        itemCount: images.length,
+        itemBuilder: (context, index) {
+          final imageUrl = images[index];
+          final isNetwork = imageUrl.startsWith('http');
+
+          return InteractiveViewer(
+            child: Center(
+              child: isNetwork
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                    )
+                  : Image.asset(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                    ),
+            ),
+          );
+        },
       ),
     );
   }

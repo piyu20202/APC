@@ -105,57 +105,147 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     super.dispose();
   }
 
-  /// Load cart totals from storage
+  /// Load cart totals from storage and call shipping API
   Future<void> _loadCartTotals() async {
     try {
+      // Get checkout data for postcode
+      final checkoutData = await StorageService.getCheckoutData();
+      final postcode = checkoutData?['post_code'] as String?;
+
+      // Get cart data for old_cart
       final cartResponse = await StorageService.getCartData();
       if (cartResponse != null) {
-        // Use totals returned by cart/update API
-        final totalPrice = _toDouble(cartResponse['totalPrice']);
-        final taxAmount = _toDouble(cartResponse['tax']);
-        final totalWithGst = _toDouble(cartResponse['total_with_gst']);
+        // Debug: print full cart JSON (including shipping) to console
+        try {
+          final prettyCartJson = const JsonEncoder.withIndent('  ').convert(
+            cartResponse,
+          );
+          _printLongString(
+            prettyCartJson,
+            'CART DATA (StorageService.getCartData)',
+          );
+        } catch (_) {
+          // Ignore JSON encoding issues in debug logging
+        }
 
-        // Shipping may be num or string
-        final shippingCost = _toDouble(cartResponse['shipping']);
+        final oldCart = cartResponse['cart'] as Map<String, dynamic>?;
 
-        // Freight quote flag: show only if > 0
-        final showRequestFreight =
-            (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ??
-            0;
-        final hasPendingFreight = showRequestFreight > 0;
+        // Call shipping API if postcode and old_cart are available
+        if (postcode != null && oldCart != null) {
+          try {
+            // Prepare payload for shipping API
+            final shippingPayload = {
+              'postcode': postcode,
+              'old_cart': oldCart,
+            };
 
-        if (totalPrice != null) {
-          final totalExclGst = totalPrice + (shippingCost ?? 0.0);
-          final gstAmount =
-              taxAmount ??
-              (totalWithGst != null ? totalWithGst - totalExclGst : null);
+            // Call shipping API
+            final shippingResponse =
+                await _cartService.calculateShipping(shippingPayload);
 
-          setState(() {
-            _subtotalExclGst = totalPrice;
-            _shippingCost = shippingCost;
-            _totalExclGst = totalExclGst;
-            _gstAmount = gstAmount;
-            _totalInclGst =
-                totalWithGst ??
-                (totalPrice + (shippingCost ?? 0.0) + (gstAmount ?? 0.0));
-            _totalPayable = _totalInclGst;
-            _hasPendingFreightQuote = hasPendingFreight;
-          });
+            // Extract values from API response and format to 2 decimal places
+            final shippingStr = shippingResponse['shipping']?.toString() ?? '0';
+            final taxValue = _toDouble(shippingResponse['tax']);
+            final totalWithGstStr =
+                shippingResponse['total_with_gst']?.toString() ?? '0';
+
+            final shippingCost = double.tryParse(shippingStr) ?? 0.0;
+            final gstAmount = taxValue != null
+                ? double.parse(taxValue.toStringAsFixed(2))
+                : null;
+            final totalWithGst = double.tryParse(totalWithGstStr) ?? 0.0;
+
+            // Get subtotal from cart data
+            final totalPrice = _toDouble(cartResponse['totalPrice']);
+
+            // Freight quote flag: show only if > 0
+            final showRequestFreight =
+                (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ??
+                0;
+            final hasPendingFreight = showRequestFreight > 0;
+
+            if (totalPrice != null) {
+              final totalExclGst = totalPrice + shippingCost;
+
+              setState(() {
+                _subtotalExclGst = totalPrice;
+                _shippingCost = double.parse(shippingCost.toStringAsFixed(2));
+                _totalExclGst = double.parse(totalExclGst.toStringAsFixed(2));
+                _gstAmount = gstAmount;
+                _totalInclGst = double.parse(totalWithGst.toStringAsFixed(2));
+                _totalPayable = _totalInclGst;
+                _hasPendingFreightQuote = hasPendingFreight;
+              });
+            } else {
+              // If totals are not available, keep values null
+              setState(() {
+                _totalPayable = null;
+                _subtotalExclGst = null;
+                _shippingCost = null;
+                _totalExclGst = null;
+                _gstAmount = null;
+                _totalInclGst = null;
+                _hasPendingFreightQuote = false;
+              });
+            }
+          } catch (e) {
+            debugPrint('Error calling shipping API: $e');
+            // Fallback to cart data on error
+            _loadCartTotalsFromStorage(cartResponse);
+          }
         } else {
-          // If totals are not available, keep values null
-          setState(() {
-            _totalPayable = null;
-            _subtotalExclGst = null;
-            _shippingCost = null;
-            _totalExclGst = null;
-            _gstAmount = null;
-            _totalInclGst = null;
-            _hasPendingFreightQuote = false;
-          });
+          // Fallback: Load from cart data if postcode or old_cart missing
+          _loadCartTotalsFromStorage(cartResponse);
         }
       }
     } catch (e) {
       debugPrint('Error loading cart totals: $e');
+    }
+  }
+
+  /// Fallback method to load cart totals from storage (without API call)
+  void _loadCartTotalsFromStorage(Map<String, dynamic> cartResponse) {
+    // Use totals returned by cart/update API
+    final totalPrice = _toDouble(cartResponse['totalPrice']);
+    final taxAmount = _toDouble(cartResponse['tax']);
+    final totalWithGst = _toDouble(cartResponse['total_with_gst']);
+
+    // Shipping may be num or string
+    final shippingCost = _toDouble(cartResponse['shipping']);
+
+    // Freight quote flag: show only if > 0
+    final showRequestFreight =
+        (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ?? 0;
+    final hasPendingFreight = showRequestFreight > 0;
+
+    if (totalPrice != null) {
+      final totalExclGst = totalPrice + (shippingCost ?? 0.0);
+      final gstAmount =
+          taxAmount ??
+          (totalWithGst != null ? totalWithGst - totalExclGst : null);
+
+      setState(() {
+        _subtotalExclGst = totalPrice;
+        _shippingCost = shippingCost;
+        _totalExclGst = totalExclGst;
+        _gstAmount = gstAmount;
+        _totalInclGst =
+            totalWithGst ??
+            (totalPrice + (shippingCost ?? 0.0) + (gstAmount ?? 0.0));
+        _totalPayable = _totalInclGst;
+        _hasPendingFreightQuote = hasPendingFreight;
+      });
+    } else {
+      // If totals are not available, keep values null
+      setState(() {
+        _totalPayable = null;
+        _subtotalExclGst = null;
+        _shippingCost = null;
+        _totalExclGst = null;
+        _gstAmount = null;
+        _totalInclGst = null;
+        _hasPendingFreightQuote = false;
+      });
     }
   }
 

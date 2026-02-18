@@ -51,6 +51,7 @@ class ApiEndpoints {
   static const String removeCartProducts = '/user/cart/remove-products';
   static const String updateCart = '/user/cart/update';
   static const String applyCoupon = '/user/cart/coupon/apply';
+  static const String calculateShipping = '/user/cart/shipping';
 
   // Order endpoints
   static const String storeOrder = '/user/store/order';

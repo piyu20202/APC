@@ -94,4 +94,27 @@ class CartService {
       rethrow;
     }
   }
+
+  /// Call /user/cart/shipping to calculate shipping, tax, and total with GST
+  Future<Map<String, dynamic>> calculateShipping(
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      Logger.info('Calling calculate-shipping API');
+      final response = await ApiClient.get(
+        endpoint: ApiEndpoints.calculateShipping,
+        body: payload,
+        contentType: 'application/json',
+        requireAuth: false,
+      );
+      Logger.info('Calculate-shipping response keys: ${response.keys.join(", ")}');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e, stackTrace) {
+      Logger.error('Failed to call calculate-shipping API', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
 }

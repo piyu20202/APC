@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:apcproject/services/storage_service.dart';
 import 'package:apcproject/data/services/payment_service.dart';
+import 'package:apcproject/data/services/cart_service.dart';
 import 'package:cybersource_inapp/cybersource_inapp.dart';
 import 'package:apcproject/core/exceptions/api_exception.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -21,6 +22,7 @@ class PaymentPage extends StatefulWidget {
 
 class _PaymentPageState extends State<PaymentPage> {
   final PaymentService _paymentService = PaymentService();
+  final CartService _cartService = CartService();
   bool _isLoading = true;
   bool _isProcessing = false;
   Map<String, dynamic>? _orderData;
@@ -129,7 +131,7 @@ class _PaymentPageState extends State<PaymentPage> {
       // Try multiple possible field names
       final payAmount = order?['pay_amount'] as num?;
       final totalAmount = order?['total'] as num?;
-      final amount = (payAmount ?? totalAmount)?.toDouble() ?? 0.0;
+      double amount = (payAmount ?? totalAmount)?.toDouble() ?? 0.0;
 
       debugPrint(
         'Pay amount: $payAmount, Total: $totalAmount, Final amount: $amount',
@@ -169,14 +171,33 @@ class _PaymentPageState extends State<PaymentPage> {
         // Don't block navigation, just show warning
       }
 
-      // Load cart data for breakdown (taxes, shipping, discount)
+      // Call shipping API to get updated shipping, tax, and total
       double? subtotalExclGst;
       double? shippingCost;
       double? gstAmount;
       double? discountAmount;
+
       try {
+        // Get checkout data for postcode
+        final checkoutData = await StorageService.getCheckoutData();
+        final postcode = checkoutData?['post_code'] as String?;
+
+        // Get cart data for old_cart
         final cartResponse = await StorageService.getCartData();
-        if (cartResponse != null) {
+        final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
+
+        if (postcode != null && oldCart != null) {
+          // Prepare payload for shipping API
+          final shippingPayload = {
+            'postcode': postcode,
+            'old_cart': oldCart,
+          };
+
+          // Call shipping API
+          final shippingResponse =
+              await _cartService.calculateShipping(shippingPayload);
+
+          // Helper function to convert to double
           double? toDouble(dynamic v) {
             if (v == null) return null;
             if (v is num) return v.toDouble();
@@ -184,22 +205,89 @@ class _PaymentPageState extends State<PaymentPage> {
             return null;
           }
 
-          final totalPrice = toDouble(cartResponse['totalPrice']);
-          final tax = toDouble(cartResponse['tax']);
-          final shipping = toDouble(cartResponse['shipping']);
-          final totalWithGst = toDouble(cartResponse['total_with_gst']);
-          final discount = toDouble(cartResponse['discount']);
-          final couponDiscount = toDouble(cartResponse['coupon_discount']);
+          // Extract values from API response and format to 2 decimal places
+          final shippingStr = shippingResponse['shipping']?.toString() ?? '0';
+          final taxValue = toDouble(shippingResponse['tax']);
+          final totalWithGstStr =
+              shippingResponse['total_with_gst']?.toString() ?? '0';
+
+          shippingCost = double.tryParse(shippingStr) ?? 0.0;
+          gstAmount = taxValue != null
+              ? double.parse(taxValue.toStringAsFixed(2))
+              : null;
+
+          // Get subtotal from cart data
+          final totalPrice = toDouble(cartResponse?['totalPrice']);
           subtotalExclGst = totalPrice;
-          shippingCost = shipping;
-          gstAmount =
-              tax ??
-              (totalWithGst != null && totalPrice != null && shipping != null
-                  ? totalWithGst - totalPrice - (shipping)
-                  : null);
+
+          // Get discount from cart data
+          final discount = toDouble(cartResponse?['discount']);
+          final couponDiscount = toDouble(cartResponse?['coupon_discount']);
           discountAmount = discount ?? couponDiscount;
+
+          // Update amount with total_with_gst from API (formatted to 2 decimals)
+          final totalWithGst = double.tryParse(totalWithGstStr) ?? 0.0;
+          amount = double.parse(totalWithGst.toStringAsFixed(2));
+        } else {
+          // Fallback: Load from cart data if API call fails or data missing
+          if (cartResponse != null) {
+            double? toDouble(dynamic v) {
+              if (v == null) return null;
+              if (v is num) return v.toDouble();
+              if (v is String) return double.tryParse(v.replaceAll(',', ''));
+              return null;
+            }
+
+            final totalPrice = toDouble(cartResponse['totalPrice']);
+            final tax = toDouble(cartResponse['tax']);
+            final shipping = toDouble(cartResponse['shipping']);
+            final totalWithGst = toDouble(cartResponse['total_with_gst']);
+            final discount = toDouble(cartResponse['discount']);
+            final couponDiscount = toDouble(cartResponse['coupon_discount']);
+
+            subtotalExclGst = totalPrice;
+            shippingCost = shipping;
+            gstAmount = tax ??
+                (totalWithGst != null &&
+                        totalPrice != null &&
+                        shipping != null
+                    ? totalWithGst - totalPrice - shipping
+                    : null);
+            discountAmount = discount ?? couponDiscount;
+          }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Error calling shipping API: $e');
+        // Fallback to cart data on error
+        try {
+          final cartResponse = await StorageService.getCartData();
+          if (cartResponse != null) {
+            double? toDouble(dynamic v) {
+              if (v == null) return null;
+              if (v is num) return v.toDouble();
+              if (v is String) return double.tryParse(v.replaceAll(',', ''));
+              return null;
+            }
+
+            final totalPrice = toDouble(cartResponse['totalPrice']);
+            final tax = toDouble(cartResponse['tax']);
+            final shipping = toDouble(cartResponse['shipping']);
+            final totalWithGst = toDouble(cartResponse['total_with_gst']);
+            final discount = toDouble(cartResponse['discount']);
+            final couponDiscount = toDouble(cartResponse['coupon_discount']);
+
+            subtotalExclGst = totalPrice;
+            shippingCost = shipping;
+            gstAmount = tax ??
+                (totalWithGst != null &&
+                        totalPrice != null &&
+                        shipping != null
+                    ? totalWithGst - totalPrice - shipping
+                    : null);
+            discountAmount = discount ?? couponDiscount;
+          }
+        } catch (_) {}
+      }
 
       setState(() {
         _orderNumber = orderNumber;

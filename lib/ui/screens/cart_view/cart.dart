@@ -342,6 +342,37 @@ class _CartPageState extends State<CartPage> {
     NavigationService.instance.refreshCartItems();
   }
 
+  Future<void> _persistQuantitySnapshot() async {
+    if (_lastCartResponse == null) return;
+
+    final updatedResponse =
+        Map<String, dynamic>.from(_lastCartResponse!);
+    final cartMap = Map<String, dynamic>.from(
+      (updatedResponse['cart'] as Map<String, dynamic>?) ?? {},
+    );
+
+    for (final item in cartItems) {
+      final key = item['id'];
+      if (key == null) continue;
+      final quantity = item['quantity'];
+
+      if (cartMap[key] is Map<String, dynamic>) {
+        final entry =
+            Map<String, dynamic>.from(cartMap[key] as Map<String, dynamic>);
+        entry['qty'] = quantity;
+        cartMap[key] = entry;
+      }
+    }
+
+    updatedResponse['cart'] = cartMap;
+    updatedResponse['totalQty'] = _calculateTotalQuantity();
+    updatedResponse['totalPrice'] = _calculateSubtotal();
+
+    _lastCartResponse = updatedResponse;
+    await StorageService.saveCartData(updatedResponse);
+    NavigationService.instance.refreshCartCount();
+  }
+
   List<Map<String, dynamic>> _parseCartResponse(
     Map<String, dynamic> cartResponse, {
     String? baseImageUrl,
@@ -720,6 +751,8 @@ class _CartPageState extends State<CartPage> {
                         if (itemId != null) {
                           _recordQuantityChange(itemId, -1);
                         }
+                    // Keep cart badge in sync with quantity changes
+                    _persistQuantitySnapshot();
                       }
                     },
                     onQuantityIncrease: () {
@@ -735,6 +768,8 @@ class _CartPageState extends State<CartPage> {
                       if (itemId != null) {
                         _recordQuantityChange(itemId, 1);
                       }
+                  // Keep cart badge in sync with quantity changes
+                  _persistQuantitySnapshot();
                     },
                     onDelete: () {
                       if (cartKey != null && _deletingItems.contains(cartKey)) {
@@ -775,6 +810,8 @@ class _CartPageState extends State<CartPage> {
                           if (itemId != null) {
                             _recordQuantityChange(itemId, -1);
                           }
+                          // Keep cart badge in sync with quantity changes
+                          _persistQuantitySnapshot();
                         }
                       },
                       onQuantityIncrease: () {
@@ -792,6 +829,8 @@ class _CartPageState extends State<CartPage> {
                         if (itemId != null) {
                           _recordQuantityChange(itemId, 1);
                         }
+                        // Keep cart badge in sync with quantity changes
+                        _persistQuantitySnapshot();
                       },
                       onDelete: () {
                         if (addonCartKey != null &&

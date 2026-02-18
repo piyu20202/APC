@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:apcproject/services/storage_service.dart';
@@ -50,8 +51,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
   ];
   String? _selectedState;
 
-  // Country selection (was previously defaulted)
-  String? _selectedCountry;
+  /// Display names for state (for validation messages).
+  static const Map<String, String> _stateDisplayNames = {
+    'NSW': 'New South Wales',
+    'VIC': 'Victoria',
+    'QLD': 'Queensland',
+    'SA': 'South Australia',
+    'WA': 'Western Australia',
+    'TAS': 'Tasmania',
+    'NT': 'Northern Territory',
+    'ACT': 'Australian Capital Territory',
+  };
+
+  /// Australian postcode ranges by state. NT 0800–0999 stored as 800–999.
+  static const Map<String, List<List<int>>> _statePostcodeRanges = {
+    'ACT': [[200, 299], [2600, 2639], [2900, 2920]],
+    'NSW': [[1000, 1999], [2000, 2599], [2619, 2899], [2921, 2999]],
+    'NT': [[800, 999]],
+    'QLD': [[4000, 4999], [9000, 9999]],
+    'SA': [[5000, 5999]],
+    'TAS': [[7000, 7499], [7800, 7999]],
+    'VIC': [[3000, 3999], [8000, 8999]],
+    'WA': [[6000, 6799], [6800, 6999]],
+  };
+
+  // Country selection - only Australia is supported
+  String? _selectedCountry = 'Australia';
 
   // Valid area codes for dropdown
   static const List<String> _validAreaCodes = ['+61', '+1', '+44'];
@@ -63,6 +88,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return areaCode;
     }
     return null;
+  }
+
+  /// Full postcode range error message for selected state (shown below Country dropdown).
+  String? get _postcodeRangeErrorMessage {
+    final state = _selectedState;
+    if (state == null || state.isEmpty) return null;
+    final value = _postCodeController.text.trim();
+    if (value.isEmpty) return null;
+    final postcode = int.tryParse(value);
+    if (postcode == null) return null;
+    final ranges = _statePostcodeRanges[state];
+    if (ranges == null) return null;
+    final inRange = ranges.any((r) => postcode >= r[0] && postcode <= r[1]);
+    if (inRange) return null;
+    final name = _stateDisplayNames[state] ?? state;
+    final rangeStr = ranges.map((r) => '${r[0]}-${r[1]}').join(', ');
+    return 'This postcode is not for $name. Valid postcode range for $name: $rangeStr';
   }
 
   @override
@@ -420,6 +462,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             // Email
             TextFormField(
               controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: 'Email Address*',
                 border: OutlineInputBorder(),
@@ -443,6 +486,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             // Mobile Number
             TextFormField(
               controller: _mobileController,
+              keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
                 labelText: 'Mobile Number',
                 border: OutlineInputBorder(),
@@ -501,6 +545,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   flex: 2,
                   child: TextFormField(
                     controller: _landlineController,
+                    keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
                       labelText: 'Landline Number',
                       border: OutlineInputBorder(),
@@ -521,6 +566,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
             // Unit/Apartment Number
             TextFormField(
               controller: _unitController,
+              keyboardType: TextInputType.text,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                  RegExp(r'[a-zA-Z0-9\s\-\#/]+'),
+                ),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Unit/Apartment Number',
                 border: OutlineInputBorder(),
@@ -615,6 +666,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter post code';
                       }
+                      final postcodeStr = value.trim();
+                      final postcode = int.tryParse(postcodeStr);
+                      if (postcode == null) {
+                        return 'Please enter a valid postcode (numbers only)';
+                      }
+                      final state = _selectedState;
+                      if (state == null || state.isEmpty) {
+                        return null;
+                      }
+                      final ranges = _statePostcodeRanges[state];
+                      if (ranges == null) return null;
+                      final inRange = ranges
+                          .any((r) => postcode >= r[0] && postcode <= r[1]);
+                      if (!inRange) {
+                        return ''; // No message here; full message shown below Country
+                      }
                       return null;
                     },
                   ),
@@ -634,14 +701,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
               hint: const Text('Select'),
               items: const [
-                DropdownMenuItem(value: 'Australia', child: Text('Australia')),
                 DropdownMenuItem(
-                  value: 'New Zealand',
-                  child: Text('New Zealand'),
-                ),
-                DropdownMenuItem(
-                  value: 'United States',
-                  child: Text('United States'),
+                  value: 'Australia',
+                  child: Text('Australia'),
                 ),
               ],
               onChanged: (value) {
@@ -656,6 +718,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 return null;
               },
             ),
+            // Full postcode range message below Country (so it is fully visible)
+            if (_postcodeRangeErrorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _postcodeRangeErrorMessage!,
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         ),
       ),
