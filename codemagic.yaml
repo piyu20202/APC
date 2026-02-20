@@ -83,3 +83,34 @@ workflows:
             --dart-define=TEST_PASSWORD=apc@2023
     artifacts:
       - build/ios/ipa/*.ipa
+
+  ios-testflight-build:
+    name: iOS TestFlight Release
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.apc.automotionplus
+      app_store_connect:
+        auth: integration
+    scripts:
+      - name: Flutter dependencies
+        script: |
+          flutter pub get
+      - name: CocoaPods
+        script: |
+          cd ios && pod install && cd ..
+      - name: Build IPA for TestFlight
+        script: |
+          flutter build ipa --release \
+            --dart-define=APP_ENV=production
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
