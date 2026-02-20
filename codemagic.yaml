@@ -95,8 +95,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.apc.automotionplus
-      app_store_connect:
-        auth: integration
     scripts:
       - name: Flutter dependencies
         script: |
@@ -112,5 +110,6 @@ workflows:
       - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        auth: integration
+        api_key: M9R7SM948N
+        issuer_id: 36745caf-1b8b-44c8-a753-7a6de91846d1
         submit_to_testflight: true
