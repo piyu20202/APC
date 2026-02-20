@@ -156,6 +156,25 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Restore session from storage (call on app start).
+  /// Returns true if a valid session was restored.
+  Future<bool> restoreSession() async {
+    try {
+      final saved = await StorageService.getLoginResponse();
+      if (saved != null) {
+        _loginResponse = saved;
+        _currentUser = saved.user;
+        _errorMessage = null;
+        notifyListeners();
+        Logger.info('Provider: Session restored for user ${_currentUser?.name}');
+        return true;
+      }
+    } catch (e) {
+      Logger.warning('Provider: Failed to restore session: $e');
+    }
+    return false;
+  }
+
   /// Social login with Facebook or Google
   Future<bool> socialLogin({
     required String provider,

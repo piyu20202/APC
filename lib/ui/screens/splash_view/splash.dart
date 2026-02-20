@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
+import '../../../providers/auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,18 +14,22 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Navigate to login screen after splash delay
     _checkLoginStatus();
   }
 
   Future<void> _checkLoginStatus() async {
-    // Always navigate to login screen for fresh login
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/signin');
-      }
-    });
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final restored = await authProvider.restoreSession();
+
+    if (!mounted) return;
+    if (restored && authProvider.isLoggedIn) {
+      Navigator.pushReplacementNamed(context, '/main');
+    } else {
+      Navigator.pushReplacementNamed(context, '/signin');
+    }
   }
 
   @override

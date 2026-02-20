@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:apcproject/services/storage_service.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../data/models/user_model.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -126,8 +127,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _postCodeController.addListener(_shippingSummaryRebuild!);
   }
 
-  void _prefillDummyBillingDetailsIfEmpty() {
-    // No dummy prefill - user enters all fields manually
+  /// Pre-fill billing/address fields from user profile.
+  void _prefillFromUserProfile(UserModel user) {
+    _nameController.text = user.name;
+    _emailController.text = user.email;
+    _mobileController.text = user.phone;
+    if (user.areaCode != null) _areaCodeController.text = user.areaCode!;
+    if (user.landline != null) _landlineController.text = user.landline!;
+    if (user.unitApartmentNo != null) _unitController.text = user.unitApartmentNo!;
+    if (user.address != null) _addressController.text = user.address!;
+    if (user.city != null) _suburbController.text = user.city!;
+    if (user.zip != null) _postCodeController.text = user.zip!;
+    if (user.state != null && _states.contains(user.state)) {
+      _selectedState = user.state;
+    }
+    if (user.country != null && user.country!.isNotEmpty) {
+      _selectedCountry = user.country;
+    }
   }
 
   /// Check login status and pre-fill form with logged-in user data
@@ -136,7 +152,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _isLoggedIn = authProvider.isLoggedIn;
 
     if (!_isLoggedIn) {
-      // User is not logged in - redirect to login
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Please login to continue checkout',
@@ -147,9 +162,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    // User is logged in - get user data.
-    // No dummy prefill - user enters all billing/address fields manually.
-    _prefillDummyBillingDetailsIfEmpty();
+    final user = authProvider.currentUser;
+    if (user != null) {
+      _prefillFromUserProfile(user);
+    }
 
     setState(() {
       _isLoadingUserData = false;

@@ -184,14 +184,39 @@ class _AppDrawerState extends State<AppDrawer> {
                   vertical: 12,
                 ),
                 decoration: const BoxDecoration(color: Color(0xFFF8F8F8)),
-                child: const Align(
+                child: Align(
                   alignment: Alignment.bottomLeft,
-                  child: Text(
-                    'Categories',
-                    style: TextStyle(
-                      color: Color(0xFF101010),
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CategoriesGridScreen(),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Categories',
+                              style: TextStyle(
+                                color: Color(0xFF101010),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Color(0xFF101010),
+                            size: 28,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
