@@ -108,15 +108,20 @@ workflows:
         script: |
           set -e
           echo "Installing certificate and provisioning profile..."
-          echo $CM_CERTIFICATE | base64 --decode > /tmp/certificate.p12
+          echo "$CM_CERTIFICATE" | tr -d ' \n\r' | base64 --decode > /tmp/certificate.p12
+          if [ ! -s /tmp/certificate.p12 ]; then
+            echo "Error: Decoded certificate is empty. Check that CM_CERTIFICATE is the base64 of your .p12 file (no extra spaces/newlines in the variable value)."
+            exit 1
+          fi
+          file /tmp/certificate.p12 || true
           KEYCHAIN_PATH="$HOME/build.keychain"
           security create-keychain -p "build" "$KEYCHAIN_PATH"
           security default-keychain -s "$KEYCHAIN_PATH"
           security unlock-keychain -p "build" "$KEYCHAIN_PATH"
           security set-keychain-settings -t 3600 -l "$KEYCHAIN_PATH"
-          security import /tmp/certificate.p12 -k "$KEYCHAIN_PATH" -P $CM_CERTIFICATE_PASSWORD -T /usr/bin/codesign -T /usr/bin/security
+          security import /tmp/certificate.p12 -k "$KEYCHAIN_PATH" -P "$CM_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build" "$KEYCHAIN_PATH"
-          echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
+          echo "$CM_PROVISIONING_PROFILE" | tr -d ' \n\r' | base64 --decode > /tmp/profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           UUID=$(grep -a -A 1 'UUID' /tmp/profile.mobileprovision | grep string | sed -e 's/<string>//' -e 's/<\/string>//' -e 's/ //')
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
