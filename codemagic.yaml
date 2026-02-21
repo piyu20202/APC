@@ -94,6 +94,12 @@ workflows:
       cocoapods: default
       groups:
         - ios_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.apc.automotionplus
+        certificate: $CM_CERTIFICATE
+        certificate_password: $CM_CERTIFICATE_PASSWORD
+        provisioning_profile: $CM_PROVISIONING_PROFILE
     scripts:
       - name: Flutter dependencies
         script: |
@@ -104,48 +110,8 @@ workflows:
           sed -i '' "s/# platform :ios, '12.0'/platform :ios, '13.0'/" Podfile
           pod install
           cd ..
-      - name: Install Certificate, Profile and Build IPA for TestFlight
+      - name: Build IPA for TestFlight
         script: |
-          set -e
-          echo "Installing certificate and provisioning profile..."
-          echo "$CM_CERTIFICATE" | tr -d ' \n\r' | base64 --decode > /tmp/certificate.p12
-          if [ ! -s /tmp/certificate.p12 ]; then
-            echo "Error: Decoded certificate is empty. Check that CM_CERTIFICATE is the base64 of your .p12 file (no extra spaces/newlines in the variable value)."
-            exit 1
-          fi
-          file /tmp/certificate.p12 || true
-          KEYCHAIN_PATH="$HOME/build.keychain"
-          security create-keychain -p "build" "$KEYCHAIN_PATH"
-          security default-keychain -s "$KEYCHAIN_PATH"
-          security unlock-keychain -p "build" "$KEYCHAIN_PATH"
-          security set-keychain-settings -t 3600 -l "$KEYCHAIN_PATH"
-          security import /tmp/certificate.p12 -k "$KEYCHAIN_PATH" -P "$CM_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build" "$KEYCHAIN_PATH"
-          if [ -z "${CM_PROVISIONING_PROFILE}" ]; then
-            echo "Error: CM_PROVISIONING_PROFILE is not set in Codemagic. Add your .mobileprovision file as base64 in the ios_credentials group."
-            exit 1
-          fi
-          echo "$CM_PROVISIONING_PROFILE" | tr -d ' \n\r' | base64 -D > /tmp/profile.mobileprovision
-          if [ ! -s /tmp/profile.mobileprovision ]; then
-            echo "Error: Decoded provisioning profile is empty. Check that CM_PROVISIONING_PROFILE is the base64 of your .mobileprovision file (single line, no extra text)."
-            exit 1
-          fi
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          security cms -D -i /tmp/profile.mobileprovision -o /tmp/profile.plist 2>/dev/null || true
-          if [ -f /tmp/profile.plist ]; then
-            UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /tmp/profile.plist 2>/dev/null || echo "")
-          fi
-          if [ -z "$UUID" ]; then
-            UUID=$(grep -a -A 1 'UUID' /tmp/profile.mobileprovision | grep string | sed -e 's/<string>//' -e 's/<\/string>//' -e 's/ //' | tr -d '\n' | head -1)
-          fi
-          if [ -z "$UUID" ]; then
-            echo "Error: Could not extract UUID from provisioning profile."
-            exit 1
-          fi
-          echo "Profile UUID: $UUID"
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
-          echo "Building IPA..."
           flutter build ipa --release \
             --dart-define=APP_ENV=production \
             --export-options-plist=ios/ExportOptions.plist
