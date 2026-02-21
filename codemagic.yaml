@@ -100,7 +100,10 @@ workflows:
           flutter pub get
       - name: CocoaPods
         script: |
-          cd ios && pod install && cd ..
+          cd ios
+          sed -i '' "s/# platform :ios, '12.0'/platform :ios, '13.0'/" Podfile
+          pod install
+          cd ..
       - name: Install Certificate and Profile
         script: |
           echo $CM_CERTIFICATE | base64 --decode > /tmp/certificate.p12
