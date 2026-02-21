@@ -134,7 +134,7 @@ workflows:
           if [ -f /tmp/profile.plist ]; then
             UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /tmp/profile.plist 2>/dev/null || echo "")
           fi
-          if [ -z "$UUID" ]; then
+          if [ -z "$UUID" ] || [[ ! "$UUID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
             UUID=$(grep -a -A 1 'UUID' /tmp/profile.mobileprovision | grep string | sed -e 's/<string>//' -e 's/<\/string>//' -e 's/ //' | tr -d '\n' | head -1)
           fi
           if [ -z "$UUID" ]; then
