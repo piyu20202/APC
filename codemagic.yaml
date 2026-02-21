@@ -131,8 +131,20 @@ workflows:
             exit 1
           fi
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          UUID=$(grep -a -A 1 'UUID' /tmp/profile.mobileprovision | grep string | sed -e 's/<string>//' -e 's/<\/string>//' -e 's/ //')
+          security cms -D -i /tmp/profile.mobileprovision -o /tmp/profile.plist 2>/dev/null || true
+          if [ -f /tmp/profile.plist ]; then
+            UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /tmp/profile.plist 2>/dev/null || echo "")
+          fi
+          if [ -z "$UUID" ]; then
+            UUID=$(grep -a -A 1 'UUID' /tmp/profile.mobileprovision | grep string | sed -e 's/<string>//' -e 's/<\/string>//' -e 's/ //' | tr -d '\n' | head -1)
+          fi
+          if [ -z "$UUID" ]; then
+            echo "Error: Could not extract UUID from provisioning profile."
+            exit 1
+          fi
+          echo "Profile UUID: $UUID"
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
           echo "Building IPA..."
           flutter build ipa --release \
             --dart-define=APP_ENV=production \
