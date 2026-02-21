@@ -119,6 +119,10 @@ workflows:
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
       - name: Build IPA for TestFlight
         script: |
+          KEYCHAIN_PATH="$(pwd)/build.keychain"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "build" "$KEYCHAIN_PATH"
           flutter build ipa --release \
             --dart-define=APP_ENV=production \
             --export-options-plist=ios/ExportOptions.plist
