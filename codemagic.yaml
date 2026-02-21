@@ -94,9 +94,6 @@ workflows:
       cocoapods: default
       groups:
         - ios_credentials
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.apc.automotionplus
     scripts:
       - name: Flutter dependencies
         script: |
@@ -104,6 +101,17 @@ workflows:
       - name: CocoaPods
         script: |
           cd ios && pod install && cd ..
+      - name: Install Certificate and Profile
+        script: |
+          echo $CM_CERTIFICATE | base64 --decode > /tmp/certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import /tmp/certificate.p12 -k build.keychain -P $CM_CERTIFICATE_PASSWORD -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Build IPA for TestFlight
         script: |
           flutter build ipa --release \
