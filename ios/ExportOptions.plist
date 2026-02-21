@@ -15,7 +15,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>com.apc.automotionplus</key>
-        <string>APC AppStore Profile</string>
+        <string>APC Profile</string>
     </dict>
 </dict>
 </plist>
