@@ -97,9 +97,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.apc.automotionplus
-        certificate: $CM_CERTIFICATE
-        certificate_password: $CM_CERTIFICATE_PASSWORD
-        provisioning_profile: $CM_PROVISIONING_PROFILE
     scripts:
       - name: Flutter dependencies
         script: |
