@@ -66,7 +66,7 @@ workflows:
       xcode: latest
       cocoapods: default
       groups:
-        - app_store_credentials
+        - ios_credentials
     scripts:
       - name: Flutter dependencies
         script: |
