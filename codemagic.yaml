@@ -94,6 +94,9 @@ workflows:
       cocoapods: default
       groups:
         - ios_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.apc.automotionplus
     scripts:
       - name: Flutter dependencies
         script: |
@@ -104,38 +107,10 @@ workflows:
           sed -i '' "s/# platform :ios, '12.0'/platform :ios, '13.0'/" Podfile
           pod install
           cd ..
-      - name: Install Certificate, Profile and Build IPA for TestFlight
+      - name: Set up code signing settings on Xcode project
+        script: xcode-project use-profiles
+      - name: Build IPA for TestFlight
         script: |
-          set -e
-          echo "Installing certificate and provisioning profile..."
-          echo "$CM_CERTIFICATE" | tr -d ' \n\r' | base64 --decode > /tmp/certificate.p12
-          if [ ! -s /tmp/certificate.p12 ]; then
-            echo "Error: Decoded certificate is empty."
-            exit 1
-          fi
-          KEYCHAIN_PATH="$HOME/build.keychain"
-          security create-keychain -p "build" "$KEYCHAIN_PATH"
-          security default-keychain -s "$KEYCHAIN_PATH"
-          security unlock-keychain -p "build" "$KEYCHAIN_PATH"
-          security set-keychain-settings -t 3600 -l "$KEYCHAIN_PATH"
-          security import /tmp/certificate.p12 -k "$KEYCHAIN_PATH" -P "$CM_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build" "$KEYCHAIN_PATH"
-          if [ -z "${CM_PROVISIONING_PROFILE}" ]; then
-            echo "Error: CM_PROVISIONING_PROFILE is not set."
-            exit 1
-          fi
-          echo "$CM_PROVISIONING_PROFILE" | tr -d ' \n\r' | base64 -D > /tmp/profile.mobileprovision
-          if [ ! -s /tmp/profile.mobileprovision ]; then
-            echo "Error: Decoded provisioning profile is empty."
-            exit 1
-          fi
-          UUID="584a42ed-7b49-4411-a6a1-05208226cc36"
-          echo "Profile UUID: $UUID"
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
-          sudo mkdir -p /Library/MobileDevice/Provisioning\ Profiles
-          sudo cp /tmp/profile.mobileprovision /Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
-          echo "Building IPA..."
           flutter build ipa --release \
             --dart-define=APP_ENV=production \
             --export-options-plist=ios/ExportOptions.plist

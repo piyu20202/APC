@@ -1,3 +1,1 @@
 #include "Generated.xcconfig"
-CODE_SIGN_IDENTITY = "Apple Distribution"
-PROVISIONING_PROFILE_SPECIFIER = APC Profile
