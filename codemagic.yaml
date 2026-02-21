@@ -130,20 +130,13 @@ workflows:
             exit 1
           fi
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          security cms -D -i /tmp/profile.mobileprovision -o /tmp/profile.plist 2>/dev/null || true
-          if [ -f /tmp/profile.plist ]; then
-            UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /tmp/profile.plist 2>/dev/null || echo "")
-          fi
-          if [ -z "$UUID" ] || [[ ! "$UUID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
-            UUID=$(grep -a -A 1 'UUID' /tmp/profile.mobileprovision | grep string | sed -e 's/<string>//' -e 's/<\/string>//' -e 's/ //' | tr -d '\n\r' | head -1)
-          fi
-          if [ -z "$UUID" ] || [[ ! "$UUID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
-            UUID="584a42ed-7b49-4411-a6a1-05208226cc36"
-            echo "Using fallback UUID for APC Profile"
-          fi
+          UUID="584a42ed-7b49-4411-a6a1-05208226cc36"
           echo "Profile UUID: $UUID"
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
-          perl -i -pe "s/(DEVELOPMENT_TEAM = R6AW7DDC8G;\n)(\t+ENABLE_BITCODE)/\$1\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$UUID\";\n\$2/g" ios/Runner.xcodeproj/project.pbxproj
+          echo "Running Flutter to trigger project upgrade..."
+          flutter build ipa --release --dart-define=APP_ENV=production --export-options-plist=ios/ExportOptions.plist 2>/dev/null || true
+          echo "Patching project.pbxproj with PROVISIONING_PROFILE_SPECIFIER..."
+          perl -i -0pe "s/(DEVELOPMENT_TEAM = R6AW7DDC8G;\n)(\s+ENABLE_BITCODE)/\$1\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$UUID\";\n\$2/g" ios/Runner.xcodeproj/project.pbxproj
           echo "Building IPA..."
           flutter build ipa --release \
             --dart-define=APP_ENV=production \
