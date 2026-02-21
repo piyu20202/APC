@@ -1,1 +1,2 @@
 #include "Generated.xcconfig"
+PROVISIONING_PROFILE_SPECIFIER = 584a42ed-7b49-4411-a6a1-05208226cc36
