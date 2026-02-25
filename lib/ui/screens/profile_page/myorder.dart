@@ -41,20 +41,30 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
 
       if (response.containsKey('orders') && response['orders'] != null) {
         final List<dynamic> ordersData = response['orders'];
+        // Map and sort orders so the latest appears at the top
+        final mappedOrders = ordersData.map<Map<String, dynamic>>((order) {
+          return {
+            'id': order['id'],
+            'invoice':
+                order['invoice_number'] ?? order['quotation_number'] ?? 'N/A',
+            'date': _formatDate(order['quotation_date']),
+            'total': _formatAmount(order['pay_amount']),
+            'status': _mapPaymentStatus(order['payment_status']),
+            'statusColor': _getStatusColor(order['payment_status']),
+            'rawData': order, // Store raw data for details
+          };
+        }).toList();
+
+        // Sort by ID descending (newest / highest ID first)
+        mappedOrders.sort((a, b) {
+          final int aId = (a['id'] as int?) ?? 0;
+          final int bId = (b['id'] as int?) ?? 0;
+          return bId.compareTo(aId);
+        });
+
         setState(() {
-          _allOrders = ordersData.map((order) {
-            return {
-              'id': order['id'],
-              'invoice':
-                  order['invoice_number'] ?? order['quotation_number'] ?? 'N/A',
-              'date': _formatDate(order['quotation_date']),
-              'total': _formatAmount(order['pay_amount']),
-              'status': _mapPaymentStatus(order['payment_status']),
-              'statusColor': _getStatusColor(order['payment_status']),
-              'rawData': order, // Store raw data for details
-            };
-          }).toList();
-          _filteredOrders = List.from(_allOrders); // Initialize filtered list
+          _allOrders = mappedOrders;
+          _filteredOrders = List.from(mappedOrders); // Initialize filtered list
           _isLoading = false;
         });
       } else {

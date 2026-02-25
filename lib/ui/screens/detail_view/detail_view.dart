@@ -31,8 +31,6 @@ class _DetailViewState extends State<DetailView> {
   final ProductService _productService = ProductService();
   final CartService _cartService = CartService();
   final ScrollController _scrollController = ScrollController();
-  bool _showScrollIndicator = true;
-  bool _scrollListenerAttached = false;
 
   static const String _productImageBaseUrl =
       'https://www.gurgaonit.com/apc_production_dev/assets/images/products/';
@@ -65,6 +63,9 @@ class _DetailViewState extends State<DetailView> {
       false; // Track if user manually selected upgrade
 
   bool get _isKitProduct => (_product?.isKIT?.toLowerCase() ?? '') == 'yes';
+
+  /// True when product data is loaded successfully; false when loading, error, or null.
+  bool get _isProductLoaded => _product != null && _errorMessage == null;
 
   /// Determines if the Upgrades section should be shown at all.
   ///
@@ -178,23 +179,6 @@ class _DetailViewState extends State<DetailView> {
     _fetchProductDetails();
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-
-    final position = _scrollController.position;
-    final maxScroll = position.maxScrollExtent;
-    final currentScroll = position.pixels;
-
-    // Show indicator if near top (within 200px) and there's more content to scroll
-    final shouldShow = currentScroll < 200 && maxScroll > 100;
-
-    if (shouldShow != _showScrollIndicator) {
-      setState(() {
-        _showScrollIndicator = shouldShow;
-      });
-    }
-  }
-
   Future<void> _fetchProductDetails() async {
     setState(() {
       _isLoading = true;
@@ -251,18 +235,6 @@ class _DetailViewState extends State<DetailView> {
         }
       }
 
-      // Attach scroll listener after data is loaded
-      if (mounted && !_scrollListenerAttached) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted &&
-              _scrollController.hasClients &&
-              !_scrollListenerAttached) {
-            _scrollController.addListener(_onScroll);
-            _scrollListenerAttached = true;
-            _onScroll();
-          }
-        });
-      }
     } on ApiException catch (e) {
       setState(() {
         // Show user-friendly error message
@@ -291,7 +263,6 @@ class _DetailViewState extends State<DetailView> {
   void dispose() {
     _imageTimer?.cancel();
     _imageController.dispose();
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -363,67 +334,80 @@ class _DetailViewState extends State<DetailView> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Minus button
+                            // Minus button (disabled when product not loaded / error)
                             GestureDetector(
-                              onTap: () {
-                                if (kitQuantity > 1) {
-                                  setState(() {
-                                    kitQuantity--;
-                                  });
-                                }
-                              },
-                              child: Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey[400]!),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Icon(
-                                  Icons.remove,
-                                  size: 14,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            // Quantity
-                            Container(
-                              width: 28,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[400]!),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  kitQuantity.toString(),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                              onTap: _isProductLoaded
+                                  ? () {
+                                      if (kitQuantity > 1) {
+                                        setState(() {
+                                          kitQuantity--;
+                                        });
+                                      }
+                                    }
+                                  : null,
+                              child: Opacity(
+                                opacity: _isProductLoaded ? 1.0 : 0.5,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey[400]!),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove,
+                                    size: 14,
+                                    color: Colors.grey,
                                   ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 6),
-                            // Plus button
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  kitQuantity++;
-                                });
-                              },
+                            // Quantity
+                            Opacity(
+                              opacity: _isProductLoaded ? 1.0 : 0.5,
                               child: Container(
-                                width: 24,
+                                width: 28,
                                 height: 24,
                                 decoration: BoxDecoration(
                                   border: Border.all(color: Colors.grey[400]!),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Icon(
-                                  Icons.add,
-                                  size: 14,
-                                  color: Colors.grey,
+                                child: Center(
+                                  child: Text(
+                                    kitQuantity.toString(),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Plus button (disabled when product not loaded / error)
+                            GestureDetector(
+                              onTap: _isProductLoaded
+                                  ? () {
+                                      setState(() {
+                                        kitQuantity++;
+                                      });
+                                    }
+                                  : null,
+                              child: Opacity(
+                                opacity: _isProductLoaded ? 1.0 : 0.5,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey[400]!),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    size: 14,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
                             ),
@@ -466,10 +450,11 @@ class _DetailViewState extends State<DetailView> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Add to Cart Button
+                            // Add to Cart Button (disabled when product not loaded / error)
                             GestureDetector(
                               onTap:
                                   (_isAddingToCart ||
+                                      !_isProductLoaded ||
                                       (_product?.outOfStock ?? 0) == 1)
                                   ? null
                                   : _handleAddToCart,
@@ -479,12 +464,22 @@ class _DetailViewState extends State<DetailView> {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: (_product?.outOfStock ?? 0) == 1
+                                  color: !_isProductLoaded ||
+                                          (_product?.outOfStock ?? 0) == 1
                                       ? Colors.grey[400]
                                       : Colors.orange,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: (_product?.outOfStock ?? 0) == 1
+                                child: !_isProductLoaded
+                                    ? const Text(
+                                        'Add',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : (_product?.outOfStock ?? 0) == 1
                                     ? const Text(
                                         'OUT OF STOCK',
                                         style: TextStyle(
@@ -684,70 +679,6 @@ class _DetailViewState extends State<DetailView> {
                       // Footer content moved into scrollable area
                       _buildScrollableFooter(),
                     ],
-                  ),
-                ),
-                // Scroll Indicator - Positioned must be direct child of Stack
-                Positioned(
-                  bottom: 20,
-                  left: 0,
-                  right: 0,
-                  child: AnimatedOpacity(
-                    opacity: _showScrollIndicator ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 300),
-                    child: _showScrollIndicator
-                        ? Center(
-                            child: GestureDetector(
-                              onTap: () {
-                                if (_scrollController.hasClients) {
-                                  _scrollController.animateTo(
-                                    _scrollController.position.maxScrollExtent *
-                                        0.3,
-                                    duration: const Duration(milliseconds: 500),
-                                    curve: Curves.easeOut,
-                                  );
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(30),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Scroll for more',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.keyboard_arrow_down,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
                   ),
                 ),
               ],
@@ -1031,39 +962,38 @@ class _DetailViewState extends State<DetailView> {
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.add_circle,
-                    color: Colors.orange.shade700,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ADD-ON & UPGRADE ITEMS AVAILABLE',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange.shade900,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'This KIT includes customisation options. Scroll down to add upgrades and add-ons.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange.shade800,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (_scrollController.hasClients) {
+                    final pos = _scrollController.position;
+                    _scrollController.animateTo(
+                      (pos.pixels + 300).clamp(0.0, pos.maxScrollExtent),
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Colors.orange.shade700,
+                      size: 28,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'ADD-ON & UPGRADE ITEMS AVAILABLE',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1894,7 +1824,7 @@ class _DetailViewState extends State<DetailView> {
                           ),
                           const SizedBox(height: 6),
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               const Text(
                                 'Quantity:',
@@ -1954,7 +1884,7 @@ class _DetailViewState extends State<DetailView> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  '+\$${_formatCurrency(extraCost)} (extra qty)',
+                                  '+\$${_formatCurrency(extraCost)}',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: extraCost > 0
@@ -1962,6 +1892,8 @@ class _DetailViewState extends State<DetailView> {
                                         : Colors.black38,
                                     fontWeight: FontWeight.w600,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

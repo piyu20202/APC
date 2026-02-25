@@ -257,7 +257,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         backgroundColor: const Color(0xFFF8F8F8),
         elevation: 0,
         title: const Text(
-          'Checkout-Payment',
+          'Payment',
           style: TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -551,30 +551,20 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
               ),
             ),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedPaymentMethod = 'Afterpay';
-                });
-              },
-              child: _buildPaymentOption(
-                'Afterpay',
-                Icons.account_balance,
-                _selectedPaymentMethod == 'Afterpay',
-              ),
+            // Afterpay (currently disabled)
+            _buildPaymentOption(
+              'Afterpay',
+              Icons.account_balance,
+              false,
+              isEnabled: false,
             ),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedPaymentMethod = 'Zip Pay';
-                });
-              },
-              child: _buildPaymentOption(
-                'Zip Pay',
-                Icons.money,
-                _selectedPaymentMethod == 'Zip Pay',
-              ),
+            // Zip Pay (currently disabled)
+            _buildPaymentOption(
+              'Zip Pay',
+              Icons.money,
+              false,
+              isEnabled: false,
             ),
             const SizedBox(height: 12),
             // Google Pay Option (always show; enable only when available)
@@ -590,7 +580,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 'Google Pay',
                 Icons.account_balance_wallet,
                 _selectedPaymentMethod == 'Google Pay',
-                isEnabled: !_isInitializingGooglePay && _isGooglePayAvailable,
+                isEnabled: true,
                 trailing: _isInitializingGooglePay
                     ? const SizedBox(
                         height: 18,
@@ -615,7 +605,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                   'Apple Pay',
                   Icons.apple,
                   _selectedPaymentMethod == 'Apple Pay',
-                  isEnabled: !_isInitializingApplePay && _isApplePayAvailable,
+                  isEnabled: true,
                   trailing: _isInitializingApplePay
                       ? const SizedBox(
                           height: 18,
@@ -832,14 +822,6 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       // Cart will be cleared in payment.dart (card payment) or here (Google Pay) after payment success
 
       if (mounted) {
-        // Show success toast
-        Fluttertoast.showToast(
-          msg: 'Order placed successfully!',
-          toastLength: Toast.LENGTH_SHORT,
-          backgroundColor: Colors.green,
-          textColor: Colors.white,
-        );
-
         // Debug logging before navigation
         debugPrint('=== NAVIGATION DEBUG ===');
         debugPrint('Selected Payment Method: "$_selectedPaymentMethod"');

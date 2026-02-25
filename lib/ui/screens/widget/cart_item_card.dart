@@ -168,11 +168,9 @@ class _CartItemCardState extends State<CartItemCard>
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.only(
+                      padding: const EdgeInsets.only(
                         right: 48, // More space for delete button
-                        top: widget.isAddonProduct
-                            ? 30
-                            : 0, // Space for add-on badge
+                        top: 0,
                       ),
                       child: Text(
                         widget.item['name'] ?? '',
@@ -323,15 +321,6 @@ class _CartItemCardState extends State<CartItemCard>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Unit Price (GST Incl.)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black54,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
                               Text(
                                 '\$${unitPrice.toStringAsFixed(2)}',
                                 style: const TextStyle(

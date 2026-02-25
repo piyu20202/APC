@@ -1282,7 +1282,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             ? 310
             : saleProducts.isEmpty
             ? 90
-            : 310;
+            : 285;
 
         return Container(
           padding: const EdgeInsets.all(16),

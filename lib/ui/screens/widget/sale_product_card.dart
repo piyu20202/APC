@@ -156,57 +156,50 @@ class _SaleProductCardState extends State<SaleProductCard> {
             ),
             // Product Details
             Padding(
-              padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // SKU row
-                  SizedBox(
-                    height: 13,
-                    child: (product['sku'] ?? '').toString().trim().isNotEmpty
-                        ? Text(
-                            'SKU: ${product['sku']}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  const SizedBox(height: 2),
-                  // Title
-                  SizedBox(
-                    height: 32,
-                    child: Text(
-                      product['name'] ?? '',
+                  if ((product['sku'] ?? '').toString().trim().isNotEmpty)
+                    Text(
+                      'SKU: ${product['sku']}',
                       style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
+                        fontSize: 10,
+                        color: Colors.black87,
+                        height: 1.25,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                  if ((product['sku'] ?? '').toString().trim().isNotEmpty)
+                    const SizedBox(height: 6),
+                  // Title
+                  Text(
+                    product['name'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      height: 1.25,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 6),
                   // Description
-                  SizedBox(
-                    height: isOnSale ? 32 : 32,
-                    child: Text(
-                      product['description'] ?? '',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w400,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    product['description'] ?? '',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w400,
+                      height: 1.25,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 8),
                   // Price and Cart Row
                   SizedBox(
                     height: isOnSale ? 34 : 32,

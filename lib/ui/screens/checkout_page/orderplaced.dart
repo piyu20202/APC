@@ -42,39 +42,16 @@ class OrderPlacedPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              // Success Checkmark
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.3),
-                      spreadRadius: 5,
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
+              // Loader only (no success message)
+              const SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
                 ),
-                child: const Icon(Icons.check, color: Colors.white, size: 60),
               ),
-
-              const SizedBox(height: 32),
-
-              // Success Message
-              const Text(
-                'Order Placed Successfully!',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF151D51),
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // Order Details
               /*

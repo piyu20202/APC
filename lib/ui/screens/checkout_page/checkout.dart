@@ -52,30 +52,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   ];
   String? _selectedState;
 
-  /// Display names for state (for validation messages).
-  static const Map<String, String> _stateDisplayNames = {
-    'NSW': 'New South Wales',
-    'VIC': 'Victoria',
-    'QLD': 'Queensland',
-    'SA': 'South Australia',
-    'WA': 'Western Australia',
-    'TAS': 'Tasmania',
-    'NT': 'Northern Territory',
-    'ACT': 'Australian Capital Territory',
-  };
-
-  /// Australian postcode ranges by state. NT 0800–0999 stored as 800–999.
-  static const Map<String, List<List<int>>> _statePostcodeRanges = {
-    'ACT': [[200, 299], [2600, 2639], [2900, 2920]],
-    'NSW': [[1000, 1999], [2000, 2599], [2619, 2899], [2921, 2999]],
-    'NT': [[800, 999]],
-    'QLD': [[4000, 4999], [9000, 9999]],
-    'SA': [[5000, 5999]],
-    'TAS': [[7000, 7499], [7800, 7999]],
-    'VIC': [[3000, 3999], [8000, 8999]],
-    'WA': [[6000, 6799], [6800, 6999]],
-  };
-
   // Country selection - only Australia is supported
   String? _selectedCountry = 'Australia';
 
@@ -89,23 +65,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return areaCode;
     }
     return null;
-  }
-
-  /// Full postcode range error message for selected state (shown below Country dropdown).
-  String? get _postcodeRangeErrorMessage {
-    final state = _selectedState;
-    if (state == null || state.isEmpty) return null;
-    final value = _postCodeController.text.trim();
-    if (value.isEmpty) return null;
-    final postcode = int.tryParse(value);
-    if (postcode == null) return null;
-    final ranges = _statePostcodeRanges[state];
-    if (ranges == null) return null;
-    final inRange = ranges.any((r) => postcode >= r[0] && postcode <= r[1]);
-    if (inRange) return null;
-    final name = _stateDisplayNames[state] ?? state;
-    final rangeStr = ranges.map((r) => '${r[0]}-${r[1]}').join(', ');
-    return 'This postcode is not for $name. Valid postcode range for $name: $rangeStr';
   }
 
   @override
@@ -142,7 +101,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _selectedState = user.state;
     }
     if (user.country != null && user.country!.isNotEmpty) {
-      _selectedCountry = user.country;
+      // Normalize country code to dropdown value (only Australia supported)
+      _selectedCountry = user.country == 'AU' ? 'Australia' : user.country;
     }
   }
 
@@ -683,20 +643,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         return 'Please enter post code';
                       }
                       final postcodeStr = value.trim();
+                      if (postcodeStr.length != 4) {
+                        return 'Post code must be 4 digits';
+                      }
                       final postcode = int.tryParse(postcodeStr);
                       if (postcode == null) {
                         return 'Please enter a valid postcode (numbers only)';
-                      }
-                      final state = _selectedState;
-                      if (state == null || state.isEmpty) {
-                        return null;
-                      }
-                      final ranges = _statePostcodeRanges[state];
-                      if (ranges == null) return null;
-                      final inRange = ranges
-                          .any((r) => postcode >= r[0] && postcode <= r[1]);
-                      if (!inRange) {
-                        return ''; // No message here; full message shown below Country
                       }
                       return null;
                     },
@@ -706,45 +658,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
             const SizedBox(height: 16),
 
-            // Country
-            DropdownButtonFormField<String>(
-              value: _selectedCountry,
+            // Country fixed as Australia (no dropdown)
+            TextFormField(
+              readOnly: true,
+              initialValue: 'Australia',
               decoration: const InputDecoration(
-                labelText: 'Country*',
+                labelText: 'Country',
                 border: OutlineInputBorder(),
                 filled: true,
                 fillColor: Colors.white,
               ),
-              hint: const Text('Select'),
-              items: const [
-                DropdownMenuItem(
-                  value: 'Australia',
-                  child: Text('Australia'),
-                ),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedCountry = value;
-                });
-              },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please select country';
-                }
-                return null;
-              },
             ),
-            // Full postcode range message below Country (so it is fully visible)
-            if (_postcodeRangeErrorMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _postcodeRangeErrorMessage!,
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -816,7 +740,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               'address': _addressController.text.trim(),
               'suburb': _suburbController.text.trim(),
               'state': _selectedState,
-              'country': _selectedCountry,
+              'country': 'AU', // Backend expects country code; dropdown is Australia only
               'post_code': _postCodeController.text.trim(),
               'order_note': _orderNoteController.text.trim(),
             };
