@@ -449,7 +449,7 @@ String _formatPrice(dynamic v) {
     if (v is String && v.trim().isNotEmpty) return v;
     return '';
   }
-  return '\$${n.toStringAsFixed(0)}';
+  return '\$${n.toStringAsFixed(2)}';
 }
 
 Widget _buildProductImage(Map<String, dynamic> product) {

@@ -98,11 +98,20 @@ class AppStateView extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: onPrimaryAction,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
+                          backgroundColor: const Color(0xFFFFBF00),
+                          foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
                         ),
-                        child: Text(primaryActionLabel!),
+                        child: Text(
+                          primaryActionLabel!,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
                     ),
                   if (onSecondaryAction != null &&

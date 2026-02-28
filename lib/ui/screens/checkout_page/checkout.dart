@@ -55,17 +55,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // Country selection - only Australia is supported
   String? _selectedCountry = 'Australia';
 
-  // Valid area codes for dropdown
-  static const List<String> _validAreaCodes = ['+61', '+1', '+44'];
-
-  // Get valid area code from controller or null (no default prefill)
-  String? _getValidAreaCodeOrNull() {
-    final areaCode = _areaCodeController.text.trim();
-    if (areaCode.isNotEmpty && _validAreaCodes.contains(areaCode)) {
-      return areaCode;
-    }
-    return null;
-  }
 
   @override
   void initState() {
@@ -491,7 +480,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   flex: 1,
                   child: DropdownButtonFormField<String>(
                     isExpanded: true,
-                    value: _getValidAreaCodeOrNull(),
+                    value: _areaCodeController.text.isNotEmpty &&
+                            ['02', '03', '07', '08'].contains(
+                              _areaCodeController.text.trim(),
+                            )
+                        ? _areaCodeController.text.trim()
+                        : null,
                     decoration: const InputDecoration(
                       labelText: 'Area Code',
                       border: OutlineInputBorder(),
@@ -505,9 +499,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     ),
                     hint: const Text('Select', overflow: TextOverflow.ellipsis),
                     items: const [
-                      DropdownMenuItem(value: '+61', child: Text('+61')),
-                      DropdownMenuItem(value: '+1', child: Text('+1')),
-                      DropdownMenuItem(value: '+44', child: Text('+44')),
+                      DropdownMenuItem(value: '02', child: Text('02')),
+                      DropdownMenuItem(value: '03', child: Text('03')),
+                      DropdownMenuItem(value: '07', child: Text('07')),
+                      DropdownMenuItem(value: '08', child: Text('08')),
                     ],
                     onChanged: (value) {
                       setState(() {

@@ -47,7 +47,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
             'id': order['id'],
             'invoice':
                 order['invoice_number'] ?? order['quotation_number'] ?? 'N/A',
-            'date': _formatDate(order['quotation_date']),
+            'date': _formatDate(order['invoice_date'] ?? order['quotation_date']),
             'total': _formatAmount(order['pay_amount']),
             'status': _mapPaymentStatus(order['payment_status']),
             'statusColor': _getStatusColor(order['payment_status']),

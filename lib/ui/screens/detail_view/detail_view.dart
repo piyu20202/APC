@@ -1623,70 +1623,7 @@ class _DetailViewState extends State<DetailView> {
       return const SizedBox.shrink();
     }
 
-    Widget buildColumn(List<KitIncludeItem> items, int startIndex) {
-      if (items.isEmpty) {
-        return const SizedBox.shrink();
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: items.asMap().entries.map((entry) {
-          final item = entry.value;
-          final displayNumber = startIndex + entry.key;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.orange[600],
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      displayNumber.toString().padLeft(2, '0'),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF151D51),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Qty: ${item.productBaseQuantity}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      );
-    }
+    final allItems = [..._kitIncludesOne, ..._kitIncludesTwo];
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -1697,16 +1634,61 @@ class _DetailViewState extends State<DetailView> {
         children: [
           _buildSectionHeader('Kit Includes'),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: buildColumn(_kitIncludesOne, 1)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: buildColumn(_kitIncludesTwo, _kitIncludesOne.length + 1),
+          ...allItems.asMap().entries.map((entry) {
+            final item = entry.value;
+            final displayNumber = entry.key + 1;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: Colors.orange[600],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        displayNumber.toString().padLeft(2, '0'),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF151D51),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Qty: ${item.productBaseQuantity}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          }),
         ],
       ),
     );

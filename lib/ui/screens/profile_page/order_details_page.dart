@@ -43,9 +43,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
       setState(() {
         _responseData = response;
-        _orderData = response['order'] as Map<String, dynamic>?;
-        _cartData = response['cart'] as Map<String, dynamic>?;
-        _payments = response['payments'] as List<dynamic>?;
+        _orderData = response['order'] is Map<String, dynamic>
+            ? response['order'] as Map<String, dynamic>
+            : null;
+        _cartData = response['cart'] is Map<String, dynamic>
+            ? response['cart'] as Map<String, dynamic>
+            : null;
+        _payments = response['payments'] is List ? response['payments'] as List<dynamic> : null;
         _isLoading = false;
       });
     } on ApiException catch (e) {
@@ -98,11 +102,32 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   String _formatAmount(dynamic amount) {
     if (amount == null) return '\$0.00';
     try {
-      final numValue = amount is num ? amount : double.parse(amount.toString());
+      final numValue = _safeNum(amount);
       return '\$${numValue.toStringAsFixed(2)}';
     } catch (e) {
       return '\$0.00';
     }
+  }
+
+  // Safe parse: handles String with commas (e.g. "2,372.18") and num
+  double _safeParseAmount(dynamic value) {
+    if (value == null) return 0.0;
+    final cleaned = value.toString().replaceAll(',', '').trim();
+    return double.tryParse(cleaned) ?? 0.0;
+  }
+
+  // Safe num: handles String or num
+  double _safeNum(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().replaceAll(',', '').trim()) ?? 0.0;
+  }
+
+  // Safe int: handles String or int
+  int _safeInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    return int.tryParse(value.toString()) ?? 0;
   }
 
   Color _getStatusColor(String? status) {
@@ -163,7 +188,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                   ? const Center(child: Text('No order data found'))
                   : SingleChildScrollView(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -390,15 +415,19 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   }
 
   Widget _buildCartItemCard(Map<String, dynamic> item) {
-    final product = item['item'] as Map<String, dynamic>?;
-    final qty = item['qty'] ?? 1;
-    final price = (item['price'] as num?)?.toDouble() ?? 0.0;
-    final total = price * (qty as int);
+    final product = item['item'] is Map<String, dynamic>
+        ? item['item'] as Map<String, dynamic>
+        : null;
+    final qty = _safeInt(item['qty'] ?? 1);
+    final price = _safeNum(item['price']);
+    final total = price * qty;
     final productName = product?['name'] ?? 'Unknown Product';
     final productSku = product?['sku'] ?? '';
     final productPhoto = product?['photo'] ?? '';
     final isKit = item['isKIT'] == 'yes' || item['isKIT'] == true;
-    final kitDetails = item['kitCustomiseDetails'] as Map<String, dynamic>?;
+    final kitDetails = item['kitCustomiseDetails'] is Map<String, dynamic>
+        ? item['kitCustomiseDetails'] as Map<String, dynamic>
+        : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -617,11 +646,55 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               ),
             ),
             ..._payments!.map((payment) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '${payment['amount'] ?? ''} - ${payment['date'] ?? ''}',
-                  style: const TextStyle(fontSize: 12),
+              final pAmount = _safeNum(payment['payment_amount']);
+              final pDate = _formatDate(payment['payment_date']?.toString());
+              final pMethod = payment['payment_method']?.toString() ?? '';
+              final pDesc = payment['payment_description']?.toString() ?? '';
+              return Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          pDate,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                        Text(
+                          '\$${pAmount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (pMethod.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Method: $pMethod',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      ),
+                    ],
+                    if (pDesc.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        pDesc,
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
                 ),
               );
             }),
@@ -632,12 +705,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   }
 
   Widget _buildOrderSummaryCard() {
-    final subtotal = double.tryParse(_responseData?['subtotal_excluding_gst']?.toString() ?? '0') ?? 0.0;
-    final tax = double.tryParse(_responseData?['tax']?.toString() ?? '0') ?? 0.0;
-    final discount = double.tryParse(_responseData?['discount']?.toString() ?? '0') ?? 0.0;
-    final shipping = double.tryParse(_responseData?['shipping_cost_including_gst']?.toString() ?? '0') ?? 0.0;
-    final grandTotal = (_responseData?['grand_total'] as num?)?.toDouble() ?? 0.0;
-    final currencySign = _responseData?['currency_sign'] ?? '\$';
+    final subtotal = _safeParseAmount(_responseData?['subtotal_excluding_gst']);
+    final tax = _safeParseAmount(_responseData?['tax']);
+    final discount = _safeParseAmount(_responseData?['discount']);
+    final shipping = _safeParseAmount(_responseData?['shipping_cost_including_gst']);
+    final grandTotal = _safeNum(_responseData?['grand_total']);
+    final amountPaid = _safeNum(_responseData?['amount_paid']);
+    final amountDue = _safeNum(_responseData?['amount_due']);
+    final currencySign = _responseData?['currency_sign']?.toString() ?? '\$';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -665,17 +740,37 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             ),
           ),
           const Divider(height: 24),
-          _buildSummaryRow('Subtotal (Excl. GST)', '$currencySign${subtotal.toStringAsFixed(2)}'),
-          _buildSummaryRow('GST', '$currencySign${tax.toStringAsFixed(2)}'),
+          if (subtotal > 0)
+            _buildSummaryRow('Subtotal (Excl. GST)', '$currencySign${subtotal.toStringAsFixed(2)}'),
+          if (tax > 0)
+            _buildSummaryRow('GST (10%)', '$currencySign${tax.toStringAsFixed(2)}'),
           if (discount > 0)
-            _buildSummaryRow('Discount', '-$currencySign${discount.toStringAsFixed(2)}'),
-          _buildSummaryRow('Shipping', '$currencySign${shipping.toStringAsFixed(2)}'),
+            _buildSummaryRow('Total Discount', '-$currencySign${discount.toStringAsFixed(2)}',
+                valueColor: Colors.red),
+          if (shipping > 0)
+            _buildSummaryRow('Shipping & Handling', '$currencySign${shipping.toStringAsFixed(2)}'),
           const Divider(height: 16),
           _buildSummaryRow(
             'Grand Total',
             '$currencySign${grandTotal.toStringAsFixed(2)}',
             isTotal: true,
           ),
+          if (amountPaid > 0) ...[
+            const SizedBox(height: 4),
+            _buildSummaryRow(
+              'Amount Paid',
+              '$currencySign${amountPaid.toStringAsFixed(2)}',
+              valueColor: Colors.green,
+            ),
+          ],
+          if (amountDue > 0) ...[
+            const SizedBox(height: 4),
+            _buildSummaryRow(
+              'Amount Due',
+              '$currencySign${amountDue.toStringAsFixed(2)}',
+              valueColor: Colors.orange,
+            ),
+          ],
         ],
       ),
     );
@@ -713,7 +808,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String label, String value,
+      {bool isTotal = false, Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -732,7 +828,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             style: TextStyle(
               fontSize: isTotal ? 18 : 14,
               fontWeight: FontWeight.bold,
-              color: isTotal ? const Color(0xFF1A365D) : Colors.black87,
+              color: valueColor ??
+                  (isTotal ? const Color(0xFF1A365D) : Colors.black87),
             ),
           ),
         ],

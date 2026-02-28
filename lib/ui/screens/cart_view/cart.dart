@@ -102,8 +102,8 @@ class _CartPageState extends State<CartPage> {
                       state: AppViewState.empty,
                       title: 'Your cart is empty',
                       message:
-                          'Pull down to refresh, or browse products to add items.',
-                      primaryActionLabel: 'Go to catalog',
+                          'Looks like you have not added anything to the cart. Go ahead & explore categories',
+                      primaryActionLabel: 'Go to Shopping',
                       onPrimaryAction: () {
                         // In this app, the "catalog" lives on the Home tab.
                         // Using Navigator.pop() here can pop the root route (black screen)
@@ -945,7 +945,7 @@ class _CartPageState extends State<CartPage> {
                 ),
               ),
               Text(
-                '\$${total.toStringAsFixed(0)}',
+                '\$${total.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
