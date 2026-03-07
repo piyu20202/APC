@@ -236,26 +236,56 @@ class _DetailViewState extends State<DetailView> {
       }
 
     } on ApiException catch (e) {
+      String message;
+      if (e.statusCode == 500) {
+        message = 'Server error. Please try again later.';
+      } else if (e.statusCode == 404) {
+        message = 'This product is currently unavailable. Please try another product.';
+      } else if (e.statusCode == 401) {
+        message = 'Unauthorized. Please check your credentials.';
+      } else {
+        message = e.message.isNotEmpty
+            ? e.message
+            : 'Failed to load product details. Please try again.';
+      }
       setState(() {
-        // Show user-friendly error message
-        if (e.statusCode == 500) {
-          _errorMessage = 'Server error. Please try again later.';
-        } else if (e.statusCode == 404) {
-          _errorMessage = 'Product not found.';
-        } else if (e.statusCode == 401) {
-          _errorMessage = 'Unauthorized. Please check your credentials.';
-        } else {
-          _errorMessage = e.message.isNotEmpty
-              ? e.message
-              : 'Failed to load product details. Please try again.';
-        }
+        _errorMessage = message;
         _isLoading = false;
       });
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: Colors.red[700],
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        });
+      }
     } catch (e) {
+      const message = 'An unexpected error occurred. Please try again.';
       setState(() {
-        _errorMessage = 'An unexpected error occurred. Please try again.';
+        _errorMessage = message;
         _isLoading = false;
       });
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(message),
+                backgroundColor: Colors.red[700],
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        });
+      }
     }
   }
 
@@ -626,10 +656,10 @@ class _DetailViewState extends State<DetailView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const Icon(Icons.search_off_rounded, size: 72, color: Color(0xFFBDBDBD)),
                   const SizedBox(height: 16),
                   Text(
-                    'Error loading product',
+                    'Oops! Product Unavailable',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -637,15 +667,28 @@ class _DetailViewState extends State<DetailView> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _fetchProductDetails,
-                    child: const Text('Retry'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Go Back'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _fetchProductDetails,
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -690,7 +733,7 @@ class _DetailViewState extends State<DetailView> {
     final images = productImages;
     if (images.isEmpty) {
       return Container(
-        height: 250,
+        height: 320,
         color: Colors.white,
         child: const Center(
           child: Icon(Icons.image, size: 50, color: Colors.grey),
@@ -699,29 +742,27 @@ class _DetailViewState extends State<DetailView> {
     }
 
     return Container(
-      height: 250,
       color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Main Image with PageView
-          Expanded(
+          // Main Image - no overlap
+          SizedBox(
+            height: 280,
             child: PageView.builder(
-              controller: _imageController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentImageIndex = index;
-                });
-              },
-              itemCount: images.length,
-              itemBuilder: (context, index) {
-                final imageUrl = images[index];
-                final isNetwork = imageUrl.startsWith('http');
+            controller: _imageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentImageIndex = index;
+              });
+            },
+            itemCount: images.length,
+            itemBuilder: (context, index) {
+              final imageUrl = images[index];
+              final isNetwork = imageUrl.startsWith('http');
 
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
+              return Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
@@ -750,7 +791,7 @@ class _DetailViewState extends State<DetailView> {
                       child: Container(
                         width: double.infinity,
                         height: double.infinity,
-                        color: Colors.grey[100],
+                        color: Colors.white,
                         child: isNetwork
                             ? CachedNetworkImage(
                                 imageUrl: imageUrl,
@@ -760,7 +801,7 @@ class _DetailViewState extends State<DetailView> {
                                 placeholder: (context, url) => Container(
                                   width: double.infinity,
                                   height: double.infinity,
-                                  color: Colors.grey[200],
+                                  color: Colors.white,
                                   child: const Center(
                                     child: SizedBox(
                                       width: 24,
@@ -774,7 +815,7 @@ class _DetailViewState extends State<DetailView> {
                                 errorWidget: (context, url, error) => Container(
                                   width: double.infinity,
                                   height: double.infinity,
-                                  color: Colors.grey[200],
+                                  color: Colors.white,
                                   child: const Icon(
                                     Icons.image,
                                     size: 48,
@@ -791,7 +832,7 @@ class _DetailViewState extends State<DetailView> {
                                   return Container(
                                     width: double.infinity,
                                     height: double.infinity,
-                                    color: Colors.grey[200],
+                                    color: Colors.white,
                                     child: const Icon(
                                       Icons.image,
                                       size: 48,
@@ -808,120 +849,108 @@ class _DetailViewState extends State<DetailView> {
             ),
           ),
 
-          // Image Indicators
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          // Thumbnail Images - below image section, right aligned
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                images.length,
-                (index) => Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentImageIndex == index
-                        ? Colors.blue
-                        : Colors.grey[300],
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SizedBox(
+                  height: 60,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: images.length,
+                    itemBuilder: (context, index) {
+                      final imageUrl = images[index];
+                      final isNetwork = imageUrl.startsWith('http');
+
+                      return GestureDetector(
+                        onTap: () {
+                          _imageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _currentImageIndex == index
+                                  ? Colors.blue
+                                  : Colors.grey[300]!,
+                              width: 2,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              width: double.infinity,
+                              height: double.infinity,
+                              color: Colors.white,
+                              child: isNetwork
+                                  ? CachedNetworkImage(
+                                      imageUrl: imageUrl,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        color: Colors.white,
+                                        child: const Center(
+                                          child: SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          Container(
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        color: Colors.white,
+                                        child: const Icon(
+                                          Icons.image,
+                                          size: 24,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      imageUrl,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Container(
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          color: Colors.white,
+                                          child: const Icon(
+                                            Icons.image,
+                                            size: 24,
+                                            color: Colors.grey,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ),
-            ),
-          ),
-
-          // Thumbnail Images
-          Container(
-            height: 70,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: images.length,
-              itemBuilder: (context, index) {
-                final imageUrl = images[index];
-                final isNetwork = imageUrl.startsWith('http');
-
-                return GestureDetector(
-                  onTap: () {
-                    _imageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _currentImageIndex == index
-                            ? Colors.blue
-                            : Colors.grey[300]!,
-                        width: 2,
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        color: Colors.grey[100],
-                        child: isNetwork
-                            ? CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  color: Colors.grey[200],
-                                  child: const Center(
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (context, url, error) => Container(
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  color: Colors.grey[200],
-                                  child: const Icon(
-                                    Icons.image,
-                                    size: 24,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              )
-                            : Image.asset(
-                                imageUrl,
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    color: Colors.grey[200],
-                                    child: const Icon(
-                                      Icons.image,
-                                      size: 24,
-                                      color: Colors.grey,
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+              ],
             ),
           ),
         ],
@@ -1817,22 +1846,25 @@ class _DetailViewState extends State<DetailView> {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Colors.grey[300]!),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<int>(
+                              SizedBox(
+                                width: 72,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<int>(
                                     value: quantityOptions.contains(selectedQty)
                                         ? selectedQty
                                         : quantityOptions.first,
                                     isDense: true,
+                                    isExpanded: true,
                                     iconSize: 14,
                                     items: quantityOptions.map((qty) {
                                       final optionExtra = _calculateExtraCost(
@@ -1863,6 +1895,7 @@ class _DetailViewState extends State<DetailView> {
                                   ),
                                 ),
                               ),
+                            ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -2488,41 +2521,43 @@ class _DetailViewState extends State<DetailView> {
                       ),
                       const SizedBox(width: 8),
                       SizedBox(
-                        width: 85,
+                        width: 55,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: quantity,
-                                  isDense: true,
-                                  items: List.generate(10, (i) {
-                                    final qty = i + 1;
-                                    return DropdownMenuItem<int>(
-                                      value: qty,
-                                      child: Text(
-                                        '$qty',
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                    );
-                                  }),
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _addOnQuantities[index] = val ?? 1;
-                                      // Price will update automatically via _calculateFinalPrice()
-                                    });
-                                  },
+                            SizedBox(
+                              width: 48,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey[300]!),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<int>(
+                                    value: quantity,
+                                    isDense: true,
+                                    isExpanded: true,
+                                    items: List.generate(10, (i) {
+                                      final qty = i + 1;
+                                      return DropdownMenuItem<int>(
+                                        value: qty,
+                                        child: Text(
+                                          '$qty',
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                      );
+                                    }),
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _addOnQuantities[index] = val ?? 1;
+                                      });
+                                    },
+                                  ),
                                 ),
                               ),
                             ),

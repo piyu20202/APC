@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../categories_view/subcategory_page.dart';
 import '../drawer_view/drawer.dart';
-import '../widget/latest_product_card.dart';
-import '../widget/sale_product_card.dart';
+import '../widget/listing_product_card.dart';
 import '../productlist_view/sale_products.dart';
 import '../productlist_view/productlist.dart';
 import '../signup_view/trader_upgrade_flow.dart';
@@ -444,7 +443,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 );
               }
             },
-            icon: const Icon(Icons.phone, color: Colors.black, size: 22),
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF151D51),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.phone, color: Colors.white, size: 18),
+            ),
             tooltip: 'Call Us',
           ),
           // Trader upgrade button (only for non-traders)
@@ -833,15 +839,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Widget _buildCategoriesSection() {
-    final homeProvider = Provider.of<HomepageProvider>(context);
-    final isLoadingHomepage = homeProvider.isLoading;
-    final homepageData = homeProvider.homepageData;
+    return Consumer<HomepageProvider>(
+      builder: (context, homeProvider, _) {
+        final isLoadingHomepage = homeProvider.isLoading;
+        final homepageData = homeProvider.homepageData;
 
-    if (kDebugMode && !_didLogCategoriesOnce) {
-      Logger.info(
-        'Building categories section - isLoading: $isLoadingHomepage, hasData: ${homepageData != null}, categoriesCount: ${homepageData?.categories.length ?? 0}',
-      );
-    }
+        if (kDebugMode && !_didLogCategoriesOnce) {
+          Logger.info(
+            'Building categories section - isLoading: $isLoadingHomepage, hasData: ${homepageData != null}, categoriesCount: ${homepageData?.categories.length ?? 0}',
+          );
+        }
 
     if (isLoadingHomepage) {
       return Container(
@@ -891,7 +898,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       );
     }
 
-    final categories = homepageData?.categories ?? [];
+    final rawCategories = homepageData?.categories ?? [];
+    List<Category> categories;
+    try {
+      categories = List<Category>.from(rawCategories)
+        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    } catch (_) {
+      categories = List<Category>.from(rawCategories);
+    }
 
     // Debug log
     if (kDebugMode && !_didLogCategoriesOnce) {
@@ -1088,75 +1102,87 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         ],
       ),
     );
+      },
+    );
   }
 
   Widget _buildLatestProductsSection() {
-    // Use API latest products if available, otherwise fall back to mock data
     final homeProvider = Provider.of<HomepageProvider>(context);
     final displayProducts = homeProvider.latestProducts.isNotEmpty
         ? homeProvider.latestProducts
         : null;
+    final itemCount = displayProducts?.length ?? products.length;
 
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Latest Product',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF151D51),
-                ),
-              ),
-            ],
+          const Text(
+            'Latest Product',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF151D51),
+            ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 310,
-            child: homeProvider.isLoadingLatestProducts
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
+          homeProvider.isLoadingLatestProducts
+              ? const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : SizedBox(
+                  height: 265,
+                  child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: displayProducts?.length ?? products.length,
+                    itemCount: itemCount,
                     itemBuilder: (context, index) {
                       if (displayProducts != null) {
                         final apiProduct = displayProducts[index];
-                        // Map API product to ProductCard expected map shape
                         final mapped = {
                           'id': apiProduct.id,
-                          'image': apiProduct.thumbnail, // may be null
+                          'image': apiProduct.thumbnail,
+                          'thumbnail': apiProduct.thumbnail,
                           'name': apiProduct.name,
                           'sku': apiProduct.sku,
-                          // Use dynamic short_description from API, with fallback
                           'description':
                               apiProduct.shortDescription ??
                               'Latest product — description coming soon.',
                           'price': apiProduct.price,
                           'previous_price': apiProduct.previousPrice,
-                          'thumbnail': apiProduct.thumbnail,
+                          'currentPrice': apiProduct.price.toString(),
+                          'originalPrice': apiProduct.previousPrice.toString(),
+                          'onSale': apiProduct.previousPrice > 0 &&
+                              apiProduct.previousPrice > apiProduct.price,
+                          'out_of_stock': apiProduct.outOfStock,
                         };
-                        return LatestProductCard(
-                          product: mapped,
-                          width: 160,
-                          margin: const EdgeInsets.only(right: 12),
+                        return SizedBox(
+                          width: 180,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: ListingProductCard(product: mapped),
+                          ),
                         );
                       }
-
-                      // Fall back to mock data
                       final product = products[index];
-                      return LatestProductCard(
-                        product: product,
-                        width: 160,
-                        margin: const EdgeInsets.only(right: 12),
+                      final mapped = {
+                        ...product,
+                        'thumbnail': product['image'],
+                        'price': product['currentPrice'],
+                        'previous_price': product['originalPrice'],
+                        'out_of_stock': 0,
+                      };
+                      return SizedBox(
+                        width: 180,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: ListingProductCard(product: mapped),
+                        ),
                       );
                     },
                   ),
-          ),
+                ),
         ],
       ),
     );
@@ -1279,28 +1305,23 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final saleProducts = homeProvider.saleProducts;
         final isLoading = homeProvider.isLoadingSaleProducts;
         final double sectionHeight = isLoading
-            ? 310
+            ? 265
             : saleProducts.isEmpty
             ? 90
-            : 285;
+            : 265;
 
         return Container(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Sale Product',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF151D51),
-                    ),
-                  ),
-                ],
+              const Text(
+                'Sale Product',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF151D51),
+                ),
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -1345,10 +1366,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                             'onSale': true,
                             'out_of_stock': apiProduct.outOfStock,
                           };
-                          return Container(
-                            width: 160,
-                            margin: const EdgeInsets.only(right: 12),
-                            child: SaleProductCard(product: mapped),
+                          return SizedBox(
+                            width: 180,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: ListingProductCard(product: mapped),
+                            ),
                           );
                         },
                       ),

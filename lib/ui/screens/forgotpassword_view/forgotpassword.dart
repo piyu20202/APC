@@ -38,7 +38,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
+                  // Logo
+                  Center(
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.4,
+                        maxHeight: MediaQuery.of(context).size.height * 0.15,
+                      ),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.image, size: 80, color: Colors.grey);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
                   // Title
                   const Text(
                     'Forgot Password',
@@ -48,7 +65,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       color: Color(0xFF151D51),
                     ),
                   ),
-                  const SizedBox(height: 70),
+                  const SizedBox(height: 40),
 
                   // Email Field
                   _buildInputField(

@@ -58,6 +58,8 @@ class ApiClient {
           .timeout(_timeout);
 
       return _handleResponse(response);
+    } on ApiException {
+      rethrow;
     } on http.ClientException catch (e) {
       throw ApiException(message: 'Network error: ${e.message}');
     } on Exception catch (e) {
@@ -115,7 +117,7 @@ class ApiClient {
       }
 
       http.Response response;
-      
+
       // If body is provided, use Request to send GET with body
       if (body != null) {
         final request = http.Request('GET', url);
@@ -123,7 +125,7 @@ class ApiClient {
         request.body = contentType == 'application/json'
             ? jsonEncode(body)
             : _encodeFormData(body);
-        
+
         final streamedResponse = await http.Client()
             .send(request)
             .timeout(_timeout);
@@ -135,6 +137,8 @@ class ApiClient {
       }
 
       return _handleResponse(response);
+    } on ApiException {
+      rethrow;
     } on http.ClientException catch (e) {
       throw ApiException(message: 'Network error: ${e.message}');
     } on Exception catch (e) {
@@ -201,9 +205,11 @@ class ApiClient {
           'Homepage settings response structure: ${jsonResponse.keys.join(", ")}',
         );
         if (jsonResponse['categories'] != null) {
-          debugPrint(
-            'Categories count: ${(jsonResponse['categories'] as List?)?.length ?? 0}',
-          );
+          final cats = jsonResponse['categories'];
+          final count = cats is List
+              ? cats.length
+              : (cats is Map ? cats.length : 0);
+          debugPrint('Categories count: $count');
         }
       }
 

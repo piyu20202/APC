@@ -5,12 +5,25 @@ class CategoriesResponse {
   CategoriesResponse({required this.categories});
 
   factory CategoriesResponse.fromJson(Map<String, dynamic> json) {
-    return CategoriesResponse(
-      categories: (json['categories'] as List<dynamic>?)
-              ?.map((item) => CategoryFull.fromJson(item as Map<String, dynamic>))
-              .toList() ??
-          [],
-    );
+    final raw = json['categories'];
+    List<dynamic> list;
+    if (raw == null) {
+      list = [];
+    } else if (raw is List<dynamic>) {
+      list = raw;
+    } else if (raw is Map<String, dynamic>) {
+      // API returns categories as object/map keyed by order: {"12": {...}, "13": {...}}
+      list = raw.values.toList();
+    } else {
+      list = [];
+    }
+    final categories = list
+        .where((item) => item != null && item is Map<String, dynamic>)
+        .map((item) => CategoryFull.fromJson(item as Map<String, dynamic>))
+        .toList();
+    // Sort by displayOrder so order matches API intent
+    categories.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    return CategoriesResponse(categories: categories);
   }
 }
 
@@ -24,6 +37,7 @@ class CategoryFull {
   final String pageOpen;
   final String? categorySlugUrl;
   final List<SubCategoryFull> subs;
+  final int displayOrder;
 
   CategoryFull({
     required this.id,
@@ -34,9 +48,16 @@ class CategoryFull {
     required this.pageOpen,
     this.categorySlugUrl,
     required this.subs,
+    this.displayOrder = 0,
   });
 
   factory CategoryFull.fromJson(Map<String, dynamic> json) {
+    final displayOrderRaw = json['display_order'] ?? json['displayOrder'];
+    final displayOrder = displayOrderRaw == null
+        ? 0
+        : (displayOrderRaw is int
+            ? displayOrderRaw
+            : int.tryParse(displayOrderRaw.toString()) ?? 0);
     return CategoryFull(
       id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
       name: json['name']?.toString() ?? '',
@@ -49,6 +70,7 @@ class CategoryFull {
               ?.map((item) => SubCategoryFull.fromJson(item as Map<String, dynamic>))
               .toList() ??
           [],
+      displayOrder: displayOrder,
     );
   }
 }

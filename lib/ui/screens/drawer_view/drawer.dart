@@ -35,13 +35,15 @@ class _AppDrawerState extends State<AppDrawer> {
     // Try exact match first
     try {
       return homepageData.categories.firstWhere(
-        (cat) => cat.name.toLowerCase().trim() == categoryName.toLowerCase().trim(),
+        (cat) =>
+            cat.name.toLowerCase().trim() == categoryName.toLowerCase().trim(),
       );
     } catch (e) {
       // Try partial match
       try {
         return homepageData.categories.firstWhere(
-          (cat) => cat.name.toLowerCase().contains(categoryName.toLowerCase()) ||
+          (cat) =>
+              cat.name.toLowerCase().contains(categoryName.toLowerCase()) ||
               categoryName.toLowerCase().contains(cat.name.toLowerCase()),
         );
       } catch (e2) {
@@ -101,7 +103,9 @@ class _AppDrawerState extends State<AppDrawer> {
           final categories = await _homepageService.getAllCategories();
           categoryData = categories.firstWhere((cat) => cat.id == category.id);
         } catch (e) {
-          Logger.warning('Category ID ${category.id} not found in full category list');
+          Logger.warning(
+            'Category ID ${category.id} not found in full category list',
+          );
         }
       }
 
@@ -122,7 +126,9 @@ class _AppDrawerState extends State<AppDrawer> {
 
     // Default: try to get category details and navigate
     try {
-      final categoryDetails = await _homepageService.getCategoryDetails(category.id);
+      final categoryDetails = await _homepageService.getCategoryDetails(
+        category.id,
+      );
       if (!mounted) return;
 
       if (categoryDetails.hasSubcategories) {
@@ -173,16 +179,13 @@ class _AppDrawerState extends State<AppDrawer> {
       child: Container(
         color: const Color(0xFFF8F8F8),
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.only(right: 16),
           children: [
             SizedBox(
               height: 96,
               child: DrawerHeader(
                 margin: EdgeInsets.zero,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 12, 24, 12),
                 decoration: const BoxDecoration(color: Color(0xFFF8F8F8)),
                 child: Align(
                   alignment: Alignment.bottomLeft,
@@ -200,16 +203,17 @@ class _AppDrawerState extends State<AppDrawer> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
                         children: [
-                          const Expanded(
+                          const Flexible(
                             child: Text(
                               'Categories',
                               style: TextStyle(
                                 color: Color(0xFF101010),
-                                fontSize: 20,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Icon(
                             Icons.keyboard_arrow_down,
                             color: Color(0xFF101010),
@@ -252,19 +256,24 @@ class _AppDrawerState extends State<AppDrawer> {
             _buildItem(
               icon: Icons.electric_bolt,
               title: 'Brushless Electric Gate Kits',
-              onTap: () => _navigateToCategoryByName('Brushless Electric Gate Kits'),
+              onTap: () =>
+                  _navigateToCategoryByName('Brushless Electric Gate Kits'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.handyman,
               title: 'Premium Hardware for Cantilever, Sliding & Swing Gates',
-              onTap: () => _navigateToCategoryByName('Premium Hardware for Cantilever, Sliding & Swing Gates'),
+              onTap: () => _navigateToCategoryByName(
+                'Premium Hardware for Cantilever, Sliding & Swing Gates',
+              ),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.auto_awesome_mosaic,
               title: 'Gate, Automation & Hardware Combos',
-              onTap: () => _navigateToCategoryByName('Gate, Automation & Hardware Combos'),
+              onTap: () => _navigateToCategoryByName(
+                'Gate, Automation & Hardware Combos',
+              ),
             ),
             _buildSeparator(),
             _buildItem(
@@ -288,7 +297,9 @@ class _AppDrawerState extends State<AppDrawer> {
             _buildItem(
               icon: Icons.videocam,
               title: 'Video Intercoms and Surveillance Systems',
-              onTap: () => _navigateToCategoryByName('Video Intercoms and Surveillance Systems'),
+              onTap: () => _navigateToCategoryByName(
+                'Video Intercoms and Surveillance Systems',
+              ),
             ),
             _buildSeparator(),
             _buildItem(
@@ -300,13 +311,16 @@ class _AppDrawerState extends State<AppDrawer> {
             _buildItem(
               icon: Icons.security,
               title: 'Access Control & Accessories',
-              onTap: () => _navigateToCategoryByName('Access Control & Accessories'),
+              onTap: () =>
+                  _navigateToCategoryByName('Access Control & Accessories'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.power,
               title: 'Replacement Parts, Power Supplies & Cables',
-              onTap: () => _navigateToCategoryByName('Replacement Parts, Power Supplies & Cables'),
+              onTap: () => _navigateToCategoryByName(
+                'Replacement Parts, Power Supplies & Cables',
+              ),
             ),
             _buildSeparator(),
             _buildItem(
@@ -343,12 +357,15 @@ class _AppDrawerState extends State<AppDrawer> {
     return Container(
       color: isSelected ? const Color(0xFFFFC107) : Colors.transparent,
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Icon(
           icon,
           color: isSelected ? Colors.black : Color(0xFF101010),
         ),
         title: Text(
           title,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: isSelected ? Colors.black : Color(0xFF101010),
             fontSize: 16,

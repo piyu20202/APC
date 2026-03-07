@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../data/repositories/homepage_repository.dart';
 import '../../../data/models/homepage_model.dart';
-import '../../screens/widget/sale_product_listing_card.dart';
+import '../widget/listing_product_card.dart';
 import '../../../core/utils/logger.dart';
 
 enum SortOption { popular, lowestPrice, highestPrice, latest, oldest }
@@ -177,7 +177,7 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.49,
+              childAspectRatio: 0.60,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
@@ -194,12 +194,11 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
                 'previous_price': p.previousPrice,
                 'currentPrice': p.price.toString(),
                 'originalPrice': p.previousPrice.toString(),
-                // Use dynamic short_description from API, with fallback
                 'description': p.shortDescription ?? 'On sale — limited time offer.',
                 'onSale': true,
                 'out_of_stock': p.outOfStock,
               };
-              return SaleProductListingCard(product: mapped);
+              return ListingProductCard(product: mapped);
             },
           ),
         ),

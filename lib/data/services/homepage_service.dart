@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/exceptions/api_exception.dart';
@@ -259,7 +260,7 @@ class HomepageService {
       Logger.info('Response is empty: ${response.isEmpty}');
       Logger.info('Response keys: ${response.keys.join(", ")}');
 
-      // Extract categories directly
+      // Extract categories (API returns Map or List)
       List<Category> categories = [];
       if (response.containsKey('categories') &&
           response['categories'] != null) {
@@ -267,35 +268,32 @@ class HomepageService {
         final categoriesData = response['categories'];
         Logger.info('Categories data type: ${categoriesData.runtimeType}');
 
+        List<dynamic> rawList;
         if (categoriesData is List) {
-          Logger.info(
-            'Categories is a list with ${categoriesData.length} items',
-          );
+          rawList = categoriesData;
+          Logger.info('Categories is a list with ${rawList.length} items');
+        } else if (categoriesData is Map<String, dynamic>) {
+          rawList = categoriesData.values.toList();
+          Logger.info('Categories is a map with ${rawList.length} items');
+        } else {
+          rawList = [];
+        }
 
-          // Parse each category item
-          for (var i = 0; i < categoriesData.length; i++) {
-            final item = categoriesData[i];
-            if (item == null) {
-              Logger.warning('Category item at index $i is null - skipping');
-              continue;
-            }
-
-            if (item is! Map<String, dynamic>) {
-              Logger.warning(
-                'Category item at index $i is not a Map: ${item.runtimeType}',
-              );
-              continue;
-            }
-
-            try {
-              final category = Category.fromJson(item);
-              categories.add(category);
-              Logger.info('Successfully parsed category: ${category.name}');
-            } catch (e) {
-              Logger.error('Error parsing category at index $i', e);
-            }
+        for (var i = 0; i < rawList.length; i++) {
+          final item = rawList[i];
+          if (item == null) continue;
+          if (item is! Map<String, dynamic>) continue;
+          try {
+            final category = Category.fromJson(item);
+            categories.add(category);
+            Logger.info('Successfully parsed category: ${category.name}');
+          } catch (e) {
+            Logger.error('Error parsing category at index $i', e);
           }
         }
+
+        // Sort by displayOrder so home page shows categories in correct order
+        categories.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
       } else {
         Logger.warning('Categories key not found or is null');
         Logger.info('Available keys: ${response.keys.join(", ")}');
@@ -1101,10 +1099,26 @@ class HomepageService {
       Logger.info('Response type: ${response.runtimeType}');
       Logger.info('Response keys: ${response.keys.join(", ")}');
 
+      // Print full response for categories (debug)
+      if (response.containsKey('categories') && response['categories'] != null) {
+        final categoriesRaw = response['categories'];
+        debugPrint(
+          '[get/all_categories] RAW categories (${categoriesRaw is List ? categoriesRaw.length : 0} items): $categoriesRaw',
+        );
+      } else {
+        debugPrint('[get/all_categories] RAW response (no categories key): $response');
+      }
+
       // Parse the response
       final categoriesResponse = CategoriesResponse.fromJson(response);
 
       Logger.info('Parsed ${categoriesResponse.categories.length} categories');
+      for (var i = 0; i < categoriesResponse.categories.length; i++) {
+        final c = categoriesResponse.categories[i];
+        Logger.info(
+          '[get/all_categories] Category[$i] id=${c.id}, name="${c.name}", slug=${c.slug}, pageOpen=${c.pageOpen}, subs=${c.subs.length}',
+        );
+      }
 
       // Cache the categories
       CategoriesCacheService().cacheCategories(categoriesResponse.categories);

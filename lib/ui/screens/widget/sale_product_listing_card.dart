@@ -99,7 +99,7 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
             ClipRRect(
               borderRadius: BorderRadius.circular(5),
               child: Container(
-                height: 130,
+                height: 140,
                 width: double.infinity,
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 color: Colors.grey[100],
@@ -107,7 +107,7 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
                   children: [
                     SizedBox(
                       width: double.infinity,
-                      height: 130,
+                      height: 140,
                       child: _isOutOfStock(product)
                           ? ColorFiltered(
                               colorFilter: ColorFilter.mode(
@@ -422,11 +422,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       imageUrl:
           'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
       width: double.infinity,
-      height: 130,
+      height: 140,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 130,
+        height: 140,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -449,11 +449,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     return CachedNetworkImage(
       imageUrl: thumb,
       width: double.infinity,
-      height: 130,
+      height: 140,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 130,
+        height: 140,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -481,10 +481,10 @@ Widget _buildProductImage(Map<String, dynamic> product) {
   return Image.asset(
     thumb,
     width: double.infinity,
-    height: 130,
+    height: 140,
     fit: BoxFit.contain,
     errorBuilder: (context, error, stackTrace) =>
-        SizedBox(width: double.infinity, height: 130, child: _imageFallback()),
+        SizedBox(width: double.infinity, height: 140, child: _imageFallback()),
   );
 }
 

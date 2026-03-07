@@ -181,6 +181,33 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
 
+                  const SizedBox(height: 16),
+
+                  // Continue as Guest
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pushReplacementNamed(context, '/main');
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF151D51),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Color(0xFF151D51)),
+                        ),
+                      ),
+                      child: const Text(
+                        'Continue as Guest',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: 40),
 
                   // Sign In Link

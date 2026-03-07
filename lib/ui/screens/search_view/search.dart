@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../widget/product_card.dart';
+import '../widget/listing_product_card.dart';
 import '../../../data/repositories/homepage_repository.dart';
 import '../../../core/utils/logger.dart';
 import '../../../services/navigation_service.dart';
@@ -43,6 +43,17 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
 
+    // Don't search until at least 3 characters are typed
+    if (query.length < 3) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = true;
+        _isLoading = false;
+        _error = null;
+      });
+      return;
+    }
+
     // Set loading state immediately for better UX
     setState(() {
       _isSearching = true;
@@ -77,7 +88,7 @@ class _SearchScreenState extends State<SearchScreen> {
       Logger.info('Searching products with keyword: $query');
       final products = await _repository.searchProducts(searchKeyword: query);
 
-      // Map API products to ProductCard expected format
+      // Map API products to ListingProductCard expected format (same as product list view)
       final mappedResults = products.map((product) {
         return {
           'id': product.id,
@@ -85,14 +96,16 @@ class _SearchScreenState extends State<SearchScreen> {
           'thumbnail': product.thumbnail,
           'name': product.name,
           'sku': product.sku,
-          // Use dynamic short_description from API, with fallback
           'description':
               product.shortDescription ?? 'Product description not available',
+          'currentPrice': product.price.toString(),
+          'originalPrice': product.previousPrice.toString(),
           'price': product.price,
           'previous_price': product.previousPrice,
           'onSale':
               product.previousPrice > 0 &&
               product.previousPrice > product.price,
+          'out_of_stock': product.outOfStock,
         };
       }).toList();
 
@@ -196,6 +209,16 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildSearchContent() {
     if (!_isSearching && _searchController.text.isEmpty) {
       return _buildEmptyState();
+    }
+
+    // Show hint when typing but less than 3 characters
+    if (_isSearching && _searchController.text.trim().length < 3 && !_isLoading) {
+      return Center(
+        child: Text(
+          'Type at least 3 characters to search...',
+          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+        ),
+      );
     }
 
     if (_isLoading) {
@@ -339,15 +362,15 @@ class _SearchScreenState extends State<SearchScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              // Slightly taller cards to reduce empty white space
-              childAspectRatio: 0.48,
+              // Same as product list view (childAspectRatio: 0.60)
+              childAspectRatio: 0.60,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
             itemCount: _searchResults.length,
             itemBuilder: (context, index) {
               final product = _searchResults[index];
-              return ProductCard(product: product);
+              return ListingProductCard(product: product);
             },
           ),
         ),

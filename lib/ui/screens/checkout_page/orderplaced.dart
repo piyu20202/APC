@@ -27,18 +27,20 @@ class OrderPlacedPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Company Logo
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.35,
-                  maxHeight: MediaQuery.of(context).size.height * 0.12,
-                ),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.image, size: 80, color: Colors.grey);
-                  },
+              // Company Logo - same as login/signup screen
+              Center(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.4,
+                    maxHeight: MediaQuery.of(context).size.height * 0.15,
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(Icons.image, size: 80, color: Colors.grey);
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

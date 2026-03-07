@@ -103,9 +103,9 @@ class _LatestProductCardState extends State<LatestProductCard> {
             const SizedBox(height: 1),
             // Product Image
             Container(
-              height: 120,
+              height: 135,
               width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 11),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(5),
@@ -116,7 +116,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
                     borderRadius: BorderRadius.circular(5),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 120,
+                      height: 135,
                       child: _isOutOfStock(product)
                           ? ColorFiltered(
                               colorFilter: ColorFilter.mode(
@@ -167,7 +167,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
             ),
             // Product Details
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -187,7 +187,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
                           )
                         : const SizedBox.shrink(),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 3),
                   // Title
                   SizedBox(
                     height: 42,
@@ -202,7 +202,7 @@ class _LatestProductCardState extends State<LatestProductCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 0),
                   // Description
                   SizedBox(
                     height: 34,
@@ -217,10 +217,10 @@ class _LatestProductCardState extends State<LatestProductCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 6),
                   // Price and Cart Row
                   SizedBox(
-                    height: 42,
+                    height: 36,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -416,11 +416,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       imageUrl:
           'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
       width: double.infinity,
-      height: 120,
+      height: 135,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 120,
+        height: 135,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -432,7 +432,7 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       ),
       errorWidget: (context, url, error) => SizedBox(
         width: double.infinity,
-        height: 120,
+        height: 135,
         child: _imageFallback(),
       ),
     );
@@ -443,11 +443,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     return CachedNetworkImage(
       imageUrl: thumb,
       width: double.infinity,
-      height: 120,
+      height: 135,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 120,
+        height: 135,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -461,11 +461,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
         imageUrl:
             'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
         width: double.infinity,
-        height: 120,
+        height: 135,
         fit: BoxFit.contain,
         errorWidget: (context, url, error) => SizedBox(
           width: double.infinity,
-          height: 120,
+          height: 135,
           child: _imageFallback(),
         ),
       ),
@@ -475,7 +475,7 @@ Widget _buildProductImage(Map<String, dynamic> product) {
   return Image.asset(
     thumb,
     width: double.infinity,
-    height: 120,
+    height: 135,
     fit: BoxFit.contain,
     errorBuilder: (context, error, stackTrace) =>
         SizedBox(width: double.infinity, height: 120, child: _imageFallback()),

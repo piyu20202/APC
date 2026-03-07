@@ -12,6 +12,10 @@ class ProductCard extends StatefulWidget {
   final double? width;
   final double? height;
   final EdgeInsets? margin;
+  /// Custom image height (default 120). Used e.g. on search page for larger images.
+  final double? imageHeight;
+  /// Custom image background color (default grey). Use Colors.white for white background.
+  final Color? imageBackgroundColor;
 
   const ProductCard({
     super.key,
@@ -19,6 +23,8 @@ class ProductCard extends StatefulWidget {
     this.width,
     this.height,
     this.margin,
+    this.imageHeight,
+    this.imageBackgroundColor,
   });
 
   @override
@@ -67,21 +73,24 @@ class _ProductCardState extends State<ProductCard> {
           children: [
             const SizedBox(height: 8),
             // Product Image
-            Container(
-              height: 120,
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Stack(
-                children: [
-                  ClipRRect(
+            Builder(
+              builder: (context) {
+                final imgH = widget.imageHeight ?? 120;
+                return Container(
+                  height: imgH,
+                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: widget.imageBackgroundColor ?? Colors.grey[100],
                     borderRadius: BorderRadius.circular(5),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 120,
+                  ),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(5),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: imgH,
                       child: _isOutOfStock(product)
                           ? ColorFiltered(
                               colorFilter: ColorFilter.mode(
@@ -90,10 +99,10 @@ class _ProductCardState extends State<ProductCard> {
                               ),
                               child: Opacity(
                                 opacity: 0.6,
-                                child: _buildProductImage(product),
+                                child: _buildProductImage(product, imgH),
                               ),
                             )
-                          : _buildProductImage(product),
+                          : _buildProductImage(product, imgH),
                     ),
                   ),
 
@@ -165,7 +174,9 @@ class _ProductCardState extends State<ProductCard> {
                     ),
                 ],
               ),
-            ),
+            );
+          },
+        ),
 
             // Product Details
             Padding(
@@ -452,7 +463,7 @@ String _formatPrice(dynamic v) {
   return '\$${n.toStringAsFixed(2)}';
 }
 
-Widget _buildProductImage(Map<String, dynamic> product) {
+Widget _buildProductImage(Map<String, dynamic> product, [double height = 120]) {
   final thumb = (product['thumbnail'] ?? product['image'])?.toString();
   if (thumb == null || thumb.isEmpty) {
     // Use the provided fallback image URL when thumbnail is empty
@@ -460,11 +471,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       imageUrl:
           'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
       width: double.infinity,
-      height: 120,
+      height: height,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 120,
+        height: height,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -476,7 +487,7 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       ),
       errorWidget: (context, url, error) => SizedBox(
         width: double.infinity,
-        height: 120,
+        height: height,
         child: _imageFallback(),
       ),
     );
@@ -487,11 +498,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     return CachedNetworkImage(
       imageUrl: thumb,
       width: double.infinity,
-      height: 120,
+      height: height,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 120,
+        height: height,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -505,11 +516,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
         imageUrl:
             'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
         width: double.infinity,
-        height: 120,
+        height: height,
         fit: BoxFit.contain,
         errorWidget: (context, url, error) => SizedBox(
           width: double.infinity,
-          height: 120,
+          height: height,
           child: _imageFallback(),
         ),
       ),
@@ -519,10 +530,10 @@ Widget _buildProductImage(Map<String, dynamic> product) {
   return Image.asset(
     thumb,
     width: double.infinity,
-    height: 120,
+    height: height,
     fit: BoxFit.contain,
     errorBuilder: (context, error, stackTrace) =>
-        SizedBox(width: double.infinity, height: 120, child: _imageFallback()),
+        SizedBox(width: double.infinity, height: height, child: _imageFallback()),
   );
 }
 

@@ -57,7 +57,7 @@ class _SaleProductCardState extends State<SaleProductCard> {
           children: [
             // Top row: SALE badge
             Padding(
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 6),
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 3),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -97,9 +97,9 @@ class _SaleProductCardState extends State<SaleProductCard> {
             const SizedBox(height: 1),
             // Product Image
             Container(
-              height: 110,
+              height: 135,
               width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(5),
@@ -110,7 +110,7 @@ class _SaleProductCardState extends State<SaleProductCard> {
                     borderRadius: BorderRadius.circular(5),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 110,
+                      height: 135,
                       child: _isOutOfStock(product)
                           ? ColorFiltered(
                               colorFilter: ColorFilter.mode(
@@ -161,7 +161,7 @@ class _SaleProductCardState extends State<SaleProductCard> {
             ),
             // Product Details
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -181,10 +181,10 @@ class _SaleProductCardState extends State<SaleProductCard> {
                           )
                         : const SizedBox.shrink(),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 2),
                   // Title
                   SizedBox(
-                    height: 42,
+                    height: 38,
                     child: Text(
                       product['name'] ?? '',
                       style: const TextStyle(
@@ -196,10 +196,10 @@ class _SaleProductCardState extends State<SaleProductCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 0),
                   // Description
                   SizedBox(
-                    height: 30,
+                    height: 36,
                     child: Text(
                       product['description'] ?? '',
                       style: TextStyle(
@@ -211,10 +211,10 @@ class _SaleProductCardState extends State<SaleProductCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 5),
                   // Price and Cart Row
                   SizedBox(
-                    height: 42,
+                    height: 40,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -440,23 +440,23 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       imageUrl:
           'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
       width: double.infinity,
-      height: 120,
+      height: 135,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 120,
+        height: 135,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
-            width: 20,
-            height: 20,
+            width: 24,
+            height: 24,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
       ),
       errorWidget: (context, url, error) => SizedBox(
         width: double.infinity,
-        height: 120,
+        height: 115,
         child: _imageFallback(),
       ),
     );
@@ -467,16 +467,16 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     return CachedNetworkImage(
       imageUrl: thumb,
       width: double.infinity,
-      height: 120,
+      height: 135,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 120,
+        height: 135,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
-            width: 20,
-            height: 20,
+            width: 24,
+            height: 24,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
@@ -485,11 +485,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
         imageUrl:
             'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
         width: double.infinity,
-        height: 120,
+        height: 115,
         fit: BoxFit.contain,
         errorWidget: (context, url, error) => SizedBox(
           width: double.infinity,
-          height: 120,
+          height: 115,
           child: _imageFallback(),
         ),
       ),
@@ -499,10 +499,10 @@ Widget _buildProductImage(Map<String, dynamic> product) {
   return Image.asset(
     thumb,
     width: double.infinity,
-    height: 120,
+    height: 135,
     fit: BoxFit.contain,
     errorBuilder: (context, error, stackTrace) =>
-        SizedBox(width: double.infinity, height: 120, child: _imageFallback()),
+        SizedBox(width: double.infinity, height: 115, child: _imageFallback()),
   );
 }
 

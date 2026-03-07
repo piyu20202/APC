@@ -103,7 +103,7 @@ class _CartPageState extends State<CartPage> {
                       title: 'Your cart is empty',
                       message:
                           'Looks like you have not added anything to the cart. Go ahead & explore categories',
-                      primaryActionLabel: 'Go to Shopping',
+                      primaryActionLabel: 'Continue Shopping',
                       onPrimaryAction: () {
                         // In this app, the "catalog" lives on the Home tab.
                         // Using Navigator.pop() here can pop the root route (black screen)

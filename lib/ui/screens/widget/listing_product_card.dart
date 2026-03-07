@@ -58,9 +58,9 @@ class _ListingProductCardState extends State<ListingProductCard> {
             const SizedBox(height: 5),
             // Product Image
             Container(
-              height: 105,
+              height: 124,
               width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(5),
@@ -71,7 +71,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
                     borderRadius: BorderRadius.circular(5),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 105,
+                      height: 124,
                       child: _isOutOfStock(product)
                           ? ColorFiltered(
                               colorFilter: ColorFilter.mode(
@@ -199,7 +199,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
                     child: Text(
                       product['description'] ?? '',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: Colors.grey[700],
                         fontWeight: FontWeight.w400,
                       ),
@@ -440,11 +440,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
       imageUrl:
           'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
       width: double.infinity,
-      height: 105,
+      height: 124,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 105,
+        height: 124,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -467,11 +467,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     return CachedNetworkImage(
       imageUrl: thumb,
       width: double.infinity,
-      height: 105,
+      height: 124,
       fit: BoxFit.contain,
       placeholder: (context, url) => Container(
         width: double.infinity,
-        height: 105,
+        height: 124,
         color: Colors.grey[200],
         child: const Center(
           child: SizedBox(
@@ -499,10 +499,10 @@ Widget _buildProductImage(Map<String, dynamic> product) {
   return Image.asset(
     thumb,
     width: double.infinity,
-    height: 105,
+    height: 124,
     fit: BoxFit.contain,
     errorBuilder: (context, error, stackTrace) =>
-        SizedBox(width: double.infinity, height: 105, child: _imageFallback()),
+        SizedBox(width: double.infinity, height: 124, child: _imageFallback()),
   );
 }
 

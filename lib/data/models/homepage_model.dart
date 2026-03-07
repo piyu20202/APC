@@ -178,6 +178,7 @@ class Category {
   final String pageOpen;
   final String? slug;
   final List<SubCategory>? subcategories;
+  final int displayOrder;
 
   Category({
     required this.id,
@@ -186,6 +187,7 @@ class Category {
     this.pageOpen = '',
     this.slug,
     this.subcategories,
+    this.displayOrder = 0,
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
@@ -206,6 +208,12 @@ class Category {
             ? json['page_open'] as String
             : json['page_open']?.toString() ?? '',
         slug: json['slug']?.toString(),
+        displayOrder: () {
+          final v = json['display_order'] ?? json['displayOrder'];
+          if (v == null) return 0;
+          if (v is int) return v;
+          return int.tryParse(v.toString()) ?? 0;
+        }(),
         subcategories: json['subcategories'] != null
             ? (json['subcategories'] as List<dynamic>)
                   .map(
@@ -228,6 +236,7 @@ class Category {
       'image': image,
       'page_open': pageOpen,
       'slug': slug,
+      'display_order': displayOrder,
       'subcategories': subcategories?.map((s) => s.toJson()).toList(),
     };
   }

@@ -29,41 +29,61 @@ class _SignupScreenState extends State<SignupScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 40.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Skip button
-                const SizedBox(height: 40),
+          padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 40.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 20),
 
-                // Title
-                const Text(
-                  'Signup',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF151D51),
+              // Company Logo - same as login screen
+              Center(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.4,
+                    maxHeight: MediaQuery.of(context).size.height * 0.15,
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.image,
+                        size: 80,
+                        color: Colors.grey,
+                      );
+                    },
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-                // User Type Selection
-                _buildUserTypeSelector(),
+              // Title
+              const Text(
+                'Signup',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF151D51),
+                ),
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-                // Dynamic Content Based on User Type
-                _selectedUserType == 'trader'
-                    ? const TradeWelcomePage()
-                    : const RegularUserSignup(),
+              // User Type Selection
+              _buildUserTypeSelector(),
+
+              const SizedBox(height: 20),
+
+              // Dynamic Content Based on User Type
+              _selectedUserType == 'trader'
+                  ? const TradeWelcomePage()
+                  : const RegularUserSignup(),
               ],
             ),
           ),
         ),
-      ),
     );
   }
 

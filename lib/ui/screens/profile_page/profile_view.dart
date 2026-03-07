@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../signin_view/signin.dart';
 import '../drawer_view/drawer.dart';
-import '../widget/trader_benefits_showcase.dart';
-import '../signup_view/trader_upgrade_flow.dart';
 import '../../../services/user_role_service.dart';
 import '../../../providers/auth_provider.dart';
 import 'accountinfo.dart';
@@ -138,13 +136,18 @@ class _ProfileViewState extends State<ProfileView> {
                         },
                       ),
                       _buildDivider(),
-                      _buildMenuItem(
-                        context: context,
-                        title: 'Logout',
-                        onTap: () {
-                          _showLogoutDialog(context);
+                      Consumer<AuthProvider>(
+                        builder: (context, authProvider, _) {
+                          final isGuest = !authProvider.isLoggedIn;
+                          return _buildMenuItem(
+                            context: context,
+                            title: isGuest ? 'Logout as Guest' : 'Logout',
+                            onTap: () {
+                              _showLogoutDialog(context, isGuest: isGuest);
+                            },
+                            isLogout: true,
+                          );
                         },
-                        isLogout: true,
                       ),
                     ],
                   ),
@@ -229,62 +232,6 @@ class _ProfileViewState extends State<ProfileView> {
               Expanded(child: _buildQuickBenefit('📦', 'Bulk Orders')),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TraderBenefitsInfoScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white, width: 1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Learn More',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const TraderUpgradeFlow(isExistingUser: true),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.orange.shade600,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Upgrade Now',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -348,21 +295,24 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, {bool isGuest = false}) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        final title = isGuest ? 'Logout as Guest' : 'Logout';
+        final content =
+            isGuest ? 'Do you want to logout as guest?' : 'Do you want to logout?';
         return AlertDialog(
-          title: const Text(
-            'Logout',
-            style: TextStyle(
+          title: Text(
+            title,
+            style: const TextStyle(
               color: Color(0xFF1A365D),
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: const Text(
-            'Do you want to logout?',
-            style: TextStyle(fontSize: 16),
+          content: Text(
+            content,
+            style: const TextStyle(fontSize: 16),
           ),
           actions: [
             Row(
