@@ -1478,9 +1478,6 @@ class _DetailViewState extends State<DetailView> {
             ),
           ),
 
-          // Dynamic Summary Section
-          _buildDynamicSummary(),
-
           // Bottom padding for scroll
           const SizedBox(height: 40),
         ],
@@ -1488,6 +1485,7 @@ class _DetailViewState extends State<DetailView> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildDynamicSummary() {
     final customiseData = getCustomiseKitData();
     final upgradeData = getSelectedUpgradeData();
@@ -1847,8 +1845,8 @@ class _DetailViewState extends State<DetailView> {
                               ),
                               const SizedBox(width: 6),
                               SizedBox(
-                                width: 72,
-                                child: Container(
+                              width: 92,
+                              child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 4,
                                     vertical: 2,
@@ -2521,12 +2519,12 @@ class _DetailViewState extends State<DetailView> {
                       ),
                       const SizedBox(width: 8),
                       SizedBox(
-                        width: 55,
+                        width: 88,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             SizedBox(
-                              width: 48,
+                              width: 72,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 2,
@@ -2566,6 +2564,7 @@ class _DetailViewState extends State<DetailView> {
                               'Unit Price',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
                               style: TextStyle(
                                 fontSize: 9,
                                 color: Color(0xFF151D51),
@@ -2575,6 +2574,9 @@ class _DetailViewState extends State<DetailView> {
                             const SizedBox(height: 1),
                             Text(
                               '\$${item.unitPrice.toStringAsFixed(2)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,

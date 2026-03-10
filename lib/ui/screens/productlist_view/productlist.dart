@@ -391,7 +391,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           )
         else
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,

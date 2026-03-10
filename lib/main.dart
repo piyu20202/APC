@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/homepage_provider.dart';
@@ -35,6 +36,22 @@ class MyApp extends StatelessWidget {
           primaryColor: const Color(0xFF151D51),
           appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
         ),
+        builder: (context, child) {
+          final mediaQuery = MediaQuery.of(context);
+          final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
+
+          final clampedScaler = isIOS
+              ? mediaQuery.textScaler.clamp(
+                  minScaleFactor: 0.9,
+                  maxScaleFactor: 1.1,
+                )
+              : mediaQuery.textScaler;
+
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: clampedScaler),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         navigatorObservers: [routeObserver],
         home: const SplashScreen(),
         routes: {
