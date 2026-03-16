@@ -400,6 +400,363 @@ class _ListingProductCardState extends State<ListingProductCard> {
   }
 }
 
+class ProductListCard extends StatefulWidget {
+  final Map<String, dynamic> product;
+
+  const ProductListCard({super.key, required this.product});
+
+  @override
+  State<ProductListCard> createState() => _ProductListCardState();
+}
+
+class _ProductListCardState extends State<ProductListCard> {
+  final ProductService _productService = ProductService();
+  final CartService _cartService = CartService();
+  bool _isQuickAdding = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final product = widget.product;
+    final isOnSale = _hasStrikePrice(product) || product['onSale'] == true;
+    final outOfStock = _isOutOfStock(product);
+
+    return GestureDetector(
+      onTap: () {
+        final productId = product['id'] as int?;
+        if (productId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DetailView(productId: productId),
+            ),
+          );
+        }
+      },
+      child: Container(
+        height: 145,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.1),
+              spreadRadius: 1,
+              blurRadius: 3,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Image + badges
+            SizedBox(
+              width: 120,
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                    child: Container(
+                      color: Colors.grey[100],
+                      child: SizedBox(
+                        width: 120,
+                        height: double.infinity,
+                        child: outOfStock
+                            ? ColorFiltered(
+                                colorFilter: const ColorFilter.mode(
+                                  Colors.grey,
+                                  BlendMode.saturation,
+                                ),
+                                child: Opacity(
+                                  opacity: 0.6,
+                                  child: _buildProductImage(product),
+                                ),
+                              )
+                            : _buildProductImage(product),
+                      ),
+                    ),
+                  ),
+                  if (isOnSale)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              spreadRadius: 0.5,
+                              blurRadius: 1,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'SALE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (outOfStock)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'Out of Stock',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Details + price + cart
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if ((product['sku'] ?? '').toString().trim().isNotEmpty)
+                      Text(
+                        'SKU: ${product['sku']}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      product['name'] ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      product['description'] ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isOnSale)
+                                Text(
+                                  _formatPrice(
+                                    product['previous_price'] ??
+                                        product['originalPrice'],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    decoration: TextDecoration.lineThrough,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              if (isOnSale) const SizedBox(height: 2),
+                              Text(
+                                _formatPrice(
+                                  product['price'] ??
+                                      product['currentPrice'] ??
+                                      '',
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        outOfStock
+                            ? Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[400],
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                                child: const Icon(
+                                  Icons.shopping_cart,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              )
+                            : GestureDetector(
+                                onTap: (_isQuickAdding || outOfStock)
+                                    ? null
+                                    : () => _handleQuickAdd(context),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF151D51),
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  child: Center(
+                                    child: _isQuickAdding
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.shopping_cart,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                  ),
+                                ),
+                              ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleQuickAdd(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final productId = widget.product['id'] as int?;
+    if (productId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Product identifier missing')),
+      );
+      return;
+    }
+
+    if (_isOutOfStock(widget.product)) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('This product is out of stock'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isQuickAdding = true;
+    });
+
+    try {
+      final detailResponse = await _productService.getProductDetails(productId);
+      final builder = CartPayloadBuilder(
+        product: detailResponse.product,
+        qtyUpgradeProducts: detailResponse.qtyUpgradeProducts,
+        upgradeProducts: detailResponse.upgradeProducts,
+        addonProducts: detailResponse.addonProducts,
+        kitQuantity: 1,
+        selectedQtyForCustomise: {
+          for (final item in detailResponse.qtyUpgradeProducts)
+            item.id: item.productBaseQuantity,
+        },
+        selectedUpgradeIndex: -1,
+        selectedSubProductIndex: {
+          for (final upgrade in detailResponse.upgradeProducts) upgrade.id: -1,
+        },
+        addOnSelections: List<bool>.filled(
+          detailResponse.addonProducts.length,
+          false,
+        ),
+        addOnQuantities: List<int>.filled(
+          detailResponse.addonProducts.length,
+          1,
+        ),
+      );
+      final payload = await builder.buildPayload();
+      final response = await _cartService.addProducts(payload);
+      await StorageService.saveCartData(response);
+      if (!context.mounted) return;
+      NavigationService.instance.refreshCartCount();
+      NavigationService.instance.refreshCartItems();
+
+      NavigationService.instance.switchToTab(2);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Unable to add to cart: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isQuickAdding = false;
+        });
+      } else {
+        _isQuickAdding = false;
+      }
+    }
+  }
+}
+
 bool _hasStrikePrice(Map<String, dynamic> product) {
   final prev = _readNum(product['previous_price'] ?? product['originalPrice']);
   final price = _readNum(product['price'] ?? product['currentPrice']);

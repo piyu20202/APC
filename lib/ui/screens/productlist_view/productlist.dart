@@ -43,6 +43,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   SortOption _selectedSort = SortOption.popular;
+  bool _isGridView = true;
 
   // Dummy products for fallback
   final List<Map<String, dynamic>> _dummyProducts = [
@@ -327,6 +328,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
         backgroundColor: const Color(0xFFF2F0EF),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
+            onPressed: () {
+              setState(() {
+                _isGridView = !_isGridView;
+              });
+            },
+          ),
+        ],
       ),
       body: RefreshIndicator.adaptive(
         onRefresh: _onRefresh,
@@ -390,24 +401,35 @@ class _ProductListScreenState extends State<ProductListScreen> {
             ),
           )
         else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.60,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final product = products[index];
-                  return ListingProductCard(product: product);
-                },
-                childCount: products.length,
-              ),
-            ),
-          ),
+          (_isGridView
+              ? SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.60,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final product = products[index];
+                        return ListingProductCard(product: product);
+                      },
+                      childCount: products.length,
+                    ),
+                  ),
+                )
+              : SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final product = products[index];
+                      return ProductListCard(product: product);
+                    },
+                    childCount: products.length,
+                  ),
+                )),
       ],
     );
   }

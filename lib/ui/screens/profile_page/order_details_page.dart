@@ -226,6 +226,35 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   }
 
   Widget _buildOrderInfoCard() {
+    final order = _orderData!;
+    final isInvoice = _safeInt(order['is_invoice']) == 1;
+    final isQuotation = _safeInt(order['is_quotation']) == 1;
+    final shippingType = (order['shipping'] ?? '').toString();
+
+    String _shippingMethodLabel() {
+      if (shippingType == 'shipto') {
+        return 'Ship to address';
+      }
+      if (shippingType == 'pickup') {
+        return 'Pickup';
+      }
+      return shippingType.isEmpty ? 'N/A' : shippingType;
+    }
+
+    final orderType = (order['order_type'] ?? '').toString();
+    final amountDueFromRoot =
+        _responseData != null ? _safeNum(_responseData!['amount_due']) : 0.0;
+    final amountDueOrder = _safeNum(order['amount_due']);
+    final amountDue = amountDueFromRoot > 0 ? amountDueFromRoot : amountDueOrder;
+    final normalShippingCost = _safeNum(order['normal_shipping_cost']);
+    final bool isLargeOrder = orderType == 'large';
+    final bool showPendingFreightFromAmount =
+        isLargeOrder && amountDue > 0 && amountDue >= normalShippingCost;
+    final bool showPendingFreightFromShipping =
+        isLargeOrder && normalShippingCost == 0;
+    final bool showPendingFreight =
+        showPendingFreightFromAmount || showPendingFreightFromShipping;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -277,14 +306,68 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             ],
           ),
           const Divider(height: 24),
-          _buildInfoRow('Order ID', _orderData!['id'].toString()),
-          _buildInfoRow('Order Number', _orderData!['order_number'] ?? 'N/A'),
-          _buildInfoRow('Invoice Number', _orderData!['invoice_number'] ?? 'N/A'),
-          if (_orderData!['quotation_number'] != null)
-            _buildInfoRow('Quotation Number', _orderData!['quotation_number']),
-          _buildInfoRow('Order Date', _formatDate(_orderData!['created_at'])),
-          _buildInfoRow('Payment Method', _orderData!['method'] ?? 'N/A'),
-          _buildInfoRow('Shipping Type', _orderData!['shipping'] ?? 'N/A'),
+          _buildInfoRow('Order ID', order['id'].toString()),
+          _buildInfoRow('Order Number', order['order_number'] ?? 'N/A'),
+          if (isInvoice) ...[
+            _buildInfoRow(
+              'Invoice Date',
+              _formatDate(order['invoice_date'] ?? order['created_at']),
+            ),
+            _buildInfoRow(
+              'Invoice Number',
+              '#${(order['invoice_number'] ?? 'N/A').toString()}',
+            ),
+            _buildInfoRow('Shipping Method', _shippingMethodLabel()),
+            if (shippingType == 'pickup' &&
+                (order['pickup_location']?.toString().isNotEmpty ?? false))
+              _buildInfoRow(
+                'Pickup Location',
+                order['pickup_location'] ?? 'N/A',
+              ),
+            _buildInfoRow(
+              'Payment Method',
+              order['payment_method'] ?? 'N/A',
+            ),
+            _buildInfoRow(
+              'Payment Status',
+              order['payment_status'] ?? 'N/A',
+            ),
+            if (order['order_note'] != null &&
+                order['order_note'].toString().trim().isNotEmpty)
+              _buildInfoRow('Order Note', order['order_note']),
+          ] else if (isQuotation) ...[
+            _buildInfoRow(
+              'Quotation Date',
+              _formatDate(order['quotation_date'] ?? order['created_at']),
+            ),
+            _buildInfoRow(
+              'Quotation Number',
+              '#${(order['quotation_number'] ?? 'N/A').toString()}',
+            ),
+          ] else ...[
+            // Fallback for older orders that might not have invoice/quotation flags
+            if (order['invoice_number'] != null)
+              _buildInfoRow(
+                'Invoice Number',
+                '#${(order['invoice_number'] ?? 'N/A').toString()}',
+              ),
+            if (order['quotation_number'] != null)
+              _buildInfoRow(
+                'Quotation Number',
+                '#${order['quotation_number']}',
+              ),
+            _buildInfoRow(
+              'Order Date',
+              _formatDate(order['created_at']),
+            ),
+            _buildInfoRow(
+              'Payment Method',
+              order['payment_method'] ?? order['method'] ?? 'N/A',
+            ),
+            _buildInfoRow('Shipping Type', shippingType.isEmpty ? 'N/A' : shippingType),
+          ],
+          if (showPendingFreight)
+            _buildInfoRow('Freight Status', 'Pending Freight Cost'),
         ],
       ),
     );

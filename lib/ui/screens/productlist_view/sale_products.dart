@@ -20,6 +20,7 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
   List<LatestProduct> _products = [];
   List<LatestProduct> _originalProducts = [];
   SortOption _selectedSort = SortOption.popular;
+  bool _isGridView = true;
 
   @override
   void initState() {
@@ -119,6 +120,16 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
         backgroundColor: const Color(0xFFF2F0EF),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
+            onPressed: () {
+              setState(() {
+                _isGridView = !_isGridView;
+              });
+            },
+          ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -173,36 +184,76 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
         ),
         // Products Grid
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.60,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-            ),
-            itemCount: _products.length,
-            itemBuilder: (context, index) {
-              final p = _products[index];
-              final mapped = {
-                'id': p.id,
-                'image': p.thumbnail,
-                'thumbnail': p.thumbnail,
-                'name': p.name,
-                'sku': p.sku,
-                'price': p.price,
-                'previous_price': p.previousPrice,
-                'currentPrice': p.price.toString(),
-                'originalPrice': p.previousPrice.toString(),
-                'description': p.shortDescription ?? 'On sale — limited time offer.',
-                'onSale': true,
-                'out_of_stock': p.outOfStock,
-              };
-              return ListingProductCard(product: mapped);
-            },
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            switchInCurve: Curves.easeIn,
+            switchOutCurve: Curves.easeOut,
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: _isGridView ? _buildGridView() : _buildListView(),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildGridView() {
+    return GridView.builder(
+      key: const ValueKey('sale_grid_view'),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 50),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.60,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: _products.length,
+      itemBuilder: (context, index) {
+        final p = _products[index];
+        final mapped = {
+          'id': p.id,
+          'image': p.thumbnail,
+          'thumbnail': p.thumbnail,
+          'name': p.name,
+          'sku': p.sku,
+          'price': p.price,
+          'previous_price': p.previousPrice,
+          'currentPrice': p.price.toString(),
+          'originalPrice': p.previousPrice.toString(),
+          'description':
+              p.shortDescription ?? 'On sale — limited time offer.',
+          'onSale': true,
+          'out_of_stock': p.outOfStock,
+        };
+        return ListingProductCard(product: mapped);
+      },
+    );
+  }
+
+  Widget _buildListView() {
+    return ListView.builder(
+      key: const ValueKey('sale_list_view'),
+      padding: const EdgeInsets.only(top: 8, bottom: 24),
+      itemCount: _products.length,
+      itemBuilder: (context, index) {
+        final p = _products[index];
+        final mapped = {
+          'id': p.id,
+          'image': p.thumbnail,
+          'thumbnail': p.thumbnail,
+          'name': p.name,
+          'sku': p.sku,
+          'price': p.price,
+          'previous_price': p.previousPrice,
+          'currentPrice': p.price.toString(),
+          'originalPrice': p.previousPrice.toString(),
+          'description':
+              p.shortDescription ?? 'On sale — limited time offer.',
+          'onSale': true,
+          'out_of_stock': p.outOfStock,
+        };
+        return ProductListCard(product: mapped);
+      },
     );
   }
 
