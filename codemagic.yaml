@@ -18,10 +18,14 @@ workflows:
       - name: CocoaPods
         script: |
           cd ios
-          rm -rf Pods
-          rm -rf Podfile.lock
-          pod repo update
-          pod install
+          echo "Cleaning up old pod installation..."
+          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          echo "Upgrading CocoaPods..."
+          sudo gem install cocoapods
+          echo "Updating pod repos..."
+          pod repo update --verbose || pod setup
+          echo "Installing pods..."
+          pod install --repo-update
           cd ..
       - name: Build for iOS Simulator
         script: |
@@ -48,10 +52,14 @@ workflows:
       - name: CocoaPods
         script: |
           cd ios
-          rm -rf Pods
-          rm -rf Podfile.lock
-          pod repo update
-          pod install
+          echo "Cleaning up old pod installation..."
+          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          echo "Upgrading CocoaPods..."
+          sudo gem install cocoapods
+          echo "Updating pod repos..."
+          pod repo update --verbose || pod setup
+          echo "Installing pods..."
+          pod install --repo-update
           cd ..
       - name: Build for iOS Simulator (Testing)
         script: |
@@ -84,10 +92,14 @@ workflows:
       - name: CocoaPods
         script: |
           cd ios
-          rm -rf Pods
-          rm -rf Podfile.lock
-          pod repo update
-          pod install
+          echo "Cleaning up old pod installation..."
+          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          echo "Upgrading CocoaPods..."
+          sudo gem install cocoapods
+          echo "Updating pod repos..."
+          pod repo update --verbose || pod setup
+          echo "Installing pods..."
+          pod install --repo-update
           cd ..
       - name: Build for iOS Device (Testing)
         script: |
@@ -119,10 +131,14 @@ workflows:
       - name: CocoaPods
         script: |
           cd ios
-          rm -rf Pods
-          rm -rf Podfile.lock
-          pod repo update
-          pod install
+          echo "Cleaning up old pod installation..."
+          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          echo "Upgrading CocoaPods..."
+          sudo gem install cocoapods
+          echo "Updating pod repos..."
+          pod repo update --verbose || pod setup
+          echo "Installing pods with repo update..."
+          pod install --repo-update
           cd ..
       - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
