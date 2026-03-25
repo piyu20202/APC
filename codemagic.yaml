@@ -17,7 +17,12 @@ workflows:
           flutter pub get
       - name: CocoaPods
         script: |
-          cd ios && pod install && cd ..
+          cd ios
+          rm -rf Pods
+          rm -rf Podfile.lock
+          pod repo update
+          pod install
+          cd ..
       - name: Build for iOS Simulator
         script: |
           flutter build ios --simulator --debug --no-codesign
@@ -42,7 +47,12 @@ workflows:
           flutter pub get
       - name: CocoaPods
         script: |
-          cd ios && pod install && cd ..
+          cd ios
+          rm -rf Pods
+          rm -rf Podfile.lock
+          pod repo update
+          pod install
+          cd ..
       - name: Build for iOS Simulator (Testing)
         script: |
           flutter build ios --simulator --debug --no-codesign \
@@ -73,7 +83,12 @@ workflows:
           flutter pub get
       - name: CocoaPods
         script: |
-          cd ios && pod install && cd ..
+          cd ios
+          rm -rf Pods
+          rm -rf Podfile.lock
+          pod repo update
+          pod install
+          cd ..
       - name: Build for iOS Device (Testing)
         script: |
           flutter build ios --release \
@@ -104,7 +119,9 @@ workflows:
       - name: CocoaPods
         script: |
           cd ios
-          sed -i '' "s/# platform :ios, '12.0'/platform :ios, '13.0'/" Podfile
+          rm -rf Pods
+          rm -rf Podfile.lock
+          pod repo update
           pod install
           cd ..
       - name: Set up code signing settings on Xcode project
