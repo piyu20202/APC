@@ -19,7 +19,9 @@ workflows:
         script: |
           cd ios
           echo "Cleaning up old pod installation..."
-          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          rm -rf Pods Podfile.lock .symlinks/
+          flutter precache --ios
+          flutter build ios --config-only
           echo "Upgrading CocoaPods..."
           sudo gem install cocoapods
           echo "Updating pod repos..."
@@ -53,7 +55,9 @@ workflows:
         script: |
           cd ios
           echo "Cleaning up old pod installation..."
-          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          rm -rf Pods Podfile.lock .symlinks/
+          flutter precache --ios
+          flutter build ios --config-only
           echo "Upgrading CocoaPods..."
           sudo gem install cocoapods
           echo "Updating pod repos..."
@@ -93,7 +97,9 @@ workflows:
         script: |
           cd ios
           echo "Cleaning up old pod installation..."
-          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          rm -rf Pods Podfile.lock .symlinks/
+          flutter precache --ios
+          flutter build ios --config-only
           echo "Upgrading CocoaPods..."
           sudo gem install cocoapods
           echo "Updating pod repos..."
@@ -132,7 +138,9 @@ workflows:
         script: |
           cd ios
           echo "Cleaning up old pod installation..."
-          rm -rf Pods Podfile.lock .symlinks/ Flutter/Flutter.podspec
+          rm -rf Pods Podfile.lock .symlinks/
+          flutter precache --ios
+          flutter build ios --config-only
           echo "Upgrading CocoaPods..."
           sudo gem install cocoapods
           echo "Updating pod repos..."
