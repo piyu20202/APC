@@ -160,7 +160,8 @@ class _SearchScreenState extends State<SearchScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search products, SKU, or categories...',
+                hintText: 'Search products by name, and SKU',
+                hintStyle: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -283,7 +284,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Enter keywords to find products, SKUs, or categories',
+            'Search products by name, and SKU',
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),

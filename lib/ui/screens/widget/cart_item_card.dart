@@ -465,8 +465,12 @@ class _CartItemCardState extends State<CartItemCard>
   Widget _buildPlaceholderImage() {
     return Container(
       color: Colors.grey[200],
-      child: Center(
-        child: Icon(Icons.image, color: Colors.grey[400], size: 40),
+      child: Image.asset(
+        'assets/images/no_image.png',
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Icon(Icons.image, color: Colors.grey[400], size: 40),
+        ),
       ),
     );
   }

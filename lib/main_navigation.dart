@@ -5,9 +5,11 @@ import 'ui/screens/home_view/home.dart';
 import 'ui/screens/cart_view/cart.dart';
 import 'ui/screens/profile_page/profile_view.dart';
 import 'ui/screens/search_view/search.dart';
+import 'ui/screens/manuals/manuals_menu.dart';
 import 'services/user_role_service.dart';
 import 'services/navigation_service.dart';
 import 'services/storage_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -26,7 +28,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialTabIndex.clamp(0, 3);
+    _selectedIndex = widget.initialTabIndex.clamp(0, 5);
     NavigationService.instance.registerTabController(_onItemTapped);
     NavigationService.instance.registerCartCountRefresher(_loadCartCount);
     _checkTraderStatus();
@@ -63,7 +65,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
   }
 
+  Future<void> _makePhoneCall() async {
+    final settings = await StorageService.getSettings();
+    final phoneNumber = settings?.pageSettings.phone;
+    if (phoneNumber != null && phoneNumber.isNotEmpty) {
+      final formattedPhone = phoneNumber.replaceAll(' ', '');
+      final uri = Uri.parse('tel:$formattedPhone');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+        return;
+      }
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number not available or cannot be dialed')),
+      );
+    }
+  }
+
   void _onItemTapped(int index) {
+    if (index == 4) {
+      _makePhoneCall();
+      return;
+    }
     setState(() {
       _selectedIndex = index;
       if (index == 2) {
@@ -163,6 +187,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   label: 'Cart',
                 ),
                 const BottomNavigationBarItem(
+                  icon: Icon(Icons.help_outline),
+                  activeIcon: Icon(Icons.help),
+                  label: 'Manuals',
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.phone_outlined),
+                  activeIcon: Icon(Icons.phone),
+                  label: 'Call Us',
+                ),
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline),
                   activeIcon: Icon(Icons.person),
                   label: 'Profile',
@@ -184,6 +218,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       const SearchScreen(),
       const CartPage(),
+      const ManualsMenuPage(),
+      const SizedBox.shrink(),
       const ProfileView(),
     ];
   }

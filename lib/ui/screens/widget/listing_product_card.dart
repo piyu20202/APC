@@ -52,15 +52,15 @@ class _ListingProductCardState extends State<ListingProductCard> {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             // Product Image
-            Container(
-              height: 124,
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(5),
@@ -71,7 +71,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
                     borderRadius: BorderRadius.circular(5),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 124,
+                      height: double.infinity,
                       child: _isOutOfStock(product)
                           ? ColorFiltered(
                               colorFilter: ColorFilter.mode(
@@ -155,22 +155,23 @@ class _ListingProductCardState extends State<ListingProductCard> {
                 ],
               ),
             ),
+            ),
             // Product Details
             Padding(
-              padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // SKU row
                   SizedBox(
-                    height: 13,
+                    height: 14,
                     child: (product['sku'] ?? '').toString().trim().isNotEmpty
                         ? Text(
                             'SKU: ${product['sku']}',
                             style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.black87,
+                              fontSize: 9,
+                              color: Colors.black54,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -180,26 +181,26 @@ class _ListingProductCardState extends State<ListingProductCard> {
                   const SizedBox(height: 2),
                   // Title
                   SizedBox(
-                    height: 32,
+                    height: 34,
                     child: Text(
                       product['name'] ?? '',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        height: 1.2,
+                        height: 1.15,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 0),
                   // Description
                   SizedBox(
-                    height: isOnSale ? 32 : 32,
+                    height: 32,
                     child: Text(
                       product['description'] ?? '',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: Colors.grey[700],
                         fontWeight: FontWeight.w400,
                       ),
@@ -207,10 +208,10 @@ class _ListingProductCardState extends State<ListingProductCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 6),
                   // Price and Cart Row
                   SizedBox(
-                    height: isOnSale ? 34 : 32,
+                    height: 36,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -222,23 +223,19 @@ class _ListingProductCardState extends State<ListingProductCard> {
                             children: [
                               // Strike-through price (only if on sale)
                               if (isOnSale)
-                                SizedBox(
-                                  height: 13,
-                                  child: Text(
-                                    _formatPrice(
-                                      product['previous_price'] ??
-                                          product['originalPrice'],
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      decoration: TextDecoration.lineThrough,
-                                      color: Colors.grey[600],
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                Text(
+                                  _formatPrice(
+                                    product['previous_price'] ??
+                                        product['originalPrice'],
                                   ),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    decoration: TextDecoration.lineThrough,
+                                    color: Colors.grey[600],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              if (isOnSale) const SizedBox(height: 1),
                               Text(
                                 _formatPrice(
                                   product['price'] ??
@@ -256,48 +253,47 @@ class _ListingProductCardState extends State<ListingProductCard> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 8),
                         _isOutOfStock(product)
                             ? Container(
-                                width: 30,
-                                height: 30,
+                                width: 34,
+                                height: 34,
                                 decoration: BoxDecoration(
                                   color: Colors.grey[400],
-                                  borderRadius: BorderRadius.circular(7),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Center(
                                   child: Icon(
                                     Icons.shopping_cart,
                                     color: Colors.white,
-                                    size: 17,
+                                    size: 18,
                                   ),
                                 ),
                               )
                             : GestureDetector(
-                                onTap:
-                                    (_isQuickAdding || _isOutOfStock(product))
+                                onTap: (_isQuickAdding || _isOutOfStock(product))
                                     ? null
                                     : () => _handleQuickAdd(context),
                                 child: Container(
-                                  width: 30,
-                                  height: 30,
+                                  width: 34,
+                                  height: 34,
                                   decoration: BoxDecoration(
                                     color: _isOutOfStock(product)
                                         ? Colors.grey[400]
                                         : const Color(0xFF151D51),
-                                    borderRadius: BorderRadius.circular(7),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Center(
                                     child: _isQuickAdding
                                         ? const SizedBox(
-                                            width: 14,
-                                            height: 14,
+                                            width: 16,
+                                            height: 16,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
                                               valueColor:
                                                   AlwaysStoppedAnimation<Color>(
-                                                    Colors.white,
-                                                  ),
+                                                Colors.white,
+                                              ),
                                             ),
                                           )
                                         : Icon(
@@ -305,7 +301,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
                                                 ? Icons.block
                                                 : Icons.shopping_cart,
                                             color: Colors.white,
-                                            size: 17,
+                                            size: 18,
                                           ),
                                   ),
                                 ),
@@ -379,10 +375,13 @@ class _ListingProductCardState extends State<ListingProductCard> {
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
-      NavigationService.instance.switchToTab(
-        2,
-      ); // Cart is now at index 2 (after removing wishlist)
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Added to cart'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
@@ -738,8 +737,13 @@ class _ProductListCardState extends State<ProductListCard> {
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
-      NavigationService.instance.switchToTab(2);
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Added to cart'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
@@ -793,29 +797,11 @@ String _formatPrice(dynamic v) {
 Widget _buildProductImage(Map<String, dynamic> product) {
   final thumb = (product['thumbnail'] ?? product['image'])?.toString();
   if (thumb == null || thumb.isEmpty) {
-    return CachedNetworkImage(
-      imageUrl:
-          'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
+    return Image.asset(
+      'assets/images/no_image.png',
       width: double.infinity,
       height: 124,
       fit: BoxFit.contain,
-      placeholder: (context, url) => Container(
-        width: double.infinity,
-        height: 124,
-        color: Colors.grey[200],
-        child: const Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      ),
-      errorWidget: (context, url, error) => SizedBox(
-        width: double.infinity,
-        height: 105,
-        child: _imageFallback(),
-      ),
     );
   }
 
@@ -838,17 +824,11 @@ Widget _buildProductImage(Map<String, dynamic> product) {
           ),
         ),
       ),
-      errorWidget: (context, url, error) => CachedNetworkImage(
-        imageUrl:
-            'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg',
+      errorWidget: (context, url, error) => Image.asset(
+        'assets/images/no_image.png',
         width: double.infinity,
-        height: 105,
+        height: 124,
         fit: BoxFit.contain,
-        errorWidget: (context, url, error) => SizedBox(
-          width: double.infinity,
-          height: 105,
-          child: _imageFallback(),
-        ),
       ),
     );
   }
@@ -864,5 +844,10 @@ Widget _buildProductImage(Map<String, dynamic> product) {
 }
 
 Widget _imageFallback() {
-  return Center(child: Icon(Icons.image, color: Colors.grey[400], size: 35));
+  return Center(
+    child: Image.asset(
+      'assets/images/no_image.png',
+      fit: BoxFit.contain,
+    ),
+  );
 }

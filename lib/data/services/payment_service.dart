@@ -138,6 +138,7 @@ class PaymentService {
       // Get user email
       final user = await StorageService.getUserData();
       final email = user?.email;
+      final userId = user?.id; // Add user_id
       if (email == null || email.isEmpty) {
         throw ApiException(message: 'User email not found', statusCode: 400);
       }
@@ -153,6 +154,7 @@ class PaymentService {
           'cardholderName': cardholderName,
           'orderid': orderId, // Send integer order ID, not order number string
           'email': email,
+          'user_id': userId, // Add user_id
         },
         contentType: 'application/json',
         requireAuth: true,
@@ -459,6 +461,7 @@ class PaymentService {
       if (enableGooglePayTokenApi) {
         final user = await StorageService.getUserData();
         final email = user?.email;
+        final userId = user?.id;
         if (email == null || email.isEmpty) {
           throw ApiException(message: 'User email not found', statusCode: 400);
         }
@@ -469,6 +472,7 @@ class PaymentService {
             'token': tokenBase64,
             'orderid': orderNumber, // using order_number as orderid
             'email': email,
+            'user_id': userId,
           },
           contentType: 'application/json',
           requireAuth: true,
@@ -595,6 +599,7 @@ class PaymentService {
       // Get user email
       final user = await StorageService.getUserData();
       final email = user?.email;
+      final userId = user?.id;
       if (email == null || email.isEmpty) {
         throw ApiException(message: 'User email not found', statusCode: 400);
       }
@@ -607,6 +612,7 @@ class PaymentService {
           'token': tokenBase64,
           'orderid': orderNumber,
           'email': email,
+          'user_id': userId,
         },
         contentType: 'application/json',
         requireAuth: true,
@@ -718,6 +724,7 @@ class PaymentService {
       // Get user email
       final user = await StorageService.getUserData();
       final email = user?.email;
+      final userId = user?.id;
       if (email == null || email.isEmpty) {
         throw ApiException(message: 'User email not found', statusCode: 400);
       }
@@ -731,6 +738,7 @@ class PaymentService {
         'amount': amount,
         'currency': currency,
         'email': email,
+        'user_id': userId,
       };
 
       // Add payment token - REQUIRED for PayPal (like Google Pay)

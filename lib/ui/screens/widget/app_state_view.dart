@@ -41,7 +41,7 @@ class AppStateView extends StatelessWidget {
     this.onPrimaryAction,
     this.secondaryActionLabel,
     this.onSecondaryAction,
-    this.showPullToRefreshHint = true,
+    this.showPullToRefreshHint = false,
     this.child,
   });
 

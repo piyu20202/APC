@@ -363,8 +363,13 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
-      NavigationService.instance.switchToTab(2);
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Added to cart'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
@@ -489,5 +494,14 @@ Widget _buildProductImage(Map<String, dynamic> product) {
 }
 
 Widget _imageFallback() {
-  return Center(child: Icon(Icons.image, color: Colors.grey[400], size: 40));
+  return Container(
+    color: Colors.grey[100],
+    child: Image.asset(
+      'assets/images/no_image.png',
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => Center(
+        child: Icon(Icons.image, color: Colors.grey[400], size: 40),
+      ),
+    ),
+  );
 }

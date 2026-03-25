@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'manuals_listdownload.dart';
 import '../drawer_view/drawer.dart';
 
@@ -80,13 +81,21 @@ class ManualsMenuPage extends StatelessWidget {
                 subtitle: 'Watch step-by-step video tutorials',
                 icon: Icons.play_circle_outline,
                 iconColor: Colors.red,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Video tutorials coming soon'),
-                      backgroundColor: Colors.blue,
-                    ),
+                onTap: () async {
+                  final uri = Uri.parse(
+                    'https://www.youtube.com/@APC-AutomotionPlus',
                   );
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not open YouTube channel'),
+                        ),
+                      );
+                    }
+                  }
                 },
               ),
 

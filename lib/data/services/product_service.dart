@@ -21,6 +21,14 @@ class ProductService {
       Logger.info('Product details response received');
       Logger.info('Response keys: ${response.keys.join(", ")}');
 
+      // DEBUG: log raw qty_upgrade_products fields to find min/max key names
+      final rawQtyUpgrades = response['qty_upgrade_products'];
+      if (rawQtyUpgrades is List && rawQtyUpgrades.isNotEmpty) {
+        final firstItem = rawQtyUpgrades.first as Map<String, dynamic>;
+        Logger.info('qty_upgrade_products[0] keys: ${firstItem.keys.join(", ")}');
+        Logger.info('qty_upgrade_products[0] raw: $firstItem');
+      }
+
       // Extract product from response and map to strongly typed objects
       if (response.containsKey('products') && response['products'] != null) {
         Logger.info('Product found in response');

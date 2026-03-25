@@ -13,6 +13,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:pay/pay.dart';
 import 'package:flutter/services.dart';
 import 'package:apcproject/config/environment.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class OrderPriceDetailPage extends StatefulWidget {
   const OrderPriceDetailPage({super.key});
@@ -592,7 +594,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             ),
             const SizedBox(height: 12),
             // Apple Pay Option (iOS only)
-            if (Theme.of(context).platform == TargetPlatform.iOS)
+            if (!kIsWeb && Platform.isIOS)
               GestureDetector(
                 onTap: () {
                   // Only select Apple Pay, don't trigger payment yet
@@ -1011,6 +1013,16 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       }
     }
 
+    // Determine device type for backend
+    String deviceType = 'other';
+    if (!kIsWeb) {
+      if (Platform.isAndroid) {
+        deviceType = 'android';
+      } else if (Platform.isIOS) {
+        deviceType = 'iphone';
+      }
+    }
+
     // Build payload
     final payload = <String, dynamic>{
       'cart': cart,
@@ -1027,6 +1039,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       'dp': 0,
       'vendor_shipping_id': 1,
       'vendor_packing_id': 1,
+      'order_source': 'mobile',
+      'order_source_device': deviceType,
 
       // Shipping address (empty if same as billing)
       'shipping_name': '',

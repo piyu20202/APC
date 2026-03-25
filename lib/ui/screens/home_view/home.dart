@@ -415,44 +415,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         centerTitle: false,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          // Phone Call Button
-          IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: () async {
-              // Get phone number from page_settings (already saved in shared preferences)
-              final phoneNumber = _settings?.pageSettings.phone;
-
-              if (phoneNumber != null && phoneNumber.isNotEmpty) {
-                // Remove spaces and format for tel: URI
-                final formattedPhone = phoneNumber.replaceAll(' ', '');
-                final uri = Uri.parse('tel:$formattedPhone');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri);
-                  return;
-                } else {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Unable to make phone call')),
-                  );
-                }
-              } else {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Phone number not available')),
-                );
-              }
-            },
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF151D51),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.phone, color: Colors.white, size: 18),
-            ),
-            tooltip: 'Call Us',
-          ),
           // Trader upgrade button (only for non-traders)
           if (!_isTrader)
             Padding(
@@ -1035,44 +997,36 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           ),
                           child:
                               category.image != null &&
-                                  category.image!.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: category.image!,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
-                                    width: double.infinity,
-                                    color: Colors.grey[200],
-                                    child: const Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) =>
-                                      Container(
+                                      category.image!.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: category.image!,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
                                         width: double.infinity,
-                                        color: Colors.grey[300],
-                                        child: const Icon(
-                                          Icons.image,
-                                          color: Colors.grey,
-                                          size: 32,
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                )
-                              : Container(
-                                  width: double.infinity,
-                                  color: Colors.grey[300],
-                                  child: const Icon(
-                                    Icons.category,
-                                    color: Colors.grey,
-                                    size: 32,
-                                  ),
-                                ),
+                                      errorWidget: (context, url, error) =>
+                                          Image.asset(
+                                        'assets/images/no_image.png',
+                                        width: double.infinity,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      'assets/images/no_image.png',
+                                      width: double.infinity,
+                                      fit: BoxFit.contain,
+                                    ),
                         ),
                       ),
                       // Category name at the bottom

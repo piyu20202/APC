@@ -79,6 +79,9 @@ class ApiEndpoints {
   static const String processPayPal = '/user/payment/paypal/process';
   static const String verifyPayPalStatus = '/user/payment/paypal/verify-status';
 
+  // Manuals endpoint
+  static const String manuals = '/user/manuals';
+
   // Add more endpoints here as needed
   // static const String register = '/register';
   // static const String forgotPassword = '/forgot-password';

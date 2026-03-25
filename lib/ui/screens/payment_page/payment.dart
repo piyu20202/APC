@@ -662,16 +662,16 @@ class _PaymentPageState extends State<PaymentPage> {
                         _buildSecurityNotice(),
                         const SizedBox(height: 24),
 
+                        // Submit Payment Button
+                        _buildSubmitButton(),
+                        const SizedBox(height: 24),
+
                         // Divider with "OR" text
                         _buildDivider(),
                         const SizedBox(height: 24),
 
                         // PayPal Payment Button
                         _buildPayPalButton(),
-                        const SizedBox(height: 24),
-
-                        // Submit Payment Button
-                        _buildSubmitButton(),
                       ],
                     ),
                   ),

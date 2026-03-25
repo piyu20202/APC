@@ -47,6 +47,7 @@ dependencies:
   cybersource_inapp:
     path: packages/cybersource_inapp
   flutter_paypal: ^0.2.1
+  syncfusion_flutter_pdfviewer: ^31.1.19
 
 dev_dependencies:
   flutter_test:

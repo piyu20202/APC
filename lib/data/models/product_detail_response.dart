@@ -144,6 +144,7 @@ class QtyUpgradeProduct {
   final String upgradeShortDescription;
   final double price;
   final int outOfStock;
+  final int minQuantity;
 
   const QtyUpgradeProduct({
     required this.id,
@@ -160,6 +161,7 @@ class QtyUpgradeProduct {
     required this.upgradeShortDescription,
     required this.price,
     required this.outOfStock,
+    required this.minQuantity,
   });
 
   factory QtyUpgradeProduct.fromJson(Map<String, dynamic> json) {
@@ -178,6 +180,7 @@ class QtyUpgradeProduct {
       upgradeShortDescription: _asString(json['upgradeShortDescription']),
       price: _asDouble(json['price']),
       outOfStock: _asInt(json['out_of_stock']),
+      minQuantity: _asInt(json['minQuantity'] ?? json['min_qty'] ?? json['productBaseQuantity']),
     );
   }
 }

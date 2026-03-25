@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:apcproject/services/storage_service.dart';
 
 class OrderPlacedPage extends StatelessWidget {
   const OrderPlacedPage({super.key});
@@ -44,55 +45,17 @@ class OrderPlacedPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              // Loader only (no success message)
-              const SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
-                ),
+              // Success Checkbox
+              const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 80,
               ),
               const SizedBox(height: 24),
 
-              // Order Details
+              // Order Details (commented out in original code)
               /*
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withValues(alpha: 0.1),
-                      spreadRadius: 1,
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Order Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF151D51),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    _buildOrderDetailRow('Order Number', '#APC-2024-001'),
-                    _buildOrderDetailRow('Order Date', 'January 15, 2024'),
-                    _buildOrderDetailRow('Total Amount', '\$1,525.00'),
-                    _buildOrderDetailRow('Payment Method', 'Credit Card'),
-                    _buildOrderDetailRow('Status', 'Confirmed'),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 32),
+              Container( ... )
               */
 
               // Thank You Message
@@ -104,10 +67,25 @@ class OrderPlacedPage extends StatelessWidget {
 
               const SizedBox(height: 8),
 
-              const Text(
-                'Invoice Number: #1234567',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-                textAlign: TextAlign.center,
+              FutureBuilder<Map<String, dynamic>?>(
+                future: StorageService.getOrderData(),
+                builder: (context, snapshot) {
+                  String invoiceNumber = '';
+                  if (snapshot.hasData && snapshot.data != null) {
+                    final order = snapshot.data!['order'] as Map<String, dynamic>?;
+                    invoiceNumber = order?['order_number'] as String? ?? '';
+                  }
+                  
+                  if (invoiceNumber.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Text(
+                    'Invoice Number: #$invoiceNumber',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  );
+                },
               ),
 
               const SizedBox(height: 40),

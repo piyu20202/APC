@@ -31,6 +31,7 @@ class _DetailViewState extends State<DetailView> {
   final ProductService _productService = ProductService();
   final CartService _cartService = CartService();
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _upgradeAddonKey = GlobalKey();
 
   static const String _productImageBaseUrl =
       'https://www.gurgaonit.com/apc_production_dev/assets/images/products/';
@@ -137,12 +138,14 @@ class _DetailViewState extends State<DetailView> {
   }
 
   List<int> _quantityOptionsFor(QtyUpgradeProduct item) {
-    final baseQuantity = math.max(item.productBaseQuantity, 1);
-    final maxQuantity = item.maxQuantity >= baseQuantity
-        ? item.maxQuantity
-        : baseQuantity;
-    final totalOptions = math.max(1, maxQuantity - baseQuantity + 1);
-    return List<int>.generate(totalOptions, (index) => baseQuantity + index);
+    final minQty = (item.minQuantity > 0
+            ? item.minQuantity
+            : item.productBaseQuantity)
+        .clamp(1, 9999);
+    final maxQty =
+        item.maxQuantity >= minQty ? item.maxQuantity.clamp(minQty, 9999) : minQty;
+    final totalOptions = (maxQty - minQty + 1).clamp(1, 9999);
+    return List<int>.generate(totalOptions, (index) => minQty + index);
   }
 
   double _calculateExtraCost(QtyUpgradeProduct item, int quantity) {
@@ -201,9 +204,14 @@ class _DetailViewState extends State<DetailView> {
         _selectedQtyForCustomise
           ..clear()
           ..addEntries(
-            detailResponse.qtyUpgradeProducts.map(
-              (item) => MapEntry(item.id, item.productBaseQuantity),
-            ),
+            detailResponse.qtyUpgradeProducts.map((item) {
+              // Use the first valid option (minQuantity or productBaseQuantity)
+              final minQty = item.minQuantity > 0
+                  ? item.minQuantity
+                  : item.productBaseQuantity;
+              final startQty = minQty.clamp(1, 9999);
+              return MapEntry(item.id, startQty);
+            }),
           );
 
         // Pre-select first upgrade product by default (if upgrades exist)
@@ -699,6 +707,9 @@ class _DetailViewState extends State<DetailView> {
               children: [
                 SingleChildScrollView(
                   controller: _scrollController,
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
                   padding: const EdgeInsets.only(bottom: 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -712,8 +723,12 @@ class _DetailViewState extends State<DetailView> {
                       if (_isKitProduct) ...[
                         _buildKitIncludes(),
                         _buildCustomiseYourKit(),
-                        if (_shouldShowUpgradesSection) _buildUpgrades(),
-                        if (_addonProducts.isNotEmpty) _buildAddOnItems(),
+                        if (_shouldShowUpgradesSection) _buildUpgrades(
+                          key: _upgradeAddonKey,
+                        ),
+                        if (_addonProducts.isNotEmpty) _buildAddOnItems(
+                          key: _shouldShowUpgradesSection ? null : _upgradeAddonKey,
+                        ),
                       ],
 
                       // Product Information section
@@ -860,6 +875,7 @@ class _DetailViewState extends State<DetailView> {
                   child: ListView.builder(
                     shrinkWrap: true,
                     scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
                     itemCount: images.length,
                     itemBuilder: (context, index) {
                       final imageUrl = images[index];
@@ -994,10 +1010,18 @@ class _DetailViewState extends State<DetailView> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  if (_scrollController.hasClients) {
+                  final keyContext = _upgradeAddonKey.currentContext;
+                  if (keyContext != null) {
+                    Scrollable.ensureVisible(
+                      keyContext,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeOut,
+                      alignment: 0.0,
+                    );
+                  } else if (_scrollController.hasClients) {
                     final pos = _scrollController.position;
                     _scrollController.animateTo(
-                      (pos.pixels + 300).clamp(0.0, pos.maxScrollExtent),
+                      pos.maxScrollExtent,
                       duration: const Duration(milliseconds: 500),
                       curve: Curves.easeOut,
                     );
@@ -1530,15 +1554,10 @@ class _DetailViewState extends State<DetailView> {
         color: Colors.grey[50],
         border: Border(top: BorderSide(color: Colors.grey[300]!)),
       ),
-      child: ConstrainedBox(
-        constraints: maxHeight != null
-            ? BoxConstraints(maxHeight: maxHeight)
-            : const BoxConstraints(),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
               // Customise your Kit Summary
               if (hasCustomise) ...[
                 ...customiseData
@@ -1617,8 +1636,6 @@ class _DetailViewState extends State<DetailView> {
               ],
             ],
           ),
-        ),
-      ),
     );
   }
 
@@ -1858,9 +1875,12 @@ class _DetailViewState extends State<DetailView> {
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<int>(
-                                    value: quantityOptions.contains(selectedQty)
-                                        ? selectedQty
-                                        : quantityOptions.first,
+                                    value: () {
+                                      if (quantityOptions.isEmpty) return null;
+                                      return quantityOptions.contains(selectedQty)
+                                          ? selectedQty
+                                          : quantityOptions.first;
+                                    }(),
                                     isDense: true,
                                     isExpanded: true,
                                     iconSize: 14,
@@ -1933,7 +1953,7 @@ class _DetailViewState extends State<DetailView> {
     );
   }
 
-  Widget _buildUpgrades() {
+  Widget _buildUpgrades({Key? key}) {
     // Only relevant for kit products
     if (!_shouldShowUpgradesSection) {
       return const SizedBox.shrink();
@@ -1944,6 +1964,7 @@ class _DetailViewState extends State<DetailView> {
         _upgradeProducts.isNotEmpty;
 
     return Container(
+      key: key,
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(16),
       color: Colors.white,
@@ -2332,7 +2353,7 @@ class _DetailViewState extends State<DetailView> {
     );
   }
 
-  Widget _buildAddOnItems() {
+  Widget _buildAddOnItems({Key? key}) {
     if (_addonProducts.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -2344,6 +2365,7 @@ class _DetailViewState extends State<DetailView> {
     }
 
     return Container(
+      key: key,
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(16),
       color: Colors.white,
@@ -2518,48 +2540,50 @@ class _DetailViewState extends State<DetailView> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // Right-side: qty dropdown + price stacked, fixed width
                       SizedBox(
-                        width: 88,
+                        width: 100,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            SizedBox(
-                              width: 72,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(color: Colors.grey[300]!),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<int>(
-                                    value: quantity,
-                                    isDense: true,
-                                    isExpanded: true,
-                                    items: List.generate(10, (i) {
-                                      final qty = i + 1;
-                                      return DropdownMenuItem<int>(
-                                        value: qty,
-                                        child: Text(
-                                          '$qty',
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                      );
-                                    }),
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _addOnQuantities[index] = val ?? 1;
-                                      });
-                                    },
-                                  ),
+                            // Qty dropdown — full width of this column
+                            Container(
+                              width: 100,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: Colors.grey[300]!),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<int>(
+                                  value: quantity,
+                                  isDense: true,
+                                  isExpanded: true,
+                                  items: List.generate(10, (i) {
+                                    final qty = i + 1;
+                                    return DropdownMenuItem<int>(
+                                      value: qty,
+                                      child: Text(
+                                        'Qty: $qty',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                    );
+                                  }),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _addOnQuantities[index] = val ?? 1;
+                                    });
+                                  },
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
+                            // Unit price label
                             const Text(
                               'Unit Price',
                               maxLines: 1,
@@ -2572,21 +2596,25 @@ class _DetailViewState extends State<DetailView> {
                               ),
                             ),
                             const SizedBox(height: 1),
-                            Text(
-                              '\$${item.unitPrice.toStringAsFixed(2)}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
+                            // Price — always fits since parent width is fixed
+                            FittedBox(
+                              alignment: Alignment.centerRight,
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '\$${item.unitPrice.toStringAsFixed(2)}',
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
                               ),
                             ),
                             if (item.originalPrice != null) ...[
                               const SizedBox(height: 1),
                               Text(
                                 '\$${item.originalPrice!.toStringAsFixed(2)}',
+                                textAlign: TextAlign.right,
                                 style: TextStyle(
                                   fontSize: 9,
                                   decoration: TextDecoration.lineThrough,
@@ -2658,10 +2686,13 @@ class _DetailViewState extends State<DetailView> {
       NavigationService.instance.refreshCartItems();
 
       if (!mounted) return;
-      NavigationService.instance.switchToTab(
-        2,
-      ); // Cart is now at index 2 (after removing wishlist)
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Added to cart'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       debugPrint('Add-to-cart failed: $e');
       if (mounted) {
