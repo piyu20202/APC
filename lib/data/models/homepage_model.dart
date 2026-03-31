@@ -208,12 +208,11 @@ class Category {
             ? json['page_open'] as String
             : json['page_open']?.toString() ?? '',
         slug: json['slug']?.toString(),
-        displayOrder: () {
-          final v = json['display_order'] ?? json['displayOrder'];
-          if (v == null) return 0;
-          if (v is int) return v;
-          return int.tryParse(v.toString()) ?? 0;
-        }(),
+        displayOrder: json['display_order'] is int
+            ? json['display_order'] as int
+            : int.tryParse(json['display_order']?.toString() ?? '') ??
+                int.tryParse(json['displayOrder']?.toString() ?? '') ??
+                0,
         subcategories: json['subcategories'] != null
             ? (json['subcategories'] as List<dynamic>)
                   .map(
@@ -487,6 +486,8 @@ class LatestProduct {
   final String? createdAt;
   final String slugUrl;
   final String? shortDescription;
+  final int showFreightCostIcon;
+  final int showFreeShippingIcon;
 
   LatestProduct({
     required this.id,
@@ -504,6 +505,8 @@ class LatestProduct {
     required this.createdAt,
     required this.slugUrl,
     this.shortDescription,
+    this.showFreightCostIcon = 0,
+    this.showFreeShippingIcon = 0,
   });
 
   factory LatestProduct.fromJson(Map<String, dynamic> json) {
@@ -538,6 +541,12 @@ class LatestProduct {
       createdAt: json['created_at']?.toString(),
       slugUrl: (json['slug_url'] ?? '').toString(),
       shortDescription: json['short_description']?.toString(),
+      showFreightCostIcon: json['show_freight_cost_icon'] is int
+          ? json['show_freight_cost_icon'] as int
+          : int.tryParse(json['show_freight_cost_icon']?.toString() ?? '') ?? 0,
+      showFreeShippingIcon: json['show_free_shipping_icon'] is int
+          ? json['show_free_shipping_icon'] as int
+          : int.tryParse(json['show_free_shipping_icon']?.toString() ?? '') ?? 0,
     );
   }
 
@@ -558,6 +567,8 @@ class LatestProduct {
       'created_at': createdAt,
       'slug_url': slugUrl,
       'short_description': shortDescription,
+      'show_freight_cost_icon': showFreightCostIcon,
+      'show_free_shipping_icon': showFreeShippingIcon,
     };
   }
 }

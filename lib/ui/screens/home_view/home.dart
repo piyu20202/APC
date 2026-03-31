@@ -1110,6 +1110,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           'onSale': apiProduct.previousPrice > 0 &&
                               apiProduct.previousPrice > apiProduct.price,
                           'out_of_stock': apiProduct.outOfStock,
+                          'show_freight_cost_icon': apiProduct.showFreightCostIcon,
+                          'show_free_shipping_icon': apiProduct.showFreeShippingIcon,
                         };
                         return SizedBox(
                           width: 180,
@@ -1319,6 +1321,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                 'On sale — description coming soon.',
                             'onSale': true,
                             'out_of_stock': apiProduct.outOfStock,
+                            'show_freight_cost_icon': apiProduct.showFreightCostIcon,
+                            'show_free_shipping_icon': apiProduct.showFreeShippingIcon,
                           };
                           return SizedBox(
                             width: 180,

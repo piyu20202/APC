@@ -224,6 +224,8 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
               p.shortDescription ?? 'On sale — limited time offer.',
           'onSale': true,
           'out_of_stock': p.outOfStock,
+          'show_freight_cost_icon': p.showFreightCostIcon,
+          'show_free_shipping_icon': p.showFreeShippingIcon,
         };
         return ListingProductCard(product: mapped);
       },
@@ -251,6 +253,8 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
               p.shortDescription ?? 'On sale — limited time offer.',
           'onSale': true,
           'out_of_stock': p.outOfStock,
+          'show_freight_cost_icon': p.showFreightCostIcon,
+          'show_free_shipping_icon': p.showFreeShippingIcon,
         };
         return ProductListCard(product: mapped);
       },

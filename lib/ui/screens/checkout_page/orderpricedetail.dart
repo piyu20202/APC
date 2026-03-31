@@ -40,7 +40,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   double? _gstAmount;
   double? _totalInclGst;
   double? _totalPayable;
-  bool _hasPendingFreightQuote = false;
+  bool _isPayLater = false;
+  bool _showFreeShippingLabel = false;
+  double? _gstRate;
 
   // Google Pay variables
   Pay? _payClient;
@@ -151,11 +153,11 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             final totalWithGstStr =
                 shippingResponse['total_with_gst']?.toString() ?? '0';
 
-            final shippingCost = double.tryParse(shippingStr) ?? 0.0;
+            final shippingCost = _toDouble(shippingResponse['shipping']) ?? 0.0;
             final gstAmount = taxValue != null
                 ? double.parse(taxValue.toStringAsFixed(2))
                 : null;
-            final totalWithGst = double.tryParse(totalWithGstStr) ?? 0.0;
+            final totalWithGst = _toDouble(shippingResponse['total_with_gst']) ?? 0.0;
 
             // Get subtotal from cart data
             final totalPrice = _toDouble(cartResponse['totalPrice']);
@@ -176,7 +178,23 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 _gstAmount = gstAmount;
                 _totalInclGst = double.parse(totalWithGst.toStringAsFixed(2));
                 _totalPayable = _totalInclGst;
-                _hasPendingFreightQuote = hasPendingFreight;
+                
+                // Scenario 1 & 3: Consolidated freight detection
+                final hasPendingQuote = (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ?? 0;
+                final hasFreightIcon = (shippingResponse['show_freight_cost_icon'] as num?)?.toInt() ?? 0;
+                _isPayLater = hasFreightIcon == 1 || hasPendingQuote > 0;
+
+                // Scenario 2: Show free shipping label if it's NOT a pay later order AND (icon flag is set OR shipping cost is 0)
+                _showFreeShippingLabel = !_isPayLater &&
+                    ((shippingResponse['show_free_shipping_icon'] as num?)?.toInt() == 1 || 
+                     shippingCost == 0.0);
+                
+                // Dynamic GST calculation: (gst_amount / subtotal) * 100
+                if (gstAmount != null && totalPrice > 0) {
+                  _gstRate = (gstAmount / totalPrice) * 100;
+                } else {
+                  _gstRate = 10.0;
+                }
               });
             } else {
               // If totals are not available, keep values null
@@ -187,7 +205,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 _totalExclGst = null;
                 _gstAmount = null;
                 _totalInclGst = null;
-                _hasPendingFreightQuote = false;
+                _isPayLater = false;
               });
             }
           } catch (e) {
@@ -235,7 +253,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             totalWithGst ??
             (totalPrice + (shippingCost ?? 0.0) + (gstAmount ?? 0.0));
         _totalPayable = _totalInclGst;
-        _hasPendingFreightQuote = hasPendingFreight;
+        _isPayLater = (cartResponse['show_request_freight_cost'] as num?) != null &&
+            (cartResponse['show_request_freight_cost'] as num) > 0;
       });
     } else {
       // If totals are not available, keep values null
@@ -246,7 +265,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         _totalExclGst = null;
         _gstAmount = null;
         _totalInclGst = null;
-        _hasPendingFreightQuote = false;
+        _isPayLater = false;
       });
     }
   }
@@ -278,13 +297,11 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
               _buildPriceDetailsSection(),
               const SizedBox(height: 24),
 
-              // Order Summary Section
-              //_buildOrderSummarySection(),
-              //const SizedBox(height: 24),
-
-              // Payment Method Section
-              _buildPaymentMethodSection(),
-              const SizedBox(height: 32),
+              if (!_isPayLater) ...[
+                // Payment Method Section
+                _buildPaymentMethodSection(),
+                const SizedBox(height: 32),
+              ],
 
               // Proceed to Payment Button
               _buildProceedButton(),
@@ -346,7 +363,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
 
             // GST @ 10%
             _buildPriceRow(
-              'GST @ 10%',
+              'GST @ ${_gstRate?.toStringAsFixed(0) ?? "x"}%',
               _gstAmount != null ? '\$${_gstAmount!.toStringAsFixed(2)}' : '-',
             ),
             const SizedBox(height: 8),
@@ -477,23 +494,24 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
               ],
             ),
 
-            // Pending Freight Quote (in red) - only show if API indicates freight quote is pending
-            if (_hasPendingFreightQuote) ...[
-              const SizedBox(height: 4),
+            // Pending Freight Quote (Scenario 1 & 3)
+            if (_isPayLater) ...[
+              const SizedBox(height: 8),
               const Text(
-                '*Pending Freight Quote',
+                'Pending Freight Quote',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.red,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
 
-            // Shipping notice (only show if shipping is free)
-            if (_shippingCost == 0.0) ...[
+            // Shipping notice (Scenario 2: show ONLY if free shipping flag is set AND not pay later)
+            if (_showFreeShippingLabel && !_isPayLater) ...[
               const SizedBox(height: 12),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.green[50],
@@ -501,8 +519,12 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                   border: Border.all(color: Colors.green[200]!),
                 ),
                 child: const Text(
-                  '*This order qualifies for FREE Standard shipping',
-                  style: TextStyle(color: Colors.green, fontSize: 12),
+                  'This order qualifies for Free Standard Shipping',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -719,9 +741,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
-                'PROCEED TO PAYMENT',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            : Text(
+                _isPayLater ? 'COMPLETE ORDER' : 'PROCEED TO PAYMENT',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
       ),
     );
@@ -840,6 +862,22 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           debugPrint(
             'Saved order data keys: ${savedOrderData.keys.join(", ")}',
           );
+        }
+
+        // Scenario 1 & 3: If freight quote is pending, go straight to order success page
+        if (_isPayLater) {
+          debugPrint('Pay Later order - Navigating directly to success page');
+          await StorageService.clearCheckoutData();
+          await StorageService.clearCartData();
+          if (mounted) {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/order-placed',
+              (route) => false,
+              arguments: {'payment_method': 'Freight Quote Request (Pay Later)'},
+            );
+          }
+          return;
         }
 
         // Route to appropriate payment flow based on selected payment method

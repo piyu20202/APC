@@ -67,7 +67,7 @@ class PaymentService {
         contentType: 'application/json',
         requireAuth: true,
       );
-      Logger.info('Payment intent created successfully');
+      Logger.info('Payment intent response: ${jsonEncode(response)}');
       return response;
     } on ApiException {
       rethrow;
@@ -96,7 +96,7 @@ class PaymentService {
         contentType: 'application/json',
         requireAuth: true,
       );
-      Logger.info('Payment processed successfully');
+      Logger.info('Payment process response: ${jsonEncode(response)}');
       return response;
     } on ApiException {
       rethrow;
@@ -185,7 +185,7 @@ class PaymentService {
         Logger.info('Order data updated after payment');
       }
 
-      Logger.info('Card payment (raw) processed');
+      Logger.info('Card payment (raw) response: ${jsonEncode(response)}');
       return response;
     } on ApiException {
       rethrow;
@@ -212,7 +212,7 @@ class PaymentService {
             '${ApiEndpoints.verifyPaymentStatus}?order_number=$orderNumber',
         requireAuth: true,
       );
-      Logger.info('Payment status verified');
+      Logger.info('Payment status verification response: ${jsonEncode(response)}');
       return response;
     } on ApiException {
       rethrow;
@@ -517,6 +517,7 @@ class PaymentService {
         Logger.info('Order data updated after Google Pay payment');
       }
 
+      Logger.info('Google Pay process response: ${jsonEncode(response)}');
       // UI expects 'payment_token' key (used by checkout flow); keep it available.
       return {...response, 'payment_token': token};
     } catch (e, stackTrace) {
@@ -643,6 +644,7 @@ class PaymentService {
         Logger.info('Order data updated after Apple Pay payment');
       }
 
+      Logger.info('Apple Pay process response: ${jsonEncode(response)}');
       // UI expects 'payment_token' key (used by checkout flow)
       return {...response, 'payment_token': token};
     } catch (e, stackTrace) {
@@ -788,6 +790,7 @@ class PaymentService {
       // In production mode token is guaranteed non-null (we throw above if invalid).
       // In mock mode, token may be null, so provide empty string fallback.
       final String safeToken = token ?? '';
+      Logger.info('PayPal process response: ${jsonEncode(response)}');
       return {...response, 'payment_token': safeToken};
     } catch (e, stackTrace) {
       Logger.error('Failed to process PayPal payment', e);

@@ -14,6 +14,7 @@ import '../../../data/models/product_detail_response.dart';
 import '../../../data/models/settings_model.dart';
 import '../../../services/storage_service.dart';
 import '../../../core/exceptions/api_exception.dart';
+import '../widget/cart_feedback_overlay.dart';
 
 class DetailView extends StatefulWidget {
   final int productId;
@@ -864,18 +865,18 @@ class _DetailViewState extends State<DetailView> {
             ),
           ),
 
-          // Thumbnail Images - below image section, right aligned
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SizedBox(
-                  height: 60,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
+                Flexible(
+                  child: SizedBox(
+                    height: 60,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
                     itemCount: images.length,
                     itemBuilder: (context, index) {
                       final imageUrl = images[index];
@@ -957,22 +958,23 @@ class _DetailViewState extends State<DetailView> {
                                             color: Colors.grey,
                                           ),
                                         );
-                                      },
-                                    ),
+                                        },
+                                      ),
+                              ),
                             ),
-                          ),
-                        ),
-                      );
-                    },
+                            ),
+                        );
+                      },
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildProductDetails() {
     if (_product == null) return const SizedBox.shrink();
@@ -1076,75 +1078,87 @@ class _DetailViewState extends State<DetailView> {
             ),
           ),
           const SizedBox(height: 8),
-          // Shipping Display Section (conditional)
+          // Shipping Display Section
           if ((_product?.showFreeShippingIcon ?? 0) == 1 ||
-              (_product?.showFreightCostIcon ?? 0) == 1)
-            Row(
+              (_product?.showFreightCostIcon ?? 0) == 1) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
               children: [
-                // FREE Shipping Badge
+                // Free Shipping Badge
                 if ((_product?.showFreeShippingIcon ?? 0) == 1)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.yellow[600],
+                      color: const Color(0xFFE8F5E9), // Light green
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: [
+                      children: const [
                         Icon(
-                          Icons.local_shipping,
-                          color: Colors.green[800],
+                          Icons.check_circle_outline,
+                          color: Color(0xFF2E7D32),
                           size: 16,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 6),
                         Text(
-                          'FREE',
+                          'Free Shipping',
                           style: TextStyle(
-                            color: Colors.green[800],
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Shipping',
-                          style: TextStyle(
-                            color: Colors.green[800],
-                            fontSize: 12,
+                            color: Color(0xFF2E7D32),
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
                   ),
-                // Spacing between badges
-                if ((_product?.showFreeShippingIcon ?? 0) == 1 &&
-                    (_product?.showFreightCostIcon ?? 0) == 1)
-                  const SizedBox(width: 12),
-                // Freight Delivery Icon
+                // Freight Delivery Badge
                 if ((_product?.showFreightCostIcon ?? 0) == 1)
-                  Row(
-                    children: [
-                      Icon(Icons.local_shipping, color: Colors.red, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Freight Delivery',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8EAF6), // Light navy
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF151D51).withValues(alpha: 0.2),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.info_outline, color: Colors.red, size: 14),
-                    ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(
+                          Icons.local_shipping_outlined,
+                          color: Color(0xFF151D51),
+                          size: 16,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Freight Delivery',
+                          style: TextStyle(
+                            color: Color(0xFF151D51),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.info_outline,
+                          color: Color(0xFF151D51),
+                          size: 14,
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),
+          ],
           const SizedBox(height: 8),
           Row(
             children: [
@@ -2686,13 +2700,9 @@ class _DetailViewState extends State<DetailView> {
       NavigationService.instance.refreshCartItems();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Added to cart'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      if (mounted) {
+        CartFeedbackOverlay.showSuccess(context);
+      }
     } catch (e) {
       debugPrint('Add-to-cart failed: $e');
       if (mounted) {

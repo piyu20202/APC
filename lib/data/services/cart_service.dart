@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/exceptions/api_exception.dart';
@@ -107,7 +108,7 @@ class CartService {
         contentType: 'application/json',
         requireAuth: false,
       );
-      Logger.info('Calculate-shipping response keys: ${response.keys.join(", ")}');
+      Logger.info('Calculate-shipping response: ${jsonEncode(response)}');
       return response;
     } on ApiException {
       rethrow;

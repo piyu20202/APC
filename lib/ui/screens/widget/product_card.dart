@@ -6,6 +6,7 @@ import '../../../data/services/cart_service.dart';
 import '../../../data/services/cart_payload_builder.dart';
 import '../../../services/storage_service.dart';
 import '../../../services/navigation_service.dart';
+import 'cart_feedback_overlay.dart';
 
 class ProductCard extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -172,6 +173,13 @@ class _ProductCardState extends State<ProductCard> {
                         ),
                       ),
                     ),
+
+                  // Shipping Labels (Freight / Free Shipping)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: _buildShippingLabels(product),
+                  ),
                 ],
               ),
             );
@@ -408,6 +416,7 @@ class _ProductCardState extends State<ProductCard> {
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
+      /*
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Added to cart'),
@@ -415,6 +424,10 @@ class _ProductCardState extends State<ProductCard> {
           duration: Duration(seconds: 2),
         ),
       );
+      */
+      if (context.mounted) {
+        CartFeedbackOverlay.showSuccess(context);
+      }
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
@@ -447,6 +460,73 @@ bool _isOutOfStock(Map<String, dynamic> product) {
     return outOfStock == '1' || outOfStock.toLowerCase() == 'true';
   }
   return false;
+}
+
+Widget _buildShippingLabels(Map<String, dynamic> product) {
+  final showFreight = product['show_freight_cost_icon'] == 1 ||
+      product['show_freight_cost_icon'] == '1';
+  final showFreeShipping = product['show_free_shipping_icon'] == 1 ||
+      product['show_free_shipping_icon'] == '1';
+
+  if (!showFreight && !showFreeShipping) return const SizedBox.shrink();
+
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (showFreight)
+        _buildShippingLabel(
+          text: 'Freight Delivery',
+          icon: Icons.local_shipping,
+          color: const Color(0xFF151D51),
+        ),
+      if (showFreeShipping)
+        Padding(
+          padding: EdgeInsets.only(top: showFreight ? 2 : 0),
+          child: _buildShippingLabel(
+            text: 'Free Shipping',
+            icon: Icons.check_circle_outline,
+            color: const Color(0xFF2E7D32),
+          ),
+        ),
+    ],
+  );
+}
+
+Widget _buildShippingLabel({
+  required String text,
+  required IconData icon,
+  required Color color,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.9),
+      borderRadius: BorderRadius.circular(4),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 2,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 10, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            color: color,
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 num _readNum(dynamic v) {

@@ -106,6 +106,8 @@ class _SearchScreenState extends State<SearchScreen> {
               product.previousPrice > 0 &&
               product.previousPrice > product.price,
           'out_of_stock': product.outOfStock,
+          'show_freight_cost_icon': product.showFreightCostIcon,
+          'show_free_shipping_icon': product.showFreeShippingIcon,
         };
       }).toList();
 

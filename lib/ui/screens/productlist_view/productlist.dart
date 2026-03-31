@@ -190,7 +190,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
             'thumbnail': p.thumbnail,
             'category': widget.title ?? '',
             'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
-            'freightDelivery': false,
+            'show_freight_cost_icon': p.showFreightCostIcon,
+            'show_free_shipping_icon': p.showFreeShippingIcon,
             'out_of_stock': p.outOfStock,
           };
         }).toList();
@@ -226,7 +227,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
             'thumbnail': p.thumbnail,
             'category': widget.title ?? '',
             'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
-            'freightDelivery': false,
+            'show_freight_cost_icon': p.showFreightCostIcon,
+            'show_free_shipping_icon': p.showFreeShippingIcon,
             'out_of_stock': p.outOfStock,
           };
         }).toList();

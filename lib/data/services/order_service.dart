@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/exceptions/api_exception.dart';
@@ -14,7 +15,7 @@ class OrderService {
         contentType: 'application/json',
         requireAuth: true, // User must be logged in
       );
-      Logger.info('Store-order response keys: ${response.keys.join(", ")}');
+      Logger.info('Store-order response: ${jsonEncode(response)}');
       return response;
     } on ApiException {
       rethrow;

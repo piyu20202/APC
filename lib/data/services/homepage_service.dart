@@ -236,6 +236,8 @@ class HomepageService {
           slugUrl: '/product-$baseId-$i',
           shortDescription:
               'This is a sample product description for testing purposes.',
+          showFreightCostIcon: 0,
+          showFreeShippingIcon: 0,
         ),
       );
     }

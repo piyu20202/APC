@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:apcproject/services/storage_service.dart';
+import '../profile_page/myorder.dart';
 
 class OrderPlacedPage extends StatelessWidget {
   const OrderPlacedPage({super.key});
@@ -126,14 +127,11 @@ class OrderPlacedPage extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        // Show toast message that feature is under development
-                        Fluttertoast.showToast(
-                          msg: 'Track Order is under development',
-                          toastLength: Toast.LENGTH_SHORT,
-                          gravity: ToastGravity.BOTTOM,
-                          backgroundColor: Colors.orange,
-                          textColor: Colors.white,
-                          fontSize: 16.0,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MyOrdersPage(),
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -145,7 +143,7 @@ class OrderPlacedPage extends StatelessWidget {
                         ),
                       ),
                       child: const Text(
-                        'Track Order',
+                        'My Orders',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
