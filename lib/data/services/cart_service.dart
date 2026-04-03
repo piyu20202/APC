@@ -96,6 +96,29 @@ class CartService {
     }
   }
 
+  /// Call /user/cart/coupon/remove to remove an applied coupon
+  Future<Map<String, dynamic>> removeCoupon(
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      Logger.info('Calling remove-coupon API');
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.removeCoupon,
+        body: payload,
+        contentType: 'application/json',
+        requireAuth: false,
+      );
+      Logger.info('Remove-coupon response keys: ${response.keys.join(", ")}');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e, stackTrace) {
+      Logger.error('Failed to call remove-coupon API', e);
+      Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
+
   /// Call /user/cart/shipping to calculate shipping, tax, and total with GST
   Future<Map<String, dynamic>> calculateShipping(
     Map<String, dynamic> payload,

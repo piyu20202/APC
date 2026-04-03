@@ -71,7 +71,10 @@ class MyApp extends StatelessWidget {
           '/signup': (context) => const SignupScreen(),
           '/checkout': (context) => const CheckoutPage(),
           '/order-price-detail': (context) => const OrderPriceDetailPage(),
-          '/payment': (context) => const PaymentPage(),
+          '/payment': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+            return PaymentPage(arguments: args);
+          },
           '/order-placed': (context) => const OrderPlacedPage(),
           '/manuals': (context) => const ManualsMenuPage(),
         },

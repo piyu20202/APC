@@ -48,7 +48,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
             'invoice':
                 order['invoice_number'] ?? order['quotation_number'] ?? 'N/A',
             'date': _formatDate(order['invoice_date'] ?? order['quotation_date']),
-            'total': _formatAmount(order['pay_amount']),
+            'total': _grandTotal(order),
             'status': _mapPaymentStatus(order['payment_status']),
             'statusColor': _getStatusColor(order['payment_status']),
             'rawData': order, // Store raw data for details
@@ -135,18 +135,41 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     return 'Jan';
   }
 
-  String _formatAmount(dynamic amount) {
-    if (amount == null) {
-      return '\$0.00';
-    }
-    try {
-      final numValue = amount is num ? amount : double.parse(amount.toString());
-      // Format with $ symbol and 2 decimal places
-      return '\$${numValue.toStringAsFixed(2)}';
-    } catch (e) {
-      return '\$0.00';
-    }
+  double _safeNum(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(
+          v.toString().replaceAll(',', '').replaceAll('\$', '').trim(),
+        ) ??
+        0.0;
   }
+
+  /// Computes the correct grand total: subtotal + tax + shipping − discount.
+  /// Mirrors the same logic used in the Order Details summary card.
+  String _grandTotal(dynamic order) {
+    if (order == null) return '\$0.00';
+
+    final payAmount = _safeNum(order['pay_amount']);
+    final taxAmount = _safeNum(order['tax_amount']);
+    final shipping  = _safeNum(order['shipping_cost']);
+    final discount  = _safeNum(order['discount']);
+
+    // If the API already provides a populated breakdown, compute from parts
+    if (taxAmount > 0 || shipping > 0 || discount > 0) {
+      final grand = (payAmount + taxAmount + shipping) - discount;
+      return '\$${grand.toStringAsFixed(2)}';
+    }
+
+    // Fallback: 'total' field may already include GST
+    final total = _safeNum(order['total']);
+    if (total > payAmount && total > 0) {
+      return '\$${total.toStringAsFixed(2)}';
+    }
+
+    // Last resort: show pay_amount as-is
+    return '\$${payAmount.toStringAsFixed(2)}';
+  }
+
 
   String _mapPaymentStatus(String? status) {
     if (status == null) return 'Unknown';
@@ -484,62 +507,30 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                               const SizedBox(height: 16),
 
                               // Action buttons row
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        _showOrderDetails(order);
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
-                                          horizontal: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF1A365D),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'VIEW ORDER',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                    ),
+                              GestureDetector(
+                                onTap: () {
+                                  _showOrderDetails(order);
+                                },
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 12,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                        horizontal: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[100],
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Colors.grey[300]!,
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'TRACK ORDER',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1A365D),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                ],
+                                  child: const Text(
+                                    'VIEW ORDER',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -561,7 +552,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       MaterialPageRoute(
         builder: (context) => OrderDetailsPage(orderId: order['id'] as int),
       ),
-    );
+    ).then((_) => _fetchOrders()); // Refresh on return
   }
 
   @override
