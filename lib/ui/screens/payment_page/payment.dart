@@ -12,6 +12,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:apcproject/ui/screens/payment_page/cybersource_webview_page.dart';
 import 'package:pay/pay.dart';
 import 'package:apcproject/config/environment.dart';
+import 'package:apcproject/data/models/user_model.dart';
 
 class _ShippingBreakdown {
   const _ShippingBreakdown({
@@ -20,6 +21,7 @@ class _ShippingBreakdown {
     required this.gstAmount,
     required this.discountAmount,
     required this.amount,
+    required this.specialDiscount,
     required this.hasPendingFreightQuote,
     required this.isPayLater,
     required this.showFreeShippingLabel,
@@ -30,6 +32,7 @@ class _ShippingBreakdown {
   final double gstAmount;
   final double discountAmount;
   final double amount;
+  final double specialDiscount;
   final bool hasPendingFreightQuote;
   final bool isPayLater;
   final bool showFreeShippingLabel;
@@ -66,6 +69,11 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _showFreeShippingLabel = false;
   bool _isAwaitingFreight = false;
   String _selectedPaymentMethod = '';
+  int _manualOrderByAdmin = 0;
+  int _isTradeUser = 0;
+  String _orderPaymentStatus = '';
+  double? _specialDiscount;
+  String _orderSource = '';
 
   // Google Pay
   Pay? _payClient;
@@ -320,7 +328,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
     double subtotalExclGst = parse(data['subtotal_excluding_gst']) > 0
         ? parse(data['subtotal_excluding_gst'])
-        : parse(order?['subtotal']);
+        : (parse(order?['pay_amount']) > 0 ? parse(order?['pay_amount']) : parse(order?['subtotal']));
 
     double gstAmount = parse(data['tax']) > 0
         ? parse(data['tax'])
@@ -331,32 +339,37 @@ class _PaymentPageState extends State<PaymentPage> {
         ? parse(order?['shipping_cost'])
         : parse(order?['normal_shipping_cost']);
 
+    final double totalAmount = parse(data['grand_total']) > 0
+        ? parse(data['grand_total'])
+        : (parse(order?['total']) > 0
+            ? parse(order?['total'])
+            : parse(order?['pay_amount']));
+
     final double discountAmount = parse(data['discount']) > 0
         ? parse(data['discount'])
         : parse(order?['discount']);
 
-    double amount;
-    if (subtotalExclGst == 1099.0 || parse(order?['pay_amount']) == 1099.0) {
-      subtotalExclGst = 1099.0;
-      gstAmount = 99.91;
-      amount = 1198.91;
-    } else {
-      amount = parse(data['grand_total']) > 0
-          ? parse(data['grand_total'])
-          : (parse(order?['total']) > 0
-              ? parse(order?['total'])
-              : parse(order?['pay_amount']));
+    final orderSource = data['order_source']?.toString().toLowerCase() ?? 
+                       order?['order_source']?.toString().toLowerCase() ?? '';
+    double specialDiscount = 0.0;
+    if (orderSource == 'mobile') {
+      specialDiscount = parse(order?['special_discount']);
     }
+
+    // Subtotal logic synced with Order Details (Work backwards from Grand Total)
+    subtotalExclGst = (totalAmount - gstAmount - shippingCost + specialDiscount);
 
     return _ShippingBreakdown(
       subtotalExclGst: subtotalExclGst,
       shippingCost: shippingCost,
       gstAmount: gstAmount,
       discountAmount: discountAmount,
-      amount: amount,
-      hasPendingFreightQuote: parse(data['show_request_freight_cost']) == 1,
+      amount: totalAmount,
+      specialDiscount: specialDiscount,
+      hasPendingFreightQuote: orderType == 'large' || parse(data['show_request_freight_cost']) == 1,
       isPayLater: false,
-      showFreeShippingLabel: !_isAwaitingFreight && shippingCost == 0.0,
+      showFreeShippingLabel: !(orderType == 'large' || parse(data['show_request_freight_cost']) == 1) &&
+          parse(data['show_free_shipping_icon']) == 1,
     );
   }
 
@@ -401,6 +414,14 @@ class _PaymentPageState extends State<PaymentPage> {
       final orderNumber = order?['order_number'] as String?;
       final orderId = order?['id'] as int?;
 
+      // Initialize status-based flags
+      _manualOrderByAdmin = (order?['manual_order_by_admin'] as num?)?.toInt() ?? 0;
+      _orderPaymentStatus = (order?['payment_status'] ?? '').toString().toLowerCase();
+
+      // Retrieve trade user status from StorageService
+      final UserModel? currentUser = await StorageService.getUserData();
+      _isTradeUser = currentUser?.isTradeUser ?? 0;
+
       final payAmount = order?['pay_amount'] as num?;
       final totalAmount = order?['total'] as num?;
       double amount = (payAmount ?? totalAmount)?.toDouble() ?? 0.0;
@@ -424,8 +445,9 @@ class _PaymentPageState extends State<PaymentPage> {
             (checkoutData?['post_code'] as String?)?.trim() ?? '';
         final cartResponse = await StorageService.getCartData();
         final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
+        final bool fromMyOrdersPayment = widget.arguments?['from_my_orders_payment'] == true;
 
-        if (postcode.isNotEmpty && oldCart != null) {
+        if (!fromMyOrdersPayment && postcode.isNotEmpty && oldCart != null) {
           final shippingResponse = await _cartService.calculateShipping({
             'postcode': postcode,
             'old_cart': oldCart,
@@ -456,13 +478,15 @@ class _PaymentPageState extends State<PaymentPage> {
               (shippingResponse['show_request_freight_cost'] as num?)
                       ?.toDouble() ??
                   0;
-          _hasPendingFreightQuote = showRequest > 0;
-          _isPayLater =
-              (shippingResponse['show_freight_cost_icon'] as num?)?.toInt() ==
-                  1;
-          _showFreeShippingLabel = !_isPayLater &&
-              (shippingResponse['show_free_shipping_icon'] as num?)?.toInt() ==
-                  1;
+          _isPayLater = (shippingResponse['show_freight_cost_icon'] as num?)?.toInt() == 1;
+
+          if (orderType == 'large' || showRequest > 0) {
+            _hasPendingFreightQuote = true;
+            _showFreeShippingLabel = false;
+          } else {
+            _hasPendingFreightQuote = false;
+            _showFreeShippingLabel = (shippingResponse['show_free_shipping_icon'] as num?)?.toInt() == 1;
+          }
         } else {
           final snap = _breakdownFromStoredOrder(orderData);
           subtotalExclGst = snap.subtotalExclGst;
@@ -496,7 +520,6 @@ class _PaymentPageState extends State<PaymentPage> {
           widget.arguments?['from_my_orders_payment'] == true;
       if (forcePaymentUi) {
         _isPayLater = false;
-        _hasPendingFreightQuote = false;
       }
 
       setState(() {
@@ -504,12 +527,27 @@ class _PaymentPageState extends State<PaymentPage> {
         _orderId = orderId;
         _amount = amount > 0 ? amount : 0.0;
         _currency = 'AUD';
-        _subtotalExclGst = subtotalExclGst;
-        _shippingCost = shippingCost;
-        _gstAmount = gstAmount;
-        _discountAmount = discountAmount;
-        if (gstAmount != null && subtotalExclGst != null && subtotalExclGst > 0) {
-          _gstRate = (gstAmount / subtotalExclGst) * 100;
+        
+        _shippingCost = shippingCost ?? 0.0;
+        _gstAmount = gstAmount ?? 0.0;
+        _discountAmount = discountAmount ?? 0.0;
+        
+        _orderSource = (_orderData?['order_source'] ?? order?['order_source'] ?? '').toString().toLowerCase();
+        
+        final dynamic rawDisc = _orderData?['special_discount'] ?? order?['special_discount'];
+        if (_orderSource == 'mobile' && rawDisc != null) {
+          final String cleanPrice = rawDisc.toString().replaceAll(',', '').replaceAll('\$', '').trim();
+          _specialDiscount = double.tryParse(cleanPrice) ?? 0.0;
+        } else {
+          _specialDiscount = 0.0;
+        }
+
+        // Mathematically consistent Subtotal (Total - GST - Shipping + Special Discount)
+        // This ensures the breakdown always matches the final total exactly.
+        _subtotalExclGst = (_amount! - _gstAmount! - _shippingCost! + (_specialDiscount ?? 0.0));
+
+        if (_gstAmount! > 0 && _subtotalExclGst! > 0) {
+          _gstRate = (_gstAmount! / _subtotalExclGst!) * 100;
         } else {
           _gstRate = 10.0;
         }
@@ -902,6 +940,12 @@ class _PaymentPageState extends State<PaymentPage> {
   Widget _buildPaymentMethodSection() {
     final bool isIOS = Platform.isIOS;
 
+    // Payment options sirf tab dikhein jab Partial ya Unpaid ho
+    final bool canShowPayments =
+        _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
+
+    if (!canShowPayments) return const SizedBox.shrink();
+
     return Card(
       color: Colors.white,
       child: Padding(
@@ -915,7 +959,7 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
             const SizedBox(height: 16),
 
-            // Credit Card option
+            // 1. Credit Card — hamesha dikhega
             GestureDetector(
               onTap: () =>
                   setState(() => _selectedPaymentMethod = 'Credit Card'),
@@ -927,63 +971,46 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
             const SizedBox(height: 12),
 
-            // PayPal option
-            GestureDetector(
-              onTap: () => setState(() => _selectedPaymentMethod = 'PayPal'),
-              child: _paymentOptionRow(
-                'PayPal',
-                Icons.payment,
-                _selectedPaymentMethod == 'PayPal',
-              ),
-            ),
-
-            // Google Pay (Android) or Apple Pay (iOS)
-            if (!kIsWeb && !isIOS) ...[
-              const SizedBox(height: 12),
+            // 2. PayPal + Google/Apple Pay —
+            // sirf jab manual_order_by_admin == 0 AND is_trade_user == 0
+            if (_manualOrderByAdmin == 0 && _isTradeUser == 0) ...[
               GestureDetector(
-                onTap: () =>
-                    setState(() => _selectedPaymentMethod = 'Google Pay'),
+                onTap: () => setState(() => _selectedPaymentMethod = 'PayPal'),
                 child: _paymentOptionRow(
-                  'Google Pay',
-                  Icons.account_balance_wallet,
-                  _selectedPaymentMethod == 'Google Pay',
-                  isEnabled: true,
-                  trailing: _isInitializingGooglePay
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
+                  'PayPal',
+                  Icons.payment,
+                  _selectedPaymentMethod == 'PayPal',
                 ),
               ),
-            ] else if (!kIsWeb && isIOS) ...[
-              const SizedBox(height: 12),
-              _paymentOptionRow(
-                'Apple Pay',
-                Icons.apple,
-                _selectedPaymentMethod == 'Apple Pay',
-                isEnabled: false,
-              ),
+              if (!kIsWeb && !isIOS) ...[
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () =>
+                      setState(() => _selectedPaymentMethod = 'Google Pay'),
+                  child: _paymentOptionRow(
+                    'Google Pay',
+                    Icons.account_balance_wallet,
+                    _selectedPaymentMethod == 'Google Pay',
+                    isEnabled: true,
+                    trailing: _isInitializingGooglePay
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : null,
+                  ),
+                ),
+              ] else if (!kIsWeb && isIOS) ...[
+                const SizedBox(height: 12),
+                _paymentOptionRow(
+                  'Apple Pay',
+                  Icons.apple,
+                  _selectedPaymentMethod == 'Apple Pay',
+                  isEnabled: false,
+                ),
+              ],
             ],
-
-            // Afterpay and Zip Pay are hidden for now
-            /*
-            const SizedBox(height: 12),
-            _paymentOptionRow(
-              'Afterpay',
-              Icons.schedule,
-              _selectedPaymentMethod == 'Afterpay',
-              isEnabled: false,
-            ),
-            const SizedBox(height: 12),
-            _paymentOptionRow(
-              'Zip Pay',
-              Icons.flash_on,
-              _selectedPaymentMethod == 'Zip Pay',
-              isEnabled: false,
-            ),
-            */
           ],
         ),
       ),
@@ -1040,9 +1067,10 @@ class _PaymentPageState extends State<PaymentPage> {
     final orderNumber = _orderNumber ?? '-';
     final total = _amount ?? 0.0;
     final String rawDataStr = _orderData.toString().toLowerCase();
+    final currencySign = _orderData?['currency_sign']?.toString() ?? '\$';
 
     String formatPrice(double? v) =>
-        v != null ? '\$${v.toStringAsFixed(2)}' : '-';
+        v != null ? '$currencySign${v.toStringAsFixed(2)}' : '-';
 
     return Card(
       color: Colors.white,
@@ -1075,6 +1103,17 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
             const SizedBox(height: 8),
 
+            // Special Discount (Red) - Mobile Only
+            if (_orderSource == 'mobile' && (_specialDiscount ?? 0) > 0) ...[
+              _summaryRow(
+                'Special Discount',
+                '-$currencySign${_specialDiscount!.toStringAsFixed(2)}',
+                valueColor: Colors.red,
+                labelColor: Colors.red,
+              ),
+              const SizedBox(height: 8),
+            ],
+
             // Shipping Cost (Red)
             _summaryRow(
               '*Shipping Cost (excl. GST)',
@@ -1089,13 +1128,13 @@ class _PaymentPageState extends State<PaymentPage> {
             // Total without GST
             _summaryRow(
               'Total without GST',
-              formatPrice(_subtotalExclGst != null ? (_subtotalExclGst! + (_shippingCost ?? 0.0)) : null),
+              formatPrice((_subtotalExclGst ?? 0.0) + (_shippingCost ?? 0.0) - (_specialDiscount ?? 0.0)),
             ),
             const SizedBox(height: 8),
 
             // GST Row
             _summaryRow(
-              'GST @ ${_gstRate?.toStringAsFixed(0) ?? "x"}%',
+              'GST',
               formatPrice(_gstAmount),
             ),
             const SizedBox(height: 12),

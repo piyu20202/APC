@@ -8,6 +8,11 @@ class OrderPlacedPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final String? paymentMethod = args?['payment_method']?.toString();
+    // Case sensitivity handling for different flow scenarios
+    final bool isPayLaterFlow = paymentMethod == 'Manual / Freight Quote';
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -54,11 +59,6 @@ class OrderPlacedPage extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // Order Details (commented out in original code)
-              /*
-              Container( ... )
-              */
-
               // Thank You Message
               const Text(
                 'Thank you for your order!',
@@ -72,9 +72,11 @@ class OrderPlacedPage extends StatelessWidget {
                 future: StorageService.getOrderData(),
                 builder: (context, snapshot) {
                   String invoiceNumber = '';
+                  String orderId = '';
                   if (snapshot.hasData && snapshot.data != null) {
                     final order = snapshot.data!['order'] as Map<String, dynamic>?;
                     invoiceNumber = order?['order_number'] as String? ?? '';
+                    orderId = order?['id']?.toString() ?? '';
                   }
                   
                   if (invoiceNumber.isEmpty) {

@@ -238,15 +238,19 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     const SizedBox(height: 24),
 
                     // PAY NOW Button visibility:
-                    // 1. (Unpaid AND status "1") OR Partial payment
-                    // 2. Normal order OR Large order with freight cost already set (> 0)
-                    if (((_orderData!['payment_status']?.toLowerCase() == 'unpaid' &&
-                                _orderData!['status']?.toString() == '1') ||
-                            _orderData!['payment_status']?.toLowerCase() == 'partial') &&
-                        (_orderData!['order_type'] == 'normal' ||
-                            (_orderData!['order_type'] == 'large' &&
-                                _safeNum(_orderData!['normal_shipping_cost']) > 0)))
-                      _buildPayNowButton(),
+                    // Hide if: status == 7 OR payment_status == 'Paid'
+                    // Show if: payment_status == 'Partial' (always)
+                    //       OR payment_status == 'Unpaid' AND (normal order OR large with shipping > 0)
+                    if (_orderData!['status']?.toString() != '7' &&
+                        _orderData!['payment_status']?.toLowerCase() != 'paid') ...[
+                      if (_orderData!['payment_status']?.toLowerCase() == 'partial')
+                        _buildPayNowButton()
+                      else if (_orderData!['payment_status']?.toLowerCase() == 'unpaid' &&
+                          (_orderData!['order_type'] == 'normal' ||
+                              (_orderData!['order_type'] == 'large' &&
+                                  _safeNum(_orderData!['normal_shipping_cost']) > 0)))
+                        _buildPayNowButton(),
+                    ],
                   ],
                 ),
               ),
@@ -286,6 +290,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         isLargeOrder && normalShippingCost == 0;
     final bool showPendingFreight =
         showPendingFreightFromAmount || showPendingFreightFromShipping;
+
+    final orderSource = order['order_source']?.toString().toLowerCase() ?? '';
+    final specialDiscountDescription = order['special_discount_description']?.toString() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -366,7 +373,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             if (order['order_note'] != null &&
                 order['order_note'].toString().trim().isNotEmpty)
               _buildInfoRow('Order Note', order['order_note']),
-          ] else if (isQuotation) ...[
+            if (orderSource == 'mobile' && specialDiscountDescription.isNotEmpty)
+              _buildInfoRow('Special Discount Note', specialDiscountDescription),
+          ]
+ else if (isQuotation) ...[
             _buildInfoRow(
               'Quotation Date',
               _formatDate(order['quotation_date'] ?? order['created_at']),
@@ -825,35 +835,22 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     // FORCE FIX: Prioritize recalculated values, otherwise use local force calculation
     // because backend data for these orders is consistently missing the GST layer.
 
-    final double rawPayAmount = _safeNum(
-      _orderData?['pay_amount'] ?? _orderData?['total'],
-    );
-
-    // 1. Subtotal is now forced to be the intended base price (e.g. 1099)
-    final subtotal = (rawPayAmount > 0)
-        ? rawPayAmount
-        : _safeParseAmount(_responseData?['subtotal_excluding_gst']);
-
-    // 2. GST - Recalculate locally if subtotal is 1099 or use API response
-    final double tax =
-        (subtotal == 1099.0) ? 99.91 : _safeParseAmount(_responseData?['tax']);
-
+    final grandTotal = _safeParseAmount(_responseData?['grand_total'] ?? _orderData?['pay_amount'] ?? _orderData?['total']);
+    final double tax = _safeParseAmount(_responseData?['tax']);
     final discount = _safeParseAmount(_responseData?['discount']);
-    final specialDiscount = _safeParseAmount(_orderData?['special_discount']);
-    final shipping = _safeParseAmount(
-      _responseData?['shipping_cost_including_gst'],
-    );
-
-    // 3. Grand Total is now accurately computed as Subtotal + Tax + Shipping
-    final grandTotal = (subtotal + tax + shipping) - discount - specialDiscount;
-
-    final amountPaid = _safeNum(_responseData?['amount_paid']);
-    final amountDue = (grandTotal - amountPaid) > 0
-        ? (grandTotal - amountPaid)
+    final shipping = _safeParseAmount(_responseData?['shipping_cost_including_gst']);
+    final orderSource = _orderData?['order_source']?.toString().toLowerCase() ?? '';
+    final specialDiscount = (orderSource == 'mobile')
+        ? _safeParseAmount(_orderData?['special_discount'])
         : 0.0;
 
+    // Mathematically consistent Subtotal (Total - GST - Shipping + Discount)
+    final subtotal = (grandTotal - tax - shipping + specialDiscount);
+
+    final amountPaid = _safeNum(_responseData?['amount_paid']);
+    final amountDue = _safeParseAmount(_responseData?['amount_due']);
+
     final currencySign = _responseData?['currency_sign']?.toString() ?? '\$';
-    final gstRate = (subtotal > 0) ? (tax / subtotal) * 100 : 9.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -885,20 +882,21 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             'Subtotal (Excl. GST)',
             '$currencySign${subtotal.toStringAsFixed(2)}',
           ),
+          // Special Discount: subtotal ke neeche, sirf mobile order aur value > 0 ho
+          if (orderSource == 'mobile' && specialDiscount > 0)
+            _buildSummaryRow(
+              'Special Discount',
+              '-$currencySign${specialDiscount.toStringAsFixed(2)}',
+              valueColor: Colors.red,
+            ),
           _buildSummaryRow(
-            'GST (${gstRate.toStringAsFixed(0)}%)',
+            'GST',
             '$currencySign${tax.toStringAsFixed(2)}',
           ),
           if (discount > 0)
             _buildSummaryRow(
               'Total Discount',
               '-$currencySign${discount.toStringAsFixed(2)}',
-              valueColor: Colors.red,
-            ),
-          if (specialDiscount > 0)
-            _buildSummaryRow(
-              'Special Discount',
-              '-$currencySign${specialDiscount.toStringAsFixed(2)}',
               valueColor: Colors.red,
             ),
           if (shipping > 0)
