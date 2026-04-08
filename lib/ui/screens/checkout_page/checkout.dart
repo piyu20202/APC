@@ -55,7 +55,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // Country selection - only Australia is supported
   String? _selectedCountry = 'Australia';
 
-
   @override
   void initState() {
     super.initState();
@@ -82,7 +81,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _mobileController.text = user.phone;
     if (user.areaCode != null) _areaCodeController.text = user.areaCode!;
     if (user.landline != null) _landlineController.text = user.landline!;
-    if (user.unitApartmentNo != null) _unitController.text = user.unitApartmentNo!;
+    if (user.unitApartmentNo != null)
+      _unitController.text = user.unitApartmentNo!;
     if (user.address != null) _addressController.text = user.address!;
     if (user.city != null) _suburbController.text = user.city!;
     if (user.zip != null) _postCodeController.text = user.zip!;
@@ -480,10 +480,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   flex: 1,
                   child: DropdownButtonFormField<String>(
                     isExpanded: true,
-                    value: _areaCodeController.text.isNotEmpty &&
-                            ['02', '03', '07', '08'].contains(
-                              _areaCodeController.text.trim(),
-                            )
+                    value:
+                        _areaCodeController.text.isNotEmpty &&
+                            [
+                              '02',
+                              '03',
+                              '07',
+                              '08',
+                            ].contains(_areaCodeController.text.trim())
                         ? _areaCodeController.text.trim()
                         : null,
                     decoration: const InputDecoration(
@@ -735,16 +739,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
               'address': _addressController.text.trim(),
               'suburb': _suburbController.text.trim(),
               'state': _selectedState,
-              'country': 'AU', // Backend expects country code; dropdown is Australia only
+              'country':
+                  'AU', // Backend expects country code; dropdown is Australia only
               'post_code': _postCodeController.text.trim(),
               'order_note': _orderNoteController.text.trim(),
             };
 
             await StorageService.saveCheckoutData(checkoutData);
 
-            // Navigate to order price detail page
+            // Directly navigate to shared payment page (normal flow)
             if (mounted) {
-              Navigator.pushNamed(context, '/order-price-detail');
+              Navigator.pushNamed(
+                context,
+                '/payment',
+                arguments: const {'payment_method': 'Credit Card'},
+              );
             }
           }
         },

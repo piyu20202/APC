@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/user_model.dart';
 import '../data/models/settings_model.dart';
+import '../services/user_role_service.dart';
 
 class StorageService {
   static const String _keyAccessToken = 'access_token';
@@ -29,6 +30,9 @@ class StorageService {
 
     // Save login status
     await prefs.setBool(_keyIsLoggedIn, true);
+
+    // Sync trader status from user model
+    await UserRoleService.setIsTraderUser(response.user.isTradeUser == 1);
   }
 
   /// Get access token
@@ -82,6 +86,9 @@ class StorageService {
     await prefs.remove(_keyTokenType);
     await prefs.remove(_keyUserData);
     await prefs.setBool(_keyIsLoggedIn, false);
+
+    // Sync trader status (clear it)
+    await UserRoleService.removeTraderStatus();
   }
 
   /// Get complete login response

@@ -23,6 +23,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' hide Category;
 import '../../../services/route_observer.dart';
+import '../webview_view/webview_page.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSearchTap;
@@ -402,14 +403,23 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F8F8),
         elevation: 0,
-        title: const Text(
-          'Home',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-          overflow: TextOverflow.visible,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Home',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              overflow: TextOverflow.visible,
+            ),
+            if (_isTrader) ...[
+              const SizedBox(width: 8),
+              _buildTradeBadge(),
+            ],
+          ],
         ),
         titleSpacing: 0,
         centerTitle: false,
@@ -429,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         builder: (context) =>
                             const TraderUpgradeFlow(isExistingUser: true),
                       ),
-                    );
+                    ).then((_) => _checkTraderStatus());
                   },
                   icon: const Icon(
                     Icons.business,
@@ -603,6 +613,39 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTradeBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF9800),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF9800).withValues(alpha: 0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.business_center, color: Colors.white, size: 14),
+          SizedBox(width: 4),
+          Text(
+            'TRADE',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1627,13 +1670,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         'Category navigation blocked. categoryId=${category.id}, pageOpen="$normalizedPageOpen", reason=${debugReason ?? "unknown"}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
             "We couldn’t load this category. Please try again. If the issue continues, close and restart the app.",
           ),
-          duration: Duration(seconds: 4),
+          duration: const Duration(seconds: 2),
           action: SnackBarAction(
             label: 'Retry',
             onPressed: () {
@@ -1680,6 +1723,24 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           ),
         ),
       );
+      return;
+    }
+
+    if (normalizedPageOpen == 'other_page') {
+      if (category.categorySlugUrl != null &&
+          category.categorySlugUrl!.isNotEmpty) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WebViewPage(
+              url: category.categorySlugUrl!,
+              title: category.name,
+            ),
+          ),
+        );
+      } else {
+        showCategoryLoadError('URL missing for other_page');
+      }
       return;
     }
 

@@ -177,6 +177,7 @@ class Category {
   final String? image;
   final String pageOpen;
   final String? slug;
+  final String? categorySlugUrl;
   final List<SubCategory>? subcategories;
   final int displayOrder;
 
@@ -186,6 +187,7 @@ class Category {
     this.image,
     this.pageOpen = '',
     this.slug,
+    this.categorySlugUrl,
     this.subcategories,
     this.displayOrder = 0,
   });
@@ -208,6 +210,7 @@ class Category {
             ? json['page_open'] as String
             : json['page_open']?.toString() ?? '',
         slug: json['slug']?.toString(),
+        categorySlugUrl: json['category_slug_url']?.toString(),
         displayOrder: json['display_order'] is int
             ? json['display_order'] as int
             : int.tryParse(json['display_order']?.toString() ?? '') ??
@@ -235,6 +238,7 @@ class Category {
       'image': image,
       'page_open': pageOpen,
       'slug': slug,
+      'category_slug_url': categorySlugUrl,
       'display_order': displayOrder,
       'subcategories': subcategories?.map((s) => s.toJson()).toList(),
     };

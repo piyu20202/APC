@@ -61,20 +61,20 @@ class HomepageRepository {
   }
 
   /// Search products
-  Future<List<LatestProduct>> searchProducts({
+  Future<Map<String, dynamic>> searchProducts({
     required String searchKeyword,
     String? page,
     String? perPage,
   }) async {
     try {
-      Logger.info('Repository: Searching products with keyword: $searchKeyword');
-      final products = await _homepageService.searchProducts(
+      Logger.info('Repository: Searching products with keyword: $searchKeyword, page: $page');
+      final result = await _homepageService.searchProducts(
         searchKeyword: searchKeyword,
         page: page,
         perPage: perPage,
       );
-      Logger.info('Repository: Search products fetched successfully');
-      return products;
+      Logger.info('Repository: Search results fetched successfully');
+      return result;
     } on ApiException {
       rethrow;
     } catch (e) {

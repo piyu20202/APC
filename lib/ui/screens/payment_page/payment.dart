@@ -7,12 +7,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:apcproject/services/storage_service.dart';
 import 'package:apcproject/data/services/payment_service.dart';
 import 'package:apcproject/data/services/cart_service.dart';
-import 'package:cybersource_inapp/cybersource_inapp.dart';
+import 'package:apcproject/data/services/order_service.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:apcproject/ui/screens/payment_page/cybersource_webview_page.dart';
 import 'package:pay/pay.dart';
 import 'package:apcproject/config/environment.dart';
 import 'package:apcproject/data/models/user_model.dart';
+import 'package:apcproject/core/utils/logger.dart';
+import 'package:flutter_paypal/flutter_paypal.dart';
 
 class _ShippingBreakdown {
   const _ShippingBreakdown({
@@ -50,6 +51,7 @@ class PaymentPage extends StatefulWidget {
 class _PaymentPageState extends State<PaymentPage> {
   final PaymentService _paymentService = PaymentService();
   final CartService _cartService = CartService();
+  final OrderService _orderService = OrderService();
   bool _isLoading = true;
   bool _isProcessing = false;
   Map<String, dynamic>? _orderData;
@@ -89,6 +91,22 @@ class _PaymentPageState extends State<PaymentPage> {
   // PayPal config cache
   Map<String, dynamic>? _paypalConfig;
 
+  // Coupon selection state
+  List<dynamic> _availableCoupons = [];
+  bool _isLoadingCoupons = false;
+
+  // Card details
+  final TextEditingController _cardNumberController = TextEditingController();
+  final TextEditingController _expiryController = TextEditingController();
+  final TextEditingController _cvvController = TextEditingController();
+  final TextEditingController _cardholderNameController =
+      TextEditingController();
+
+  final FocusNode _cardNumberFocus = FocusNode();
+  final FocusNode _expiryFocus = FocusNode();
+  final FocusNode _cvvFocus = FocusNode();
+  final FocusNode _cardholderNameFocus = FocusNode();
+
   // Coupon variables
   final TextEditingController _couponController = TextEditingController();
   String? _couponCode;
@@ -121,6 +139,14 @@ class _PaymentPageState extends State<PaymentPage> {
   void dispose() {
     _paymentResultSubscription?.cancel();
     _couponController.dispose();
+    _cardNumberController.dispose();
+    _expiryController.dispose();
+    _cvvController.dispose();
+    _cardholderNameController.dispose();
+    _cardNumberFocus.dispose();
+    _expiryFocus.dispose();
+    _cvvFocus.dispose();
+    _cardholderNameFocus.dispose();
     super.dispose();
   }
 
@@ -132,6 +158,14 @@ class _PaymentPageState extends State<PaymentPage> {
       debugPrint(text.substring(i, end));
     }
     debugPrint('=== END $label ===');
+  }
+
+  Future<void> _clearCartOnPaymentExit() async {
+    try {
+      await StorageService.clearCartData();
+    } catch (e) {
+      debugPrint('Failed to clear cart data: $e');
+    }
   }
 
   // ─── Google Pay ────────────────────────────────────────────────────────────
@@ -147,8 +181,9 @@ class _PaymentPageState extends State<PaymentPage> {
         BuildConfig.googlePayConfigAsset,
       );
       _payClient = Pay({PayProvider.google_pay: _googlePayConfig!});
-      _isGooglePayAvailable =
-          await _payClient!.userCanPay(PayProvider.google_pay);
+      _isGooglePayAvailable = await _payClient!.userCanPay(
+        PayProvider.google_pay,
+      );
       _setupPaymentResultListener();
       debugPrint('Google Pay initialized. Available: $_isGooglePayAvailable');
     } catch (e) {
@@ -160,8 +195,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   void _setupPaymentResultListener() {
-    const eventChannel =
-        EventChannel('plugins.flutter.io/pay/payment_result');
+    const eventChannel = EventChannel('plugins.flutter.io/pay/payment_result');
     _paymentResultSubscription = eventChannel
         .receiveBroadcastStream()
         .map((r) => jsonDecode(r as String) as Map<String, dynamic>)
@@ -173,6 +207,7 @@ class _PaymentPageState extends State<PaymentPage> {
           onError: (error) {
             debugPrint('Google Pay result error: $error');
             if (mounted) {
+              _clearCartOnPaymentExit();
               setState(() => _isProcessing = false);
               Fluttertoast.showToast(
                 msg: 'Google Pay failed. Please try again.',
@@ -194,7 +229,7 @@ class _PaymentPageState extends State<PaymentPage> {
       _isPaymentProcessing = true;
       if (mounted) setState(() => _isProcessing = true);
 
-      final orderData = await StorageService.getOrderData();
+      Map<String, dynamic>? orderData = await StorageService.getOrderData();
       final order = orderData?['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
       final amount =
@@ -246,6 +281,7 @@ class _PaymentPageState extends State<PaymentPage> {
     } catch (e) {
       debugPrint('Google Pay error: $e');
       _isPaymentProcessing = false;
+      await _clearCartOnPaymentExit();
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Something went wrong. Please try again.',
@@ -295,6 +331,7 @@ class _PaymentPageState extends State<PaymentPage> {
     } catch (e) {
       debugPrint('Google Pay error: $e');
       _isPaymentProcessing = false;
+      await _clearCartOnPaymentExit();
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Google Pay failed. Please try again.',
@@ -309,9 +346,7 @@ class _PaymentPageState extends State<PaymentPage> {
   // ─── Payment Initialization ────────────────────────────────────────────────
 
   /// Fallback breakdown from stored order data when shipping API cannot run.
-  _ShippingBreakdown _breakdownFromStoredOrder(
-    Map<String, dynamic> data,
-  ) {
+  _ShippingBreakdown _breakdownFromStoredOrder(Map<String, dynamic> data) {
     final order = data['order'] as Map<String, dynamic>?;
 
     double parse(dynamic v) {
@@ -328,7 +363,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
     double subtotalExclGst = parse(data['subtotal_excluding_gst']) > 0
         ? parse(data['subtotal_excluding_gst'])
-        : (parse(order?['pay_amount']) > 0 ? parse(order?['pay_amount']) : parse(order?['subtotal']));
+        : (parse(order?['pay_amount']) > 0
+              ? parse(order?['pay_amount'])
+              : parse(order?['subtotal']));
 
     double gstAmount = parse(data['tax']) > 0
         ? parse(data['tax'])
@@ -342,22 +379,25 @@ class _PaymentPageState extends State<PaymentPage> {
     final double totalAmount = parse(data['grand_total']) > 0
         ? parse(data['grand_total'])
         : (parse(order?['total']) > 0
-            ? parse(order?['total'])
-            : parse(order?['pay_amount']));
+              ? parse(order?['total'])
+              : parse(order?['pay_amount']));
 
     final double discountAmount = parse(data['discount']) > 0
         ? parse(data['discount'])
         : parse(order?['discount']);
 
-    final orderSource = data['order_source']?.toString().toLowerCase() ?? 
-                       order?['order_source']?.toString().toLowerCase() ?? '';
+    final orderSource =
+        data['order_source']?.toString().toLowerCase() ??
+        order?['order_source']?.toString().toLowerCase() ??
+        '';
     double specialDiscount = 0.0;
     if (orderSource == 'mobile') {
       specialDiscount = parse(order?['special_discount']);
     }
 
     // Subtotal logic synced with Order Details (Work backwards from Grand Total)
-    subtotalExclGst = (totalAmount - gstAmount - shippingCost + specialDiscount);
+    subtotalExclGst =
+        (totalAmount - gstAmount - shippingCost + specialDiscount);
 
     return _ShippingBreakdown(
       subtotalExclGst: subtotalExclGst,
@@ -366,9 +406,12 @@ class _PaymentPageState extends State<PaymentPage> {
       discountAmount: discountAmount,
       amount: totalAmount,
       specialDiscount: specialDiscount,
-      hasPendingFreightQuote: orderType == 'large' || parse(data['show_request_freight_cost']) == 1,
+      hasPendingFreightQuote:
+          orderType == 'large' || parse(data['show_request_freight_cost']) == 1,
       isPayLater: false,
-      showFreeShippingLabel: !(orderType == 'large' || parse(data['show_request_freight_cost']) == 1) &&
+      showFreeShippingLabel:
+          !(orderType == 'large' ||
+              parse(data['show_request_freight_cost']) == 1) &&
           parse(data['show_free_shipping_icon']) == 1,
     );
   }
@@ -377,29 +420,46 @@ class _PaymentPageState extends State<PaymentPage> {
     try {
       debugPrint('=== PAYMENT PAGE INITIALIZATION ===');
 
-      final orderData = await StorageService.getOrderData();
+      Map<String, dynamic>? orderData = await StorageService.getOrderData();
 
-      debugPrint(
-        'Order data: ${orderData != null ? "Found" : "Not found"}',
-      );
+      debugPrint('Order data: ${orderData != null ? "Found" : "Not found"}');
 
       if (orderData == null) {
-        debugPrint('ERROR: Order data is null');
-        if (mounted) {
-          Fluttertoast.showToast(
-            msg: 'Order data not found. Please try again.',
-            toastLength: Toast.LENGTH_LONG,
-          );
-          setState(() => _isLoading = false);
+        final bool fromMyOrdersPayment =
+            widget.arguments?['from_my_orders_payment'] == true;
+
+        // Direct normal checkout may land here without a pre-seeded order.
+        if (!fromMyOrdersPayment) {
+          final created = await _createOrderForDirectPayment();
+          if (!created) {
+            if (mounted) setState(() => _isLoading = false);
+            return;
+          }
+          orderData = await StorageService.getOrderData();
         }
-        return;
+
+        if (orderData == null) {
+          debugPrint('ERROR: Order data is null');
+          if (mounted) {
+            Fluttertoast.showToast(
+              msg: 'Order data not found. Please try again.',
+              toastLength: Toast.LENGTH_LONG,
+            );
+            setState(() => _isLoading = false);
+          }
+          return;
+        }
       }
 
+      final resolvedOrderData = orderData;
+
       setState(() {
-        _orderData = orderData;
-        final statusRoot =
-            (orderData['order_status'] ?? '').toString().toLowerCase().trim();
-        final statusOrder = (orderData['order']?['order_status'] ?? '')
+        _orderData = resolvedOrderData;
+        final statusRoot = (resolvedOrderData['order_status'] ?? '')
+            .toString()
+            .toLowerCase()
+            .trim();
+        final statusOrder = (resolvedOrderData['order']?['order_status'] ?? '')
             .toString()
             .toLowerCase()
             .trim();
@@ -410,13 +470,16 @@ class _PaymentPageState extends State<PaymentPage> {
         );
       });
 
-      final order = orderData['order'] as Map<String, dynamic>?;
+      final order = resolvedOrderData['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
       final orderId = order?['id'] as int?;
 
       // Initialize status-based flags
-      _manualOrderByAdmin = (order?['manual_order_by_admin'] as num?)?.toInt() ?? 0;
-      _orderPaymentStatus = (order?['payment_status'] ?? '').toString().toLowerCase();
+      _manualOrderByAdmin =
+          (order?['manual_order_by_admin'] as num?)?.toInt() ?? 0;
+      _orderPaymentStatus = (order?['payment_status'] ?? '')
+          .toString()
+          .toLowerCase();
 
       // Retrieve trade user status from StorageService
       final UserModel? currentUser = await StorageService.getUserData();
@@ -441,11 +504,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
       try {
         final checkoutData = await StorageService.getCheckoutData();
-        final postcode =
-            (checkoutData?['post_code'] as String?)?.trim() ?? '';
+        final postcode = (checkoutData?['post_code'] as String?)?.trim() ?? '';
         final cartResponse = await StorageService.getCartData();
         final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
-        final bool fromMyOrdersPayment = widget.arguments?['from_my_orders_payment'] == true;
+        final bool fromMyOrdersPayment =
+            widget.arguments?['from_my_orders_payment'] == true;
 
         if (!fromMyOrdersPayment && postcode.isNotEmpty && oldCart != null) {
           final shippingResponse = await _cartService.calculateShipping({
@@ -460,32 +523,44 @@ class _PaymentPageState extends State<PaymentPage> {
             return null;
           }
 
-          final orderType = (shippingResponse['order_type'] ?? '').toString().toLowerCase();
-          shippingCost = (orderType == 'large')
-              ? toDouble(shippingResponse['shipping_cost']) ?? 0.0
-              : toDouble(shippingResponse['normal_shipping_cost']) ?? 0.0;
- 
+          final orderType = (shippingResponse['order_type'] ?? '')
+              .toString()
+              .toLowerCase();
+
+          // Map shipping cost using prioritized keys from API
+          shippingCost = toDouble(shippingResponse['shipping']) ??
+                         toDouble(shippingResponse['normal_shipping_cost']) ??
+                         toDouble(shippingResponse['shipping_cost']) ?? 0.0;
+
           gstAmount = toDouble(shippingResponse['tax']);
-          subtotalExclGst = toDouble(cartResponse?['totalPrice']);
- 
+          
+          // Use total_with_gst as the source of truth for final amount
+          amount = toDouble(shippingResponse['total_with_gst']) ?? amount;
+
+          // Back-calculate subtotal to ensure mathematical consistency in UI
+          // Subtotal (Items) = Grand Total - GST - Shipping
+          subtotalExclGst = amount - (gstAmount ?? 0.0) - (shippingCost ?? 0.0);
+
           final discount = toDouble(cartResponse?['discount']);
           final couponDiscount = toDouble(cartResponse?['coupon_discount']);
           discountAmount = discount ?? couponDiscount;
- 
-          amount = toDouble(shippingResponse['total_with_gst']) ?? amount;
 
           final showRequest =
               (shippingResponse['show_request_freight_cost'] as num?)
-                      ?.toDouble() ??
-                  0;
-          _isPayLater = (shippingResponse['show_freight_cost_icon'] as num?)?.toInt() == 1;
+                  ?.toDouble() ??
+              0;
+          // Pending freight affects UI messaging; Pay Later UI mode is controlled
+          // only by route arguments from My Orders flow.
 
           if (orderType == 'large' || showRequest > 0) {
             _hasPendingFreightQuote = true;
             _showFreeShippingLabel = false;
           } else {
             _hasPendingFreightQuote = false;
-            _showFreeShippingLabel = (shippingResponse['show_free_shipping_icon'] as num?)?.toInt() == 1;
+            _showFreeShippingLabel =
+                (shippingResponse['show_free_shipping_icon'] as num?)
+                    ?.toInt() ==
+                1;
           }
         } else {
           final snap = _breakdownFromStoredOrder(orderData);
@@ -495,7 +570,6 @@ class _PaymentPageState extends State<PaymentPage> {
           discountAmount = snap.discountAmount;
           amount = snap.amount;
           _hasPendingFreightQuote = snap.hasPendingFreightQuote;
-          _isPayLater = snap.isPayLater;
           _showFreeShippingLabel = snap.showFreeShippingLabel;
         }
       } catch (e) {
@@ -507,36 +581,39 @@ class _PaymentPageState extends State<PaymentPage> {
         discountAmount = snap.discountAmount;
         amount = snap.amount;
         _hasPendingFreightQuote = snap.hasPendingFreightQuote;
-        _isPayLater = snap.isPayLater;
         _showFreeShippingLabel = snap.showFreeShippingLabel;
       }
 
-      // When user comes from My Orders → Pay Now, they are here to pay an
-      // already-placed order. Freight/pay-later flags must not block payment UI.
-      // My Orders Pay Now, Pay Later UI, or checkout freight — show payment UI
-      final bool forcePaymentUi =
-          widget.arguments?['is_pay_later'] == true ||
-          widget.arguments?['checkout_freight_payment'] == true ||
-          widget.arguments?['from_my_orders_payment'] == true;
-      if (forcePaymentUi) {
-        _isPayLater = false;
-      }
+      // When user comes from My Orders → Pay Now, we usually show payment UI.
+      // BUT Pay Later UI mode is controlled ONLY by `is_pay_later` argument.
+      final bool argIsPayLater = widget.arguments?['is_pay_later'] == true;
+      final bool isCheckoutFreightPayment =
+          widget.arguments?['checkout_freight_payment'] == true;
+      _isPayLater = argIsPayLater && !isCheckoutFreightPayment;
 
       setState(() {
         _orderNumber = orderNumber;
         _orderId = orderId;
         _amount = amount > 0 ? amount : 0.0;
         _currency = 'AUD';
-        
+
         _shippingCost = shippingCost ?? 0.0;
         _gstAmount = gstAmount ?? 0.0;
         _discountAmount = discountAmount ?? 0.0;
-        
-        _orderSource = (_orderData?['order_source'] ?? order?['order_source'] ?? '').toString().toLowerCase();
-        
-        final dynamic rawDisc = _orderData?['special_discount'] ?? order?['special_discount'];
+
+        _orderSource =
+            (_orderData?['order_source'] ?? order?['order_source'] ?? '')
+                .toString()
+                .toLowerCase();
+
+        final dynamic rawDisc =
+            _orderData?['special_discount'] ?? order?['special_discount'];
         if (_orderSource == 'mobile' && rawDisc != null) {
-          final String cleanPrice = rawDisc.toString().replaceAll(',', '').replaceAll('\$', '').trim();
+          final String cleanPrice = rawDisc
+              .toString()
+              .replaceAll(',', '')
+              .replaceAll('\$', '')
+              .trim();
           _specialDiscount = double.tryParse(cleanPrice) ?? 0.0;
         } else {
           _specialDiscount = 0.0;
@@ -544,12 +621,39 @@ class _PaymentPageState extends State<PaymentPage> {
 
         // Mathematically consistent Subtotal (Total - GST - Shipping + Special Discount)
         // This ensures the breakdown always matches the final total exactly.
-        _subtotalExclGst = (_amount! - _gstAmount! - _shippingCost! + (_specialDiscount ?? 0.0));
+        _subtotalExclGst =
+            (_amount! -
+            _gstAmount! -
+            _shippingCost! +
+            (_specialDiscount ?? 0.0));
+
+        // ABSOLUTE OVERRIDE: If we have explicit values from Order Details, use them exactly.
+        // This prevents different roundings or back-calculations from creating discrepancies.
+        if (widget.arguments?['summary_grand_total'] != null) {
+          _amount = (widget.arguments?['summary_grand_total'] as num)
+              .toDouble();
+          _gstAmount = (widget.arguments?['summary_tax'] as num).toDouble();
+          _shippingCost = (widget.arguments?['summary_shipping'] as num)
+              .toDouble();
+          _discountAmount = (widget.arguments?['summary_discount'] as num)
+              .toDouble();
+          _specialDiscount =
+              (widget.arguments?['summary_special_discount'] as num).toDouble();
+          _subtotalExclGst = (widget.arguments?['summary_subtotal'] as num)
+              .toDouble();
+        }
 
         if (_gstAmount! > 0 && _subtotalExclGst! > 0) {
           _gstRate = (_gstAmount! / _subtotalExclGst!) * 100;
         } else {
           _gstRate = 10.0;
+        }
+
+        final argMethod = widget.arguments?['payment_method']?.toString();
+        if ((_selectedPaymentMethod).isEmpty &&
+            argMethod != null &&
+            argMethod.isNotEmpty) {
+          _selectedPaymentMethod = argMethod;
         }
         _isLoading = false;
       });
@@ -567,70 +671,224 @@ class _PaymentPageState extends State<PaymentPage> {
     }
   }
 
-  /// Handle payment submission
+  Future<bool> _createOrderForDirectPayment() async {
+    try {
+      final userData = await StorageService.getUserData();
+      if (userData == null) {
+        Fluttertoast.showToast(msg: 'Please login to continue');
+        return false;
+      }
+
+      final cartResponse = await StorageService.getCartData();
+      if (cartResponse == null || cartResponse['cart'] == null) {
+        Fluttertoast.showToast(msg: 'Cart is empty');
+        return false;
+      }
+
+      final checkoutData = await StorageService.getCheckoutData();
+      if (checkoutData == null) {
+        Fluttertoast.showToast(msg: 'Please complete checkout form');
+        return false;
+      }
+
+      final payload = _buildOrderPayload(
+        userData: userData,
+        cartResponse: cartResponse,
+        checkoutData: checkoutData,
+      );
+      payload['payment_method'] =
+          widget.arguments?['payment_method'] ?? 'Credit Card';
+
+      final response = await _orderService.storeOrder(payload);
+      final order = response['order'] as Map<String, dynamic>?;
+      final orderNumber = order?['order_number'] as String?;
+      if (orderNumber == null || orderNumber.isEmpty) {
+        Fluttertoast.showToast(msg: 'Failed to place order. Please try again.');
+        return false;
+      }
+
+      await StorageService.saveOrderData(response);
+      return true;
+    } catch (e) {
+      debugPrint('Error creating order for direct payment: $e');
+      Fluttertoast.showToast(msg: 'Failed to place order. Please try again.');
+      return false;
+    }
+  }
+
+  Map<String, dynamic> _buildOrderPayload({
+    required UserModel userData,
+    required Map<String, dynamic> cartResponse,
+    required Map<String, dynamic> checkoutData,
+  }) {
+    final cart = cartResponse['cart'] as Map<String, dynamic>? ?? {};
+    final shippingMethod =
+        checkoutData['shipping_method'] as String? ?? 'Ship to Address';
+    final shipping = shippingMethod == 'Pickup' ? 'pickup' : 'shipto';
+
+    dynamic pickupLocationId = '';
+    if (shipping == 'pickup') {
+      final pickupLocation = checkoutData['pickup_location'] as String?;
+      if (pickupLocation == '53 Cochranes Road, Moorabbin, VIC 3189') {
+        pickupLocationId = 1;
+      } else if (pickupLocation ==
+          'Unit 2, 2 Commercial Dr, Shailer Park QLD 4128') {
+        pickupLocationId = 2;
+      }
+    }
+
+    String deviceType = 'other';
+    if (!kIsWeb) {
+      if (Platform.isAndroid) {
+        deviceType = 'android';
+      } else if (Platform.isIOS) {
+        deviceType = 'iphone';
+      }
+    }
+
+    return <String, dynamic>{
+      'cart': cart,
+      'user_id': userData.id,
+      'email': userData.email,
+      'coupon_id': '',
+      'multi_coupon_id': '',
+      'coupon_code': _couponCode ?? '',
+      'coupon_discount': _couponDiscount,
+      'shipping': shipping,
+      'pickup_location': pickupLocationId,
+      'order_notes': checkoutData['order_note'] as String? ?? '',
+      'ship_diff_address': 0,
+      'dp': 0,
+      'vendor_shipping_id': 1,
+      'vendor_packing_id': 1,
+      'order_source': 'mobile',
+      'order_source_device': deviceType,
+      'shipping_name': '',
+      'shipping_email': '',
+      'shipping_phone': '',
+      'shipping_landline': '',
+      'shipping_area_code': '',
+      'shipping_unit_apartmentno': '',
+      'shipping_address': '',
+      'shipping_address1': '',
+      'shipping_city': '',
+      'shipping_state': '',
+      'shipping_country': 'AU',
+      'shipping_zip': '',
+      'name': checkoutData['name'] as String? ?? userData.name,
+      'companyname': checkoutData['company'] as String? ?? '',
+      'phone': checkoutData['mobile'] as String? ?? userData.phone,
+      'landline':
+          checkoutData['landline'] as String? ?? userData.landline ?? '',
+      'area_code':
+          checkoutData['area_code'] as String? ?? userData.areaCode ?? '',
+      'unit_apartmentno':
+          checkoutData['unit'] as String? ?? userData.unitApartmentNo ?? '',
+      'address': checkoutData['address'] as String? ?? userData.address ?? '',
+      'address1': '',
+      'city': checkoutData['suburb'] as String? ?? userData.city ?? '',
+      'state': checkoutData['state'] as String? ?? userData.state ?? '',
+      'country': 'AU',
+      'zip': checkoutData['post_code'] as String? ?? userData.zip ?? '',
+    };
+  }
+
+  /// Handle payment submission (Native direct API integration)
   Future<void> _handlePayment() async {
     if (!_formKey.currentState!.validate() || _isProcessing) {
+      if (!_formKey.currentState!.validate()) {
+        Fluttertoast.showToast(msg: 'Please fill all card details correctly.');
+      }
       return;
     }
 
-    setState(() {
-      _isProcessing = true;
-    });
+    setState(() => _isProcessing = true);
 
-    debugPrint('=== _handlePayment START ===');
+    debugPrint('=== _handlePayment (Direct API) START ===');
     try {
-      debugPrint('Fetching capture context...');
-      final captureContext = await CybersourceInapp.getCaptureContext();
-      debugPrint('Capture context fetched successfully: ${captureContext.substring(0, 10)}...');
+      // 1. Process expiry - MM/YY format to MM and YYYY
+      final expiryValue = _expiryController.text.trim();
+      final expiryParts = expiryValue.split('/');
+      if (expiryParts.length != 2) throw Exception('Invalid expiry format');
 
-      if (mounted) {
-        debugPrint('Pushing CybersourceWebViewPage...');
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CybersourceWebViewPage(
-              captureContext: captureContext,
-              orderId: _orderId!,
-              orderNumber: _orderNumber!,
-              amount: _amount ?? 0.0,
-            ),
-          ),
-        );
+      final String month = expiryParts[0].padLeft(2, '0');
+      String year = expiryParts[1].trim();
+      if (year.length == 2) {
+        year = '20$year'; // Convert YY to YYYY
+      }
 
-        if (result != null && result['success'] == true) {
-          await StorageService.clearCartData();
-          if (mounted) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/order-placed',
-              (route) => false,
-              arguments: {
-                'payment_token': result['token'],
-                'payment_method': 'Cybersource Card',
-              },
-            );
-          }
-        } else {
-          if (mounted) {
-            Fluttertoast.showToast(
-              msg: 'Payment cancelled or failed. Please try again.',
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
-            );
-            setState(() => _isProcessing = false);
-          }
+      // 2. Call direct API
+      final response = await _paymentService.processCardPaymentRaw(
+        orderId: _orderId!,
+        orderNumber: _orderNumber!,
+        amount: _amount ?? 0.0,
+        currency: 'AUD',
+        cardNumber: _cardNumberController.text.replaceAll(' ', ''),
+        expiryMonth: month,
+        expiryYear: year,
+        cvv: _cvvController.text.trim(),
+        cardholderName: _cardholderNameController.text.trim(),
+      );
+
+      debugPrint('Direct API payment response received: $response');
+
+      // 3. Handle successful payment
+      // Response format: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
+      if (response['show_order_success'] == 1 ||
+          response['payment_status'] == 'completed' ||
+          response['order_status'] == 'paid' ||
+          response['success'] == true) {
+        // Clear cart as payment was successful
+        await StorageService.clearCartData();
+
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: 'Payment successful!',
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+          );
+
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/order-placed',
+            (route) => false,
+            arguments: {
+              'payment_token':
+                  response['transaction_id'] ??
+                  response['order']?['order_number'] ??
+                  _orderNumber,
+              'payment_method': 'Credit Card',
+            },
+          );
         }
+      } else {
+        throw Exception(
+          response['message'] ?? 'Payment failed. Please try again.',
+        );
       }
     } catch (e) {
-      debugPrint('Payment error: $e');
+      debugPrint('Direct API payment error: $e');
+      await _clearCartOnPaymentExit();
       if (mounted) {
-        Fluttertoast.showToast(msg: 'Payment failed. Please try again.');
+        String errMsg = 'Payment failed. Please try again.';
+        if (e.toString().contains('card_declined')) {
+          errMsg = 'Your card was declined. Please try a different card.';
+        } else if (e.toString().contains('invalid_cvv')) {
+          errMsg = 'Invalid CVV. Please check your card details.';
+        } else if (e.toString().contains('expired_card')) {
+          errMsg = 'Your card has expired. Please use a different card.';
+        } else if (e is Exception) {
+          errMsg = e.toString().replaceAll('Exception: ', '');
+        }
+        Fluttertoast.showToast(
+          msg: errMsg,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -638,38 +896,99 @@ class _PaymentPageState extends State<PaymentPage> {
   /// Handle PayPal payment
   Future<void> _handlePayPalPayment() async {
     if (_isProcessing) return;
-    setState(() => _isProcessing = true);
 
-    try {
-      // Logic for real PayPal SDK would go here
-      // For testing, mock success
-      await _paymentService.processPayPal(
-        orderNumber: _orderNumber!,
-        orderId: _orderId!,
-        amount: _amount!,
-        currency: _currency ?? 'AUD',
-        paymentResult: {'orderID': 'PAYPAL_MOCK_TOKEN'},
-      );
-      await StorageService.clearCartData();
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/order-placed',
-          (route) => false,
-          arguments: {'payment_method': 'PayPal'},
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        Fluttertoast.showToast(msg: 'PayPal payment failed.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
+    if (_paypalConfig == null) {
+      Fluttertoast.showToast(msg: 'PayPal configuration not loaded.');
+      return;
     }
+
+    final isSandbox = _paypalConfig!['mode'] == 'sandbox';
+    final clientId = isSandbox
+        ? _paypalConfig!['sandbox_client_id']
+        : _paypalConfig!['production_client_id'];
+    final secretKey = isSandbox
+        ? _paypalConfig!['sandbox_secret_key']
+        : _paypalConfig!['production_secret_key'];
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (BuildContext context) => UsePaypal(
+          sandboxMode: isSandbox,
+          clientId: clientId,
+          secretKey: secretKey,
+          returnURL: "https://www.apc.com.au/payment/success",
+          cancelURL: "https://www.apc.com.au/payment/cancel",
+          transactions: [
+            {
+              "amount": {
+                "total": _amount!.toStringAsFixed(2),
+                "currency": _currency ?? 'AUD',
+                "details": {
+                  "subtotal": _subtotalExclGst!.toStringAsFixed(2),
+                  "shipping": _shippingCost!.toStringAsFixed(2),
+                  "tax": _gstAmount!.toStringAsFixed(2),
+                  "shipping_discount": _discountAmount!.toStringAsFixed(2)
+                }
+              },
+              "description": "Order #$_orderNumber",
+              "item_list": {
+                "items": [
+                  {
+                    "name": "Order #$_orderNumber Payment",
+                    "quantity": 1,
+                    "price": _subtotalExclGst!.toStringAsFixed(2),
+                    "currency": _currency ?? 'AUD'
+                  }
+                ],
+              }
+            }
+          ],
+          note: "Contact us for any questions on your order.",
+          onSuccess: (Map params) async {
+            Logger.info('PayPal success: $params');
+            setState(() => _isProcessing = true);
+            try {
+              // Call backend to fix order status
+              await _paymentService.processPayPal(
+                orderNumber: _orderNumber!,
+                orderId: _orderId!,
+                amount: _amount!,
+                currency: _currency ?? 'AUD',
+                paymentResult: Map<String, dynamic>.from(params),
+              );
+
+              await StorageService.clearCartData();
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/order-placed',
+                  (route) => false,
+                  arguments: {
+                    'payment_method': 'PayPal',
+                    'payment_token': params['orderID'] ?? params['paymentID'],
+                  },
+                );
+              }
+            } catch (e) {
+              Logger.error('Error processing PayPal on backend', e);
+              if (mounted) {
+                Fluttertoast.showToast(msg: 'Payment success but failed to update order.');
+              }
+            } finally {
+              if (mounted) setState(() => _isProcessing = false);
+            }
+          },
+          onError: (error) {
+            Logger.error('PayPal error', error);
+            Fluttertoast.showToast(msg: 'PayPal Error: ${error.toString()}');
+          },
+          onCancel: (params) {
+            Logger.info('PayPal cancelled: $params');
+            Fluttertoast.showToast(msg: 'PayPal payment cancelled.');
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _applyPromoCode() async {
@@ -700,7 +1019,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
       if (response['cart'] == null) {
         Fluttertoast.showToast(
-          msg: 'Unable to apply promo code.',
+          msg: response['message'] ?? 'Unable to apply promo code.',
           backgroundColor: Colors.red,
           textColor: Colors.white,
         );
@@ -716,7 +1035,9 @@ class _PaymentPageState extends State<PaymentPage> {
           _isCouponApplied = true;
           final oldTotal = (cartResponse['totalPrice'] as num?)?.toDouble();
           final newTotal = (response['totalPrice'] as num?)?.toDouble();
-          _couponDiscount = (oldTotal != null && newTotal != null) ? (oldTotal - newTotal) : 0.0;
+          _couponDiscount = (oldTotal != null && newTotal != null)
+              ? (oldTotal - newTotal)
+              : 0.0;
         });
       }
 
@@ -736,6 +1057,124 @@ class _PaymentPageState extends State<PaymentPage> {
     }
   }
 
+  Future<void> _fetchAvailableCoupons({VoidCallback? onUpdate}) async {
+    if (_availableCoupons.isNotEmpty) return;
+
+    setState(() => _isLoadingCoupons = true);
+    if (onUpdate != null) onUpdate();
+
+    try {
+      final coupons = await _cartService.getAvailableCoupons();
+      setState(() {
+        _availableCoupons = coupons;
+        _isLoadingCoupons = false;
+      });
+      if (onUpdate != null) onUpdate();
+    } catch (e) {
+      Logger.error('Error fetching coupons', e);
+      setState(() => _isLoadingCoupons = false);
+      if (onUpdate != null) onUpdate();
+      Fluttertoast.showToast(msg: 'Failed to fetch available coupons');
+    }
+  }
+
+  void _showCouponsModal() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            // Initiate fetch with modal-specific state refresher
+            _fetchAvailableCoupons(onUpdate: () => setModalState(() {}));
+            
+            return Container(
+              padding: const EdgeInsets.all(20),
+              height: 400,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Available Offers',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF151D51),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: _isLoadingCoupons
+                        ? const Center(child: CircularProgressIndicator())
+                        : _availableCoupons.isEmpty
+                            ? const Center(
+                                child: Text('No coupons available at the moment'),
+                              )
+                            : ListView.builder(
+                                itemCount: _availableCoupons.length,
+                                itemBuilder: (context, index) {
+                                  final coupon = _availableCoupons[index];
+                                  final code = coupon['code']?.toString() ?? '';
+                                  final discountValue = coupon['price']?.toString() ?? '';
+                                  final discountType = (coupon['coupon_discount_type']?.toString() ?? '').toLowerCase();
+                                  
+                                  String discountLabel = '';
+                                  if (discountType == 'percent') {
+                                    discountLabel = '$discountValue% OFF';
+                                  } else {
+                                    discountLabel = '\$$discountValue OFF';
+                                  }
+
+                                  return Card(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide(color: Colors.grey[200]!),
+                                    ),
+                                    child: ListTile(
+                                      leading: const Icon(Icons.local_offer, color: Color(0xFF151D51)),
+                                      title: Text(
+                                        code,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      subtitle: Text(
+                                        discountLabel,
+                                        style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600),
+                                      ),
+                                      trailing: const Icon(Icons.chevron_right, size: 20),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _couponController.text = code;
+                                        _applyPromoCode();
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _removeCoupon() async {
     if (_isProcessing) return;
 
@@ -748,13 +1187,10 @@ class _PaymentPageState extends State<PaymentPage> {
       final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
 
       if (oldCart != null) {
-        final payload = {
-          'old_cart': oldCart,
-          'code': _couponCode ?? '',
-        };
+        final payload = {'old_cart': oldCart, 'code': _couponCode ?? ''};
 
         final response = await _cartService.removeCoupon(payload);
-        
+
         await StorageService.saveCartData(response);
         await _initializePayment(); // Refresh UI totals
 
@@ -849,91 +1285,93 @@ class _PaymentPageState extends State<PaymentPage> {
         }
       },
       child: Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F8F8),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        leading: useProfileBack
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _navigateToProfile,
-              )
-            : null,
-        title: Text(
-          isPayLaterFlow ? 'Review Order' : 'Payment',
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF8F8F8),
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.black),
+          leading: useProfileBack
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: _navigateToProfile,
+                )
+              : null,
+          title: Text(
+            'Payment',
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        bottom: isPayLaterFlow
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(38),
-                child: Container(
-                  width: double.infinity,
-                  color: Colors.black.withValues(alpha: 0.05),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 9,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.navigation_rounded,
-                        color: Colors.black54,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'My Orders  ›  Order Details  ›  Pay Later',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
+          bottom: isPayLaterFlow
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(38),
+                  child: Container(
+                    width: double.infinity,
+                    color: Colors.black.withValues(alpha: 0.05),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 9,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.navigation_rounded,
+                          color: Colors.black54,
+                          size: 16,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          'My Orders  ›  Order Details  ›  Pay Later',
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              )
-            : null,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildOrderSummaryCard(),
-                    const SizedBox(height: 24),
-
-                    if (!_isPayLater) ...[
-                      _buildPaymentMethodSection(),
+                )
+              : null,
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      _buildOrderSummaryCard(),
                       const SizedBox(height: 24),
 
-                      if (_selectedPaymentMethod == 'Credit Card') ...[
-                        const SizedBox(height: 12),
-                        _buildSubmitButton(),
-                      ] else if (_selectedPaymentMethod == 'PayPal') ...[
-                        _buildPayPalButton(),
-                      ] else if (_selectedPaymentMethod == 'Google Pay') ...[
-                        _buildGooglePayButton(),
-                      ] else if (_selectedPaymentMethod.isNotEmpty) ...[
+                      if (!_isPayLater) ...[
+                        _buildPaymentMethodSection(),
+                        const SizedBox(height: 24),
+
+                        if (_selectedPaymentMethod == 'Credit Card') ...[
+                          const SizedBox(height: 12),
+                          _buildCardInputFields(),
+                          const SizedBox(height: 12),
+                          _buildSubmitButton(),
+                        ] else if (_selectedPaymentMethod == 'PayPal') ...[
+                          _buildPayPalButton(),
+                        ] else if (_selectedPaymentMethod == 'Google Pay') ...[
+                          _buildGooglePayButton(),
+                        ] else if (_selectedPaymentMethod.isNotEmpty) ...[
+                          _buildSubmitButton(),
+                        ],
+                      ] else ...[
                         _buildSubmitButton(),
                       ],
-                    ] else ...[
-                      _buildSubmitButton(),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-        ),
+      ),
     );
   }
 
@@ -1001,14 +1439,17 @@ class _PaymentPageState extends State<PaymentPage> {
                         : null,
                   ),
                 ),
-              ] else if (!kIsWeb && isIOS) ...[
-                const SizedBox(height: 12),
-                _paymentOptionRow(
-                  'Apple Pay',
-                  Icons.apple,
-                  _selectedPaymentMethod == 'Apple Pay',
-                  isEnabled: false,
-                ),
+                /*
+                if (!kIsWeb && isIOS) ...[
+                  const SizedBox(height: 12),
+                  _paymentOptionRow(
+                    'Apple Pay',
+                    Icons.apple,
+                    _selectedPaymentMethod == 'Apple Pay',
+                    isEnabled: false,
+                  ),
+                ],
+                */
               ],
             ],
           ],
@@ -1128,15 +1569,16 @@ class _PaymentPageState extends State<PaymentPage> {
             // Total without GST
             _summaryRow(
               'Total without GST',
-              formatPrice((_subtotalExclGst ?? 0.0) + (_shippingCost ?? 0.0) - (_specialDiscount ?? 0.0)),
+              formatPrice(
+                (_subtotalExclGst ?? 0.0) +
+                    (_shippingCost ?? 0.0) -
+                    (_specialDiscount ?? 0.0),
+              ),
             ),
             const SizedBox(height: 8),
 
             // GST Row
-            _summaryRow(
-              'GST',
-              formatPrice(_gstAmount),
-            ),
+            _summaryRow('GST', formatPrice(_gstAmount)),
             const SizedBox(height: 12),
             const Divider(height: 1, thickness: 0.8),
             const SizedBox(height: 12),
@@ -1155,26 +1597,32 @@ class _PaymentPageState extends State<PaymentPage> {
             Row(
               children: [
                 Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: TextField(
-                      controller: _couponController,
-                      decoration: InputDecoration(
-                        hintText: 'Enter promo code',
-                        hintStyle: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                        ),
-                        border: InputBorder.none,
+                  child: GestureDetector(
+                    onTap: _showCouponsModal,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      style: const TextStyle(fontSize: 14),
+                      child: AbsorbPointer(
+                        absorbing: true,
+                        child: TextField(
+                          controller: _couponController,
+                          decoration: InputDecoration(
+                            hintText: 'Enter promo code',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1182,7 +1630,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 ElevatedButton(
                   onPressed: _isProcessing ? null : _applyPromoCode,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[400],
+                    backgroundColor: const Color(0xFF151D51),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -1196,6 +1644,24 @@ class _PaymentPageState extends State<PaymentPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _showCouponsModal,
+                icon: const Icon(Icons.local_offer_outlined, size: 16),
+                label: const Text('View Available Offers'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF151D51),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
             // Show applied promo code message
             if (_couponCode != null && _couponCode!.isNotEmpty) ...[
@@ -1258,7 +1724,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
               ],
             ),
- 
+
             // Pending Freight Quote
             if (_hasPendingFreightQuote) ...[
               const SizedBox(height: 8),
@@ -1309,9 +1775,6 @@ class _PaymentPageState extends State<PaymentPage> {
       ),
     );
   }
-
-
-
 
   Widget _buildSubmitButton() {
     return SizedBox(
@@ -1374,6 +1837,223 @@ class _PaymentPageState extends State<PaymentPage> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
       ),
+    );
+  }
+
+  Widget _buildCardInputFields() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'CARD DETAILS',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF151D51),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Cardholder Name
+          _buildTextField(
+            label: 'Cardholder Name',
+            controller: _cardholderNameController,
+            focusNode: _cardholderNameFocus,
+            hint: 'E.g. JOHN DOE',
+            textCapitalization: TextCapitalization.characters,
+            validator: (v) =>
+                v == null || v.isEmpty ? 'Enter cardholder name' : null,
+          ),
+          const SizedBox(height: 12),
+
+          // Card Number
+          _buildTextField(
+            label: 'Card Number',
+            controller: _cardNumberController,
+            focusNode: _cardNumberFocus,
+            hint: 'XXXX XXXX XXXX XXXX',
+            keyboardType: TextInputType.number,
+            maxLength: 19,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              _CardNumberFormatter(),
+            ],
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'Enter card number';
+              final clean = v.replaceAll(' ', '');
+              if (clean.length < 13 || clean.length > 19)
+                return 'Enter valid card number';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              // Expiry Date
+              Expanded(
+                flex: 2,
+                child: _buildTextField(
+                  label: 'Expiry Date',
+                  controller: _expiryController,
+                  focusNode: _expiryFocus,
+                  hint: 'MM/YY',
+                  keyboardType: TextInputType.number,
+                  maxLength: 5,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    _ExpiryDateFormatter(),
+                  ],
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    if (v.length < 5) return 'Invalid';
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              // CVV
+              Expanded(
+                flex: 1,
+                child: _buildTextField(
+                  label: 'CVV',
+                  controller: _cvvController,
+                  focusNode: _cvvFocus,
+                  hint: 'CVV',
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  obscureText: true,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    if (v.length < 3) return 'Invalid';
+                    return null;
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    String? hint,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
+    bool obscureText = false,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          maxLength: maxLength,
+          obscureText: obscureText,
+          textCapitalization: textCapitalization,
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: hint,
+            counterText: '',
+            filled: true,
+            fillColor: Colors.grey[50],
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF002e5b),
+                width: 1.5,
+              ),
+            ),
+            errorStyle: const TextStyle(height: 0.8, fontSize: 11),
+          ),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+}
+
+class _CardNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String newText = newValue.text.replaceAll(' ', '');
+    if (newText.length > 16) newText = newText.substring(0, 16);
+
+    String formattedText = '';
+    for (int i = 0; i < newText.length; i++) {
+      formattedText += newText[i];
+      if ((i + 1) % 4 == 0 && (i + 1) != newText.length) {
+        formattedText += ' ';
+      }
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+class _ExpiryDateFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String newText = newValue.text.replaceAll('/', '');
+    if (newText.length > 4) newText = newText.substring(0, 4);
+
+    String formattedText = '';
+    for (int i = 0; i < newText.length; i++) {
+      formattedText += newText[i];
+      if (i == 1 && newText.length > 2) {
+        formattedText += '/';
+      }
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
     );
   }
 }

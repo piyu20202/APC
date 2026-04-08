@@ -31,7 +31,7 @@ class PaymentService {
 
   // PayPal: Use mock mode (true) or real backend API (false)
   // Set to false when backend PayPal endpoint is ready
-  static const bool useMockPayPal = true; // Set to false when backend is ready
+  static const bool useMockPayPal = false; // Set to false when backend is ready
 
   /// Helper function to print long strings in chunks (to avoid truncation)
   void _printLongString(String text, String label) {

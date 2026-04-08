@@ -15,8 +15,6 @@ import 'package:flutter/services.dart';
 import 'package:apcproject/config/environment.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:cybersource_inapp/cybersource_inapp.dart';
-import 'package:apcproject/ui/screens/payment_page/cybersource_webview_page.dart';
 
 class OrderPriceDetailPage extends StatefulWidget {
   const OrderPriceDetailPage({super.key});
@@ -126,9 +124,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       if (cartResponse != null) {
         // Debug: print full cart JSON (including shipping) to console
         try {
-          final prettyCartJson = const JsonEncoder.withIndent('  ').convert(
-            cartResponse,
-          );
+          final prettyCartJson = const JsonEncoder.withIndent(
+            '  ',
+          ).convert(cartResponse);
           _printLongString(
             prettyCartJson,
             'CART DATA (StorageService.getCartData)',
@@ -143,36 +141,31 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         if (postcode != null && oldCart != null) {
           try {
             // Prepare payload for shipping API
-            final shippingPayload = {
-              'postcode': postcode,
-              'old_cart': oldCart,
-            };
+            final shippingPayload = {'postcode': postcode, 'old_cart': oldCart};
 
             // Call shipping API
-            final shippingResponse =
-                await _cartService.calculateShipping(shippingPayload);
+            final shippingResponse = await _cartService.calculateShipping(
+              shippingPayload,
+            );
 
             // Extract values from API response and format to 2 decimal places
             // Extract values from API response and format to 2 decimal places
             final taxValue = _toDouble(shippingResponse['tax']);
-            final orderType = (shippingResponse['order_type'] ?? '').toString().toLowerCase();
+            final orderType = (shippingResponse['order_type'] ?? '')
+                .toString()
+                .toLowerCase();
             final shippingCost = (orderType == 'large')
-                 ? _toDouble(shippingResponse['shipping_cost']) ?? 0.0
-                 : _toDouble(shippingResponse['normal_shipping_cost']) ?? 0.0;
+                ? _toDouble(shippingResponse['shipping_cost']) ?? 0.0
+                : _toDouble(shippingResponse['normal_shipping_cost']) ?? 0.0;
 
             final gstAmount = taxValue != null
                 ? double.parse(taxValue.toStringAsFixed(2))
                 : null;
-            final totalWithGst = _toDouble(shippingResponse['total_with_gst']) ?? 0.0;
+            final totalWithGst =
+                _toDouble(shippingResponse['total_with_gst']) ?? 0.0;
 
             // Get subtotal from cart data
             final totalPrice = _toDouble(cartResponse['totalPrice']);
-
-            // Freight quote flag: show only if > 0
-            final showRequestFreight =
-                (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ??
-                0;
-            final hasPendingFreight = showRequestFreight > 0;
 
             if (totalPrice != null) {
               final totalExclGst = totalPrice + shippingCost;
@@ -184,18 +177,22 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 _gstAmount = gstAmount;
                 _totalInclGst = double.parse(totalWithGst.toStringAsFixed(2));
                 _totalPayable = _totalInclGst;
-                
+
                 // Scenario 1 & 3: Consolidated freight detection
-                final hasPendingQuote = (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ?? 0;
-                final hasFreightIcon = (shippingResponse['show_freight_cost_icon'] as num?)?.toInt() ?? 0;
-                _isPayLater = hasFreightIcon == 1 || hasPendingQuote > 0;
+                final hasPendingQuote =
+                    (cartResponse['show_request_freight_cost'] as num?)
+                        ?.toDouble() ??
+                    0;
                 _hasPendingFreightQuote = hasPendingQuote > 0;
 
-                // Scenario 2: Show free shipping label if it's NOT a pay later order AND (icon flag is set OR shipping cost is 0)
-                _showFreeShippingLabel = !_isPayLater &&
-                    ((shippingResponse['show_free_shipping_icon'] as num?)?.toInt() == 1 || 
-                     shippingCost == 0.0);
-                
+                // Scenario 2: Show free shipping label only when NO pending freight quote exists.
+                _showFreeShippingLabel =
+                    !(hasPendingQuote > 0) &&
+                    ((shippingResponse['show_free_shipping_icon'] as num?)
+                                ?.toInt() ==
+                            1 ||
+                        shippingCost == 0.0);
+
                 // Dynamic GST calculation: (gst_amount / subtotal) * 100
                 if (gstAmount != null && totalPrice > 0) {
                   _gstRate = (gstAmount / totalPrice) * 100;
@@ -245,11 +242,6 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     // Shipping may be num or string
     final shippingCost = _toDouble(cartResponse['shipping']);
 
-    // Freight quote flag: show only if > 0
-    final showRequestFreight =
-        (cartResponse['show_request_freight_cost'] as num?)?.toDouble() ?? 0;
-    final hasPendingFreight = showRequestFreight > 0;
-
     if (totalPrice != null) {
       final totalExclGst = totalPrice + (shippingCost ?? 0.0);
       final gstAmount =
@@ -265,9 +257,11 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
             totalWithGst ??
             (totalPrice + (shippingCost ?? 0.0) + (gstAmount ?? 0.0));
         _totalPayable = _totalInclGst;
-        _isPayLater = (cartResponse['show_request_freight_cost'] as num?) != null &&
+        // Normal checkout flow should never show the Pay Later UI.
+        _isPayLater = false;
+        _hasPendingFreightQuote =
+            (cartResponse['show_request_freight_cost'] as num?) != null &&
             (cartResponse['show_request_freight_cost'] as num) > 0;
-        _hasPendingFreightQuote = _isPayLater;
       });
     } else {
       // If totals are not available, keep values null
@@ -295,13 +289,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
 
       if (oldCart != null) {
-        final payload = {
-          'old_cart': oldCart,
-          'code': _couponCode ?? '',
-        };
+        final payload = {'old_cart': oldCart, 'code': _couponCode ?? ''};
 
         final response = await _cartService.removeCoupon(payload);
-        
+
         await StorageService.saveCartData(response);
         await _loadCartTotals();
 
@@ -342,7 +333,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         backgroundColor: const Color(0xFFF8F8F8),
         elevation: 0,
         title: const Text(
-          'Review Order',
+          'Order Price Details',
           style: TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -355,26 +346,26 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               child: Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 60.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Price Details Section
-              _buildPriceDetailsSection(),
-              const SizedBox(height: 24),
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 60.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Price Details Section
+                    _buildPriceDetailsSection(),
+                    const SizedBox(height: 24),
 
-              if (!_isPayLater) ...[
-                // Payment Method Section
-                _buildPaymentMethodSection(),
-                const SizedBox(height: 32),
-              ],
+                    if (!_isPayLater) ...[
+                      // Payment Method Section
+                      _buildPaymentMethodSection(),
+                      const SizedBox(height: 32),
+                    ],
 
-              // Proceed to Payment Button
-              _buildProceedButton(),
-            ],
-          ),
-        ),
-      ),
+                    // Proceed to Payment Button
+                    _buildProceedButton(),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
@@ -576,7 +567,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 ),
               ],
             ),
- 
+
             // Pending Freight Quote
             if (_hasPendingFreightQuote) ...[
               const SizedBox(height: 8),
@@ -658,6 +649,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
               ),
             ),
             const SizedBox(height: 12),
+            /*
             // Afterpay (currently disabled)
             _buildPaymentOption(
               'Afterpay',
@@ -674,6 +666,31 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
               isEnabled: false,
             ),
             const SizedBox(height: 12),
+
+            // Apple Pay Option (iOS only)
+            if (!kIsWeb && Platform.isIOS)
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedPaymentMethod = 'Apple Pay';
+                  });
+                },
+                child: _buildPaymentOption(
+                  'Apple Pay',
+                  Icons.apple,
+                  _selectedPaymentMethod == 'Apple Pay',
+                  isEnabled: true,
+                  trailing: _isInitializingApplePay
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                ),
+              ),
+            const SizedBox(height: 12),
+            */
             // Google Pay Option (always show; enable only when available)
             GestureDetector(
               onTap: () {
@@ -698,30 +715,6 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
               ),
             ),
             const SizedBox(height: 12),
-            // Apple Pay Option (iOS only)
-            if (!kIsWeb && Platform.isIOS)
-              GestureDetector(
-                onTap: () {
-                  // Only select Apple Pay, don't trigger payment yet
-                  // Payment will be triggered when user presses "Proceed Payment" button
-                  setState(() {
-                    _selectedPaymentMethod = 'Apple Pay';
-                  });
-                },
-                child: _buildPaymentOption(
-                  'Apple Pay',
-                  Icons.apple,
-                  _selectedPaymentMethod == 'Apple Pay',
-                  isEnabled: true,
-                  trailing: _isInitializingApplePay
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
-                ),
-              ),
           ],
         ),
       ),
@@ -825,8 +818,11 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
                 ),
               )
             : Text(
-                _isPayLater ? 'COMPLETE ORDER' : 'PROCEED TO PAYMENT',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                _isPayLater ? 'COMPLETE ORDER' : 'CONTINUE TO PAYMENT',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
       ),
     );
@@ -921,7 +917,6 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       // Check if order was successfully placed with order_number
       final order = response['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
-      final orderId = order?['id'] as int?;
 
       if (orderNumber == null || orderNumber.isEmpty) {
         if (mounted) {
@@ -958,9 +953,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         // Pay Later / pending freight: order is placed but user must still pay.
         // Same path as Credit Card — payment page with methods (cart cleared after pay).
         if (_isPayLater) {
-          debugPrint(
-            'Pay Later / freight quote — Navigating to payment page',
-          );
+          debugPrint('Pay Later / freight quote — Navigating to payment page');
           await StorageService.clearCheckoutData();
           if (mounted) {
             Navigator.pushNamed(
@@ -972,49 +965,16 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           return;
         }
 
-        // Route to appropriate payment flow based on selected payment method
-        // Credit Card should always go directly to WebView, skipping the redundant payment page
+        // Route to appropriate payment flow based on selected payment method.
         if (_selectedPaymentMethod == 'Credit Card') {
-          debugPrint('Credit Card selected - Fetching capture context...');
-          final captureContext = await CybersourceInapp.getCaptureContext();
-          
-          if (mounted) {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CybersourceWebViewPage(
-                  captureContext: captureContext,
-                  orderId: orderId!,
-                  orderNumber: orderNumber,
-                  amount: _totalPayable ?? 0.0,
-                ),
-              ),
-            );
-
-            if (result != null && result['success'] == true) {
-              await StorageService.clearCartData();
-              if (mounted) {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/order-placed',
-                  (route) => false,
-                  arguments: {
-                    'payment_token': result['token'],
-                    'payment_method': 'Cybersource Card',
-                  },
-                );
-              }
-            } else {
-              if (mounted) {
-                Fluttertoast.showToast(
-                  msg: 'Payment cancelled or failed. Please try again.',
-                  backgroundColor: Colors.red,
-                  textColor: Colors.white,
-                );
-                setState(() => _isSubmitting = false);
-              }
-            }
-          }
+          debugPrint('Credit Card selected - Navigating to payment page');
+          await StorageService.clearCheckoutData();
+          if (!mounted) return;
+          Navigator.pushNamed(
+            context,
+            '/payment',
+            arguments: {'payment_method': 'Credit Card'},
+          );
           return;
         }
 
@@ -1045,35 +1005,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           return;
         }
 
-        // For Apple Pay - trigger payment when proceed button is pressed
-        if (_selectedPaymentMethod == 'Apple Pay') {
-          debugPrint('Apple Pay selected - handling from proceed button');
-
-          if (_isInitializingApplePay) {
-            Fluttertoast.showToast(
-              msg: 'Checking Apple Pay availability...',
-              toastLength: Toast.LENGTH_SHORT,
-            );
-            return;
-          }
-
-          if (!_isApplePayAvailable) {
-            Fluttertoast.showToast(
-              msg: 'Apple Pay is not available on this device.',
-              toastLength: Toast.LENGTH_LONG,
-            );
-            return;
-          }
-
-          await StorageService.clearCheckoutData();
-          await _handleApplePayClick();
-          return;
-        }
 
         // For other payment methods
-        if (_selectedPaymentMethod == 'PayPal' ||
-            _selectedPaymentMethod == 'Afterpay' ||
-            _selectedPaymentMethod == 'Zip Pay') {
+        if (_selectedPaymentMethod == 'PayPal') {
           debugPrint(
             '$_selectedPaymentMethod selected - Navigating to payment page',
           );
@@ -1281,7 +1215,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       if (updatedCart == null) {
         // Treat as logical failure, but do not change existing totals
         Fluttertoast.showToast(
-          msg: 'Unable to apply promo code. Please try again.',
+          msg: response['message'] ?? 'Unable to apply promo code. Please try again.',
           toastLength: Toast.LENGTH_LONG,
           backgroundColor: Colors.red,
           textColor: Colors.white,
@@ -1815,9 +1749,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   }
 
   /// Handle Apple Pay payment result
-  Future<void> _handleApplePayResult(
-    Map<String, dynamic> paymentResult,
-  ) async {
+  Future<void> _handleApplePayResult(Map<String, dynamic> paymentResult) async {
     // Prevent duplicate processing
     if (_isPaymentProcessing || _hasNavigatedAway) {
       debugPrint(
@@ -1881,7 +1813,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         amount = (order?['pay_amount'] as num?)?.toDouble() ?? amount;
       } else {
         orderNumber = orderData['order']?['order_number'] as String?;
-        amount = (orderData['order']?['pay_amount'] as num?)?.toDouble() ?? amount;
+        amount =
+            (orderData['order']?['pay_amount'] as num?)?.toDouble() ?? amount;
       }
 
       if (orderNumber == null) {
@@ -1898,7 +1831,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       debugPrint('Apple Pay payment processed: $paymentResponse');
 
       // Check response format
-      final showOrderSuccess = paymentResponse['show_order_success'] as int? ?? 0;
+      final showOrderSuccess =
+          paymentResponse['show_order_success'] as int? ?? 0;
 
       // Clear cart data ONLY after successful payment
       await StorageService.clearCartData();

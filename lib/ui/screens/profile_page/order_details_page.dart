@@ -3,6 +3,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/exceptions/api_exception.dart';
 import '../../../services/storage_service.dart';
+import 'tracking_info_page.dart';
 
 class OrderDetailsPage extends StatefulWidget {
   final int orderId;
@@ -79,8 +80,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       }
     }
   }
-
-
 
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return 'N/A';
@@ -242,14 +241,25 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     // Show if: payment_status == 'Partial' (always)
                     //       OR payment_status == 'Unpaid' AND (normal order OR large with shipping > 0)
                     if (_orderData!['status']?.toString() != '7' &&
-                        _orderData!['payment_status']?.toLowerCase() != 'paid') ...[
-                      if (_orderData!['payment_status']?.toLowerCase() == 'partial')
+                        _orderData!['payment_status']?.toLowerCase() !=
+                            'paid') ...[
+                      if (_orderData!['payment_status']?.toLowerCase() ==
+                          'partial')
                         _buildPayNowButton()
-                      else if (_orderData!['payment_status']?.toLowerCase() == 'unpaid' &&
+                      else if (_orderData!['payment_status']?.toLowerCase() ==
+                              'unpaid' &&
                           (_orderData!['order_type'] == 'normal' ||
                               (_orderData!['order_type'] == 'large' &&
-                                  _safeNum(_orderData!['normal_shipping_cost']) > 0)))
+                                  _safeNum(
+                                        _orderData!['normal_shipping_cost'],
+                                      ) >
+                                      0)))
                         _buildPayNowButton(),
+                    ],
+                    if (_orderData!['payment_status']?.toLowerCase() ==
+                        'unpaid') ...[
+                      const SizedBox(height: 12),
+                      _buildTrackOrderButton(),
                     ],
                   ],
                 ),
@@ -292,7 +302,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         showPendingFreightFromAmount || showPendingFreightFromShipping;
 
     final orderSource = order['order_source']?.toString().toLowerCase() ?? '';
-    final specialDiscountDescription = order['special_discount_description']?.toString() ?? '';
+    final specialDiscountDescription =
+        order['special_discount_description']?.toString() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -373,10 +384,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             if (order['order_note'] != null &&
                 order['order_note'].toString().trim().isNotEmpty)
               _buildInfoRow('Order Note', order['order_note']),
-            if (orderSource == 'mobile' && specialDiscountDescription.isNotEmpty)
-              _buildInfoRow('Special Discount Note', specialDiscountDescription),
-          ]
- else if (isQuotation) ...[
+            if (orderSource == 'mobile' &&
+                specialDiscountDescription.isNotEmpty)
+              _buildInfoRow(
+                'Special Discount Note',
+                specialDiscountDescription,
+              ),
+          ] else if (isQuotation) ...[
             _buildInfoRow(
               'Quotation Date',
               _formatDate(order['quotation_date'] ?? order['created_at']),
@@ -835,11 +849,18 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     // FORCE FIX: Prioritize recalculated values, otherwise use local force calculation
     // because backend data for these orders is consistently missing the GST layer.
 
-    final grandTotal = _safeParseAmount(_responseData?['grand_total'] ?? _orderData?['pay_amount'] ?? _orderData?['total']);
+    final grandTotal = _safeParseAmount(
+      _responseData?['grand_total'] ??
+          _orderData?['pay_amount'] ??
+          _orderData?['total'],
+    );
     final double tax = _safeParseAmount(_responseData?['tax']);
     final discount = _safeParseAmount(_responseData?['discount']);
-    final shipping = _safeParseAmount(_responseData?['shipping_cost_including_gst']);
-    final orderSource = _orderData?['order_source']?.toString().toLowerCase() ?? '';
+    final shipping = _safeParseAmount(
+      _responseData?['shipping_cost_including_gst'],
+    );
+    final orderSource =
+        _orderData?['order_source']?.toString().toLowerCase() ?? '';
     final specialDiscount = (orderSource == 'mobile')
         ? _safeParseAmount(_orderData?['special_discount'])
         : 0.0;
@@ -889,10 +910,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               '-$currencySign${specialDiscount.toStringAsFixed(2)}',
               valueColor: Colors.red,
             ),
-          _buildSummaryRow(
-            'GST',
-            '$currencySign${tax.toStringAsFixed(2)}',
-          ),
+          _buildSummaryRow('GST', '$currencySign${tax.toStringAsFixed(2)}'),
           if (discount > 0)
             _buildSummaryRow(
               'Total Discount',
@@ -1024,6 +1042,47 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     );
   }
 
+  Widget _buildTrackOrderButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _handleTrackOrder,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1A365D),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+        child: const Text(
+          'TRACK ORDER',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleTrackOrder() {
+    final heading = (_responseData?['tracking_heading'] ?? '').toString();
+    final info = (_responseData?['tracking_info'] ?? '').toString();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TrackingInfoPage(
+          heading: heading,
+          info: info,
+        ),
+      ),
+    );
+  }
+
   /// Navigate to Payment Page (seeds the same storage as normal checkout)
   Future<void> _handlePayNow() async {
     debugPrint('Navigating from Order Details to Payment: ${widget.orderId}');
@@ -1039,13 +1098,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       return;
     }
 
-    // Determine flow: "Awaiting Freight Cost" orders go to Pay Later page,
-    // all other unpaid orders go to the normal payment page.
-    final String orderStatus =
-        (_responseData!['order_status'] ?? _orderData!['order_status'] ?? '')
-            .toString()
-            .toLowerCase();
-    final bool isAwaitingFreight = orderStatus.contains('awaiting');
+    // Always open the shared normal Payment UI from My Orders -> Pay Now.
 
     // Seed the same storage keys that the normal checkout flow populates
     await StorageService.saveOrderData(_responseData!);
@@ -1074,8 +1127,22 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       });
     }
 
-    final bool isUnpaid =
-        _orderData!['payment_status']?.toLowerCase() == 'unpaid';
+    final grandTotal = _safeParseAmount(
+      _responseData?['grand_total'] ??
+          _orderData?['pay_amount'] ??
+          _orderData?['total'],
+    );
+    final double tax = _safeParseAmount(_responseData?['tax']);
+    final discount = _safeParseAmount(_responseData?['discount']);
+    final shipping = _safeParseAmount(
+      _responseData?['shipping_cost_including_gst'],
+    );
+    final orderSource =
+        _orderData?['order_source']?.toString().toLowerCase() ?? '';
+    final specialDiscount = (orderSource == 'mobile')
+        ? _safeParseAmount(_orderData?['special_discount'])
+        : 0.0;
+    final subtotal = (grandTotal - tax - shipping + specialDiscount);
 
     Navigator.pushNamed(
       context,
@@ -1083,7 +1150,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       arguments: {
         // Always set so back from payment goes to Profile, not Order Details
         'from_my_orders_payment': true,
-        if (isAwaitingFreight || isUnpaid) 'is_pay_later': true,
+        // PASSED EXACT VALUES TO ENSURE UI PARITY AND AVOID RECALCULATION ERRORS
+        'summary_grand_total': grandTotal,
+        'summary_tax': tax,
+        'summary_shipping': shipping,
+        'summary_discount': discount,
+        'summary_special_discount': specialDiscount,
+        'summary_subtotal': subtotal,
       },
     ).then((_) {
       if (mounted) _fetchOrderDetails();

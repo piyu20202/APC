@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/utils/logger.dart';
 
 class UserRoleService {
   static const String _isTraderKey = 'is_trader_user';
@@ -15,17 +16,23 @@ class UserRoleService {
     }
   }
   
-  // Set user as trader
-  static Future<void> setAsTrader() async {
+  // Set user trader status
+  static Future<void> setIsTraderUser(bool isTrader) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_isTraderKey, true);
-      await prefs.setString(_traderActivationDateKey, DateTime.now().toIso8601String());
+      await prefs.setBool(_isTraderKey, isTrader);
+      if (isTrader) {
+        await prefs.setString(_traderActivationDateKey, DateTime.now().toIso8601String());
+      } else {
+        await prefs.remove(_traderActivationDateKey);
+      }
     } catch (e) {
-      // Handle error silently or throw if needed
-      rethrow;
+      Logger.error('Failed to set trader status', e);
     }
   }
+  
+  // Set user as trader (legacy/helper)
+  static Future<void> setAsTrader() async => setIsTraderUser(true);
   
   // Remove trader status
   static Future<void> removeTraderStatus() async {

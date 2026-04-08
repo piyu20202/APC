@@ -13,7 +13,7 @@ class CartService {
         endpoint: ApiEndpoints.addCartProducts,
         body: payload,
         contentType: 'application/json',
-        requireAuth: false,
+        requireAuth: true,
       );
       Logger.info('Add-products response keys: ${response.keys.join(", ")}');
       return response;
@@ -39,7 +39,7 @@ class CartService {
         endpoint: ApiEndpoints.removeCartProducts,
         body: body,
         contentType: 'application/json',
-        requireAuth: false,
+        requireAuth: true,
       );
       Logger.info('Remove-products response keys: ${response.keys.join(", ")}');
       return response;
@@ -60,7 +60,7 @@ class CartService {
         endpoint: ApiEndpoints.updateCart,
         body: payload,
         contentType: 'application/json',
-        requireAuth: false,
+        requireAuth: true,
       );
       Logger.info('Update-cart response keys: ${response.keys.join(", ")}');
       return response;
@@ -83,7 +83,7 @@ class CartService {
         endpoint: ApiEndpoints.applyCoupon,
         body: payload,
         contentType: 'application/json',
-        requireAuth: false,
+        requireAuth: true,
       );
       Logger.info('Apply-coupon response keys: ${response.keys.join(", ")}');
       return response;
@@ -106,7 +106,7 @@ class CartService {
         endpoint: ApiEndpoints.removeCoupon,
         body: payload,
         contentType: 'application/json',
-        requireAuth: false,
+        requireAuth: true,
       );
       Logger.info('Remove-coupon response keys: ${response.keys.join(", ")}');
       return response;
@@ -129,7 +129,7 @@ class CartService {
         endpoint: ApiEndpoints.calculateShipping,
         body: payload,
         contentType: 'application/json',
-        requireAuth: false,
+        requireAuth: true,
       );
       Logger.info('Calculate-shipping response: ${jsonEncode(response)}');
       return response;
@@ -139,6 +139,34 @@ class CartService {
       Logger.error('Failed to call calculate-shipping API', e);
       Logger.error('Stack trace', null, stackTrace);
       rethrow;
+    }
+  }
+
+  /// Get list of available coupons from /user/cart/coupons
+  Future<List<dynamic>> getAvailableCoupons() async {
+    try {
+      Logger.info('Calling get-available-coupons API');
+      final response = await ApiClient.get(
+        endpoint: ApiEndpoints.availableCoupons,
+        requireAuth: true,
+      );
+      
+      // ApiClient.get always returns a Map<String, dynamic>
+      if (response.containsKey('data') && response['data'] is List) {
+        return response['data'] as List<dynamic>;
+      }
+      
+      if (response.containsKey('coupons') && response['coupons'] is List) {
+        return response['coupons'] as List<dynamic>;
+      }
+      
+      return [];
+    } on ApiException {
+      rethrow;
+    } catch (e, stackTrace) {
+      Logger.error('Failed to call get-available-coupons API', e);
+      Logger.error('Stack trace', null, stackTrace);
+      throw ApiException(message: 'Failed to fetch coupons');
     }
   }
 }

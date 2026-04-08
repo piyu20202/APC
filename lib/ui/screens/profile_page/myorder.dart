@@ -41,26 +41,21 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
 
       if (response.containsKey('orders') && response['orders'] != null) {
         final List<dynamic> ordersData = response['orders'];
-        // Map and sort orders so the latest appears at the top
+        // Map orders as they come from the API
         final mappedOrders = ordersData.map<Map<String, dynamic>>((order) {
           return {
             'id': order['id'],
             'invoice':
                 order['invoice_number'] ?? order['quotation_number'] ?? 'N/A',
-            'date': _formatDate(order['invoice_date'] ?? order['quotation_date']),
+            'date': _formatDate(
+              order['invoice_date'] ?? order['quotation_date'],
+            ),
             'total': _grandTotal(order),
             'status': _mapPaymentStatus(order['payment_status']),
             'statusColor': _getStatusColor(order['payment_status']),
             'rawData': order, // Store raw data for details
           };
         }).toList();
-
-        // Sort by ID descending (newest / highest ID first)
-        mappedOrders.sort((a, b) {
-          final int aId = (a['id'] as int?) ?? 0;
-          final int bId = (b['id'] as int?) ?? 0;
-          return bId.compareTo(aId);
-        });
 
         setState(() {
           _allOrders = mappedOrders;
@@ -151,8 +146,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
 
     final payAmount = _safeNum(order['pay_amount']);
     final taxAmount = _safeNum(order['tax_amount']);
-    final shipping  = _safeNum(order['shipping_cost']);
-    final discount  = _safeNum(order['discount']);
+    final shipping = _safeNum(order['shipping_cost']);
+    final discount = _safeNum(order['discount']);
 
     // If the API already provides a populated breakdown, compute from parts
     if (taxAmount > 0 || shipping > 0 || discount > 0) {
@@ -169,7 +164,6 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     // Last resort: show pay_amount as-is
     return '\$${payAmount.toStringAsFixed(2)}';
   }
-
 
   String _mapPaymentStatus(String? status) {
     if (status == null) return 'Unknown';
@@ -506,29 +500,33 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
 
                               const SizedBox(height: 16),
 
-                              // Action buttons row
-                              GestureDetector(
-                                onTap: () {
-                                  _showOrderDetails(order);
-                                },
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                    horizontal: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1A365D),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    'VIEW ORDER',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                              // Action button
+                              Center(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _showOrderDetails(order);
+                                  },
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 120,
                                     ),
-                                    textAlign: TextAlign.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 18,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1A365D),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'VIEW ORDER',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
                                 ),
                               ),

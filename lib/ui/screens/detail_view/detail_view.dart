@@ -757,224 +757,167 @@ class _DetailViewState extends State<DetailView> {
       );
     }
 
+    final isOnSale = (_product!.previousPrice > 0 &&
+            _product!.previousPrice > _product!.price) ||
+        _product!.sale == 1 ||
+        _product!.isDiscount == 1;
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Main Image - no overlap
+          // Main Image + Badges
           SizedBox(
             height: 280,
-            child: PageView.builder(
-            controller: _imageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentImageIndex = index;
-              });
-            },
-            itemCount: images.length,
-            itemBuilder: (context, index) {
-              final imageUrl = images[index];
-              final isNetwork = imageUrl.startsWith('http');
-
-              return Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.12),
-                        spreadRadius: 1,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: _imageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentImageIndex = index;
+                    });
+                  },
+                  itemCount: images.length,
+                  itemBuilder: (context, index) {
+                    final imageUrl = images[index];
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withValues(alpha: 0.12),
+                            spreadRadius: 1,
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FullScreenImageGallery(
-                              images: images,
-                              initialIndex: index,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FullScreenImageGallery(
+                                  images: images,
+                                  initialIndex: index,
+                                ),
+                              ),
+                            );
+                          },
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            errorWidget: (context, url, error) => const Icon(
+                              Icons.error_outline,
+                              size: 40,
+                              color: Colors.grey,
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                // SALE Badge
+                if (isOnSale)
+                  Positioned(
+                    top: 15,
+                    left: -15,
+                    child: Transform.rotate(
+                      angle: -0.785398, // -45 degrees
                       child: Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        color: Colors.white,
-                        child: isNetwork
-                            ? CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => Container(
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  color: Colors.white,
-                                  child: const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (context, url, error) => Container(
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  color: Colors.white,
-                                  child: const Icon(
-                                    Icons.image,
-                                    size: 48,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              )
-                            : Image.asset(
-                                imageUrl,
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    color: Colors.white,
-                                    child: const Icon(
-                                      Icons.image,
-                                      size: 48,
-                                      color: Colors.grey,
-                                    ),
-                                  );
-                                },
-                              ),
+                        width: 70,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              spreadRadius: 1,
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'SALE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                );
-              },
+                // Out of Stock Badge
+                if ((_product?.outOfStock ?? 0) == 1)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Text(
+                        'Out of Stock',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Flexible(
-                  child: SizedBox(
-                    height: 60,
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                    itemCount: images.length,
-                    itemBuilder: (context, index) {
-                      final imageUrl = images[index];
-                      final isNetwork = imageUrl.startsWith('http');
-
-                      return GestureDetector(
-                        onTap: () {
-                          _imageController.animateToPage(
-                            index,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _currentImageIndex == index
-                                  ? Colors.blue
-                                  : Colors.grey[300]!,
-                              width: 2,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              width: double.infinity,
-                              height: double.infinity,
-                              color: Colors.white,
-                              child: isNetwork
-                                  ? CachedNetworkImage(
-                                      imageUrl: imageUrl,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        color: Colors.white,
-                                        child: const Center(
-                                          child: SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      errorWidget: (context, url, error) =>
-                                          Container(
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        color: Colors.white,
-                                        child: const Icon(
-                                          Icons.image,
-                                          size: 24,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    )
-                                  : Image.asset(
-                                      imageUrl,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return Container(
-                                          width: double.infinity,
-                                          height: double.infinity,
-                                          color: Colors.white,
-                                          child: const Icon(
-                                            Icons.image,
-                                            size: 24,
-                                            color: Colors.grey,
-                                          ),
-                                        );
-                                        },
-                                      ),
-                              ),
-                            ),
-                            ),
-                        );
-                      },
+          const SizedBox(height: 16),
+          // Indicator Dots
+          if (images.length > 1)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(images.length, (index) {
+                return Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentImageIndex == index
+                        ? const Color(0xFF151D51)
+                        : Colors.grey[300],
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
+                );
+              }),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildProductDetails() {
     if (_product == null) return const SizedBox.shrink();
@@ -1198,6 +1141,7 @@ class _DetailViewState extends State<DetailView> {
             ],
           ),
           const SizedBox(height: 8),
+          /*
           // Payment options - Afterpay
           Row(
             children: [
@@ -1266,50 +1210,37 @@ class _DetailViewState extends State<DetailView> {
                 ' with ',
                 style: TextStyle(fontSize: 14, color: Colors.grey[800]),
               ),
-              Row(
-                children: [
-                  const Text(
-                    'Z',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE802),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Text(
+                  'ZIP',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
-                  Container(
-                    width: 16,
-                    height: 16,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'I',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Text(
-                    'P',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(width: 6),
-              Icon(Icons.info_outline, color: Colors.grey[700], size: 14),
+              Text(
+                'info',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue[700],
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          */
           if (_product!.shortDescription != null &&
               _product!.shortDescription!.isNotEmpty)
             Text(

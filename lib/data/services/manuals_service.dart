@@ -44,7 +44,7 @@ class ManualsService {
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.manuals,
         queryParameters: {'type': type},
-        requireAuth: false,
+        requireAuth: true,
       );
 
       // Extract the list from the response

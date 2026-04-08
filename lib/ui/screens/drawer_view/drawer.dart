@@ -10,6 +10,7 @@ import '../../../data/models/categories_model.dart';
 import '../../../data/services/homepage_service.dart';
 import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
+import '../webview_view/webview_page.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -124,6 +125,34 @@ class _AppDrawerState extends State<AppDrawer> {
       return;
     }
 
+    if (normalizedPageOpen == 'other_page') {
+      if (category.categorySlugUrl != null &&
+          category.categorySlugUrl!.isNotEmpty) {
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WebViewPage(
+                url: category.categorySlugUrl!,
+                title: category.name,
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('URL missing for this category'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+      return;
+    }
+
     // Default: try to get category details and navigate
     try {
       final categoryDetails = await _homepageService.getCategoryDetails(
@@ -179,50 +208,44 @@ class _AppDrawerState extends State<AppDrawer> {
       child: Container(
         color: const Color(0xFFF8F8F8),
         child: ListView(
-          padding: const EdgeInsets.only(right: 16),
+          padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
           children: [
             SizedBox(
-              height: 96,
+              height: 60,
               child: DrawerHeader(
                 margin: EdgeInsets.zero,
-                padding: const EdgeInsets.fromLTRB(20, 12, 24, 12),
+                padding: const EdgeInsets.fromLTRB(20, 0, 16, 0),
                 decoration: const BoxDecoration(color: Color(0xFFF8F8F8)),
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CategoriesGridScreen(),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CategoriesGridScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Categories',
+                        style: TextStyle(
+                          color: Color(0xFF101010),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          const Flexible(
-                            child: Text(
-                              'Categories',
-                              style: TextStyle(
-                                color: Color(0xFF101010),
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Color(0xFF101010),
-                            size: 28,
-                          ),
-                        ],
                       ),
                     ),
-                  ),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFF101010)),
+                      onPressed: () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -21,6 +21,11 @@ class _SearchScreenState extends State<SearchScreen> {
   String? _error;
   Timer? _debounceTimer;
 
+  // Pagination state
+  int _currentPage = 1;
+  int _lastPage = 1;
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -63,11 +68,12 @@ class _SearchScreenState extends State<SearchScreen> {
 
     // Debounce: Wait 600ms after user stops typing before making API call
     _debounceTimer = Timer(const Duration(milliseconds: 600), () {
-      _performSearch(query);
+      _currentPage = 1; // Reset to page 1 for new search
+      _performSearch(query, page: 1);
     });
   }
 
-  void _performSearch(String query) async {
+  void _performSearch(String query, {int page = 1}) async {
     if (query.isEmpty) {
       setState(() {
         _searchResults = [];
@@ -85,8 +91,15 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     try {
-      Logger.info('Searching products with keyword: $query');
-      final products = await _repository.searchProducts(searchKeyword: query);
+      Logger.info('Searching products with keyword: $query, page: $page');
+      final result = await _repository.searchProducts(
+        searchKeyword: query,
+        page: page.toString(),
+      );
+
+      final List<dynamic> products = result['products'];
+      final int currentPage = result['currentPage'];
+      final int lastPage = result['lastPage'];
 
       // Map API products to ListingProductCard expected format (same as product list view)
       final mappedResults = products.map((product) {
@@ -115,8 +128,19 @@ class _SearchScreenState extends State<SearchScreen> {
         _searchResults = mappedResults;
         _isLoading = false;
         _isSearching = false;
+        _currentPage = currentPage;
+        _lastPage = lastPage;
         _error = null;
       });
+
+      // Scroll to top when page changes
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     } catch (e) {
       Logger.error('Failed to search products', e);
       setState(() {
@@ -133,6 +157,7 @@ class _SearchScreenState extends State<SearchScreen> {
     _debounceTimer?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -204,6 +229,56 @@ class _SearchScreenState extends State<SearchScreen> {
 
           // Search Results or Empty State
           Expanded(child: _buildSearchContent()),
+        ],
+      ),
+      bottomNavigationBar: _searchResults.isNotEmpty ? _buildPagination() : null,
+    );
+  }
+
+  Widget _buildPagination() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Previous Button
+          TextButton.icon(
+            onPressed: _currentPage > 1
+                ? () => _performSearch(_searchController.text, page: _currentPage - 1)
+                : null,
+            icon: const Icon(Icons.chevron_left),
+            label: const Text('Prev'),
+            style: TextButton.styleFrom(
+              foregroundColor: _currentPage > 1 ? const Color(0xFF151D51) : Colors.grey,
+            ),
+          ),
+
+          // Page Info
+          Text(
+            'Page $_currentPage of $_lastPage',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+
+          // Next Button
+          TextButton(
+            onPressed: _currentPage < _lastPage
+                ? () => _performSearch(_searchController.text, page: _currentPage + 1)
+                : null,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Next'),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: _currentPage < _lastPage ? const Color(0xFF151D51) : Colors.grey,
+            ),
+          ),
         ],
       ),
     );
@@ -362,6 +437,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         Expanded(
           child: GridView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,

@@ -254,7 +254,7 @@ class HomepageService {
 
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.homepageSettings,
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Response received');
@@ -512,7 +512,7 @@ class HomepageService {
 
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.latestProducts,
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Latest products response received');
@@ -580,7 +580,7 @@ class HomepageService {
 
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.saleProducts,
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Sale products response received');
@@ -639,13 +639,13 @@ class HomepageService {
   }
 
   /// Search products from the server
-  Future<List<LatestProduct>> searchProducts({
+  Future<Map<String, dynamic>> searchProducts({
     required String searchKeyword,
     String? page,
     String? perPage,
   }) async {
     try {
-      Logger.info('Searching products with keyword: $searchKeyword');
+      Logger.info('Searching products with keyword: $searchKeyword, page: $page');
 
       // Build query parameters
       final queryParameters = <String, String>{'search_keyword': searchKeyword};
@@ -659,7 +659,7 @@ class HomepageService {
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.searchProducts,
         queryParameters: queryParameters,
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Search products response received');
@@ -691,18 +691,30 @@ class HomepageService {
             try {
               final product = LatestProduct.fromJson(item);
               searchResults.add(product);
-              Logger.info('Successfully parsed product: ${product.name}');
             } catch (e) {
               Logger.error('Error parsing product at index $i', e);
             }
           }
         }
-      } else {
-        Logger.warning('products key not found or is null in response');
       }
 
-      Logger.info('Total search products parsed: ${searchResults.length}');
-      return searchResults;
+      // Extract pagination info from meta block
+      int currentPage = 1;
+      int lastPage = 1;
+      if (response.containsKey('meta') && response['meta'] != null) {
+        final meta = response['meta'];
+        if (meta is Map<String, dynamic>) {
+          currentPage = (meta['current_page'] ?? 1) as int;
+          lastPage = (meta['last_page'] ?? 1) as int;
+        }
+      }
+
+      Logger.info('Total search products parsed: ${searchResults.length}, Page: $currentPage/$lastPage');
+      return {
+        'products': searchResults,
+        'currentPage': currentPage,
+        'lastPage': lastPage,
+      };
     } on ApiException catch (e) {
       Logger.error('API Exception searching products: ${e.message}');
       rethrow;
@@ -753,7 +765,7 @@ class HomepageService {
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.categoryDetails,
         queryParameters: {'category_id': categoryId.toString()},
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Category details response received');
@@ -824,7 +836,7 @@ class HomepageService {
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.subcategoryDetails,
         queryParameters: {'subcategory_id': subcategoryId.toString()},
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Subcategory details response received');
@@ -886,7 +898,7 @@ class HomepageService {
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.childcategoryDetails,
         queryParameters: {'childcategory_id': childcategoryId.toString()},
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Childcategory details response received');
@@ -954,7 +966,7 @@ class HomepageService {
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.subchildcategoryDetails,
         queryParameters: {'subchildcategory_id': subchildcategoryId.toString()},
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Subchildcategory details response received');
@@ -1046,7 +1058,7 @@ class HomepageService {
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.productsByCategory,
         queryParameters: queryParameters,
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Products by category response received');
@@ -1094,7 +1106,7 @@ class HomepageService {
 
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.allCategories,
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('All categories response received');

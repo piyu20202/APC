@@ -8,6 +8,7 @@ import 'accountinfo.dart';
 import 'myorder.dart';
 import 'editprofile.dart';
 import 'resetpassword.dart';
+import '../signup_view/trader_upgrade_flow.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -163,7 +164,16 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildTraderUpgradeCard() {
-    return Container(
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TraderUpgradeFlow(isExistingUser: true),
+          ),
+        ).then((_) => _checkTraderStatus());
+      },
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -233,6 +243,7 @@ class _ProfileViewState extends State<ProfileView> {
             ],
           ),
         ],
+      ),
       ),
     );
   }

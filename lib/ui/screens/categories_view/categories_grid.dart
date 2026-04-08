@@ -5,6 +5,7 @@ import '../../../core/utils/logger.dart';
 import 'subcategory_page.dart';
 import '../productlist_view/productlist.dart';
 import '../widget/category_tile.dart';
+import '../webview_view/webview_page.dart';
 
 class CategoriesGridScreen extends StatefulWidget {
   const CategoriesGridScreen({super.key});
@@ -153,6 +154,30 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
           ),
         ),
       );
+      return;
+    }
+
+    if (normalizedPageOpen == 'other_page') {
+      if (category.categorySlugUrl != null &&
+          category.categorySlugUrl!.isNotEmpty) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WebViewPage(
+              url: category.categorySlugUrl!,
+              title: category.name,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('URL missing for this category'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
       return;
     }
 

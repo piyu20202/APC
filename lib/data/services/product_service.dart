@@ -15,7 +15,7 @@ class ProductService {
       );
       final Map<String, dynamic> response = await ApiClient.get(
         endpoint: '${ApiEndpoints.productDetails}/$productId',
-        requireAuth: false,
+        requireAuth: true,
       );
 
       Logger.info('Product details response received');
