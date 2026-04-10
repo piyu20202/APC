@@ -168,6 +168,10 @@ class _PaymentPageState extends State<PaymentPage> {
     super.dispose();
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HELPER METHODS - Parsing and Conversion
+  // ─────────────────────────────────────────────────────────────────────────
+
   void _printLongString(String text, String label) {
     debugPrint('=== $label (Length: ${text.length}) ===');
     const int chunkSize = 800;
@@ -225,7 +229,7 @@ class _PaymentPageState extends State<PaymentPage> {
           onError: (error) {
             debugPrint('Google Pay result error: $error');
             if (mounted) {
-              _clearCartOnPaymentExit();
+              // Do NOT clear cart on failure - user can retry.
               setState(() => _isProcessing = false);
               Fluttertoast.showToast(
                 msg: 'Google Pay failed. Please try again.',
@@ -299,7 +303,7 @@ class _PaymentPageState extends State<PaymentPage> {
     } catch (e) {
       debugPrint('Google Pay error: $e');
       _isPaymentProcessing = false;
-      await _clearCartOnPaymentExit();
+      // Do NOT clear cart on failure - user can retry.
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Something went wrong. Please try again.',
@@ -349,7 +353,9 @@ class _PaymentPageState extends State<PaymentPage> {
     } catch (e) {
       debugPrint('Google Pay error: $e');
       _isPaymentProcessing = false;
-      await _clearCartOnPaymentExit();
+      // IMPORTANT: Do NOT clear cart on failure.
+      // User should be able to modify order and retry payment.
+      // Cart is only cleared on SUCCESSFUL payment.
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Google Pay failed. Please try again.',
@@ -367,7 +373,8 @@ class _PaymentPageState extends State<PaymentPage> {
   _ShippingBreakdown _breakdownFromStoredOrder(Map<String, dynamic> data) {
     final order = data['order'] as Map<String, dynamic>?;
 
-    double parse(dynamic v) {
+    /// Helper to parse values to double with fallback to 0.0
+    double parseOrZero(dynamic v) {
       if (v == null) return 0.0;
       if (v is num) return v.toDouble();
       final clean = v
@@ -379,15 +386,15 @@ class _PaymentPageState extends State<PaymentPage> {
       return double.tryParse(clean) ?? 0.0;
     }
 
-    double subtotalExclGst = parse(data['subtotal_excluding_gst']) > 0
-        ? parse(data['subtotal_excluding_gst'])
-        : (parse(order?['pay_amount']) > 0
-              ? parse(order?['pay_amount'])
-              : parse(order?['subtotal']));
+    double subtotalExclGst = parseOrZero(data['subtotal_excluding_gst']) > 0
+        ? parseOrZero(data['subtotal_excluding_gst'])
+        : (parseOrZero(order?['pay_amount']) > 0
+              ? parseOrZero(order?['pay_amount'])
+              : parseOrZero(order?['subtotal']));
 
-    double gstAmount = parse(data['tax']) > 0
-        ? parse(data['tax'])
-        : parse(order?['tax_amount']);
+    double gstAmount = parseOrZero(data['tax']) > 0
+        ? parseOrZero(data['tax'])
+        : parseOrZero(order?['tax_amount']);
 
     String orderType = _extractOrderType(data: data, order: order);
 
@@ -407,8 +414,8 @@ class _PaymentPageState extends State<PaymentPage> {
     }
 
     final double rawShippingCost = (orderType == 'large')
-        ? parse(order?['shipping_cost'])
-        : parse(order?['normal_shipping_cost']);
+        ? parseOrZero(order?['shipping_cost'])
+        : parseOrZero(order?['normal_shipping_cost']);
 
     final effectiveShowRequestFreightCost =
         data['show_request_freight_cost'] ??
@@ -431,15 +438,15 @@ class _PaymentPageState extends State<PaymentPage> {
       showFreeShippingIcon: effectiveShowFreeShippingIcon,
     );
 
-    final double totalAmount = parse(data['grand_total']) > 0
-        ? parse(data['grand_total'])
-        : (parse(order?['total']) > 0
-              ? parse(order?['total'])
-              : parse(order?['pay_amount']));
+    final double totalAmount = parseOrZero(data['grand_total']) > 0
+        ? parseOrZero(data['grand_total'])
+        : (parseOrZero(order?['total']) > 0
+              ? parseOrZero(order?['total'])
+              : parseOrZero(order?['pay_amount']));
 
-    final double discountAmount = parse(data['discount']) > 0
-        ? parse(data['discount'])
-        : parse(order?['discount']);
+    final double discountAmount = parseOrZero(data['discount']) > 0
+        ? parseOrZero(data['discount'])
+        : parseOrZero(order?['discount']);
 
     final orderSource =
         data['order_source']?.toString().toLowerCase() ??
@@ -447,7 +454,7 @@ class _PaymentPageState extends State<PaymentPage> {
         '';
     double specialDiscount = 0.0;
     if (orderSource == 'mobile') {
-      specialDiscount = parse(order?['special_discount']);
+      specialDiscount = parseOrZero(order?['special_discount']);
     }
 
     // Subtotal logic synced with Order Details (Work backwards from Grand Total)
@@ -467,6 +474,13 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // FREIGHT & BREAKDOWN CALCULATION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Centralized freight rule resolution logic
+  /// Determines whether to charge shipping, show free label, or pending quote
+  /// Based on order type, product flags, and freight rules
   _FreightRuleResult _resolveFreightRule({
     required double rawShippingCost,
     dynamic orderType,
@@ -492,6 +506,11 @@ class _PaymentPageState extends State<PaymentPage> {
       showFreeShippingLabel: showFreeShippingLabel,
     );
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DATA EXTRACTION HELPERS
+  // Safely extract and normalize common fields from responses
+  // ─────────────────────────────────────────────────────────────────────────
 
   String _extractOrderType({
     Map<String, dynamic>? data,
@@ -579,6 +598,7 @@ class _PaymentPageState extends State<PaymentPage> {
     return null;
   }
 
+  /// Safely parse any value to double, handling strings with currency symbols
   double? _toDouble(dynamic v) {
     if (v == null) return null;
     if (v is num) return v.toDouble();
@@ -588,6 +608,28 @@ class _PaymentPageState extends State<PaymentPage> {
       );
     }
     return null;
+  }
+
+  /// Extract shipping cost from response, checking multiple possible keys
+  double _extractShippingCostFromResponse(Map<String, dynamic> response) {
+    return _toDouble(response['shipping']) ??
+        _toDouble(response['normal_shipping_cost']) ??
+        _toDouble(response['shipping_cost']) ??
+        0.0;
+  }
+
+  /// Extract order type from data, checking multiple sources with fallback chain
+  String _resolveOrderType({
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? cartResponse,
+  }) {
+    final fromShipping = _extractOrderType(data: data);
+    if (fromShipping.isNotEmpty) return fromShipping;
+
+    final fromSnapshot = _extractOrderType(data: cartResponse);
+    if (fromSnapshot.isNotEmpty) return fromSnapshot;
+
+    return _extractOrderTypeFromCartContainer(cartResponse);
   }
 
   double _subtotalFromCartResponse(Map<String, dynamic> response) {
@@ -606,6 +648,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
   bool get _isFromMyOrdersPayment =>
       widget.arguments?['from_my_orders_payment'] == true;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CART RETRIEVAL
+  // Prioritizes sources: arguments → snapshot → stored cart_data
+  // ─────────────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>?> _getPaymentCartContainer() async {
     if (_isFromMyOrdersPayment) {
@@ -646,6 +693,11 @@ class _PaymentPageState extends State<PaymentPage> {
     debugPrint('PAYMENT_CART_SOURCE: all sources null/empty');
     return null;
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PAYMENT INITIALIZATION
+  // Loads order data, calculates breakdown, initializes payment status flags
+  // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _initializePayment() async {
     try {
@@ -1076,6 +1128,11 @@ class _PaymentPageState extends State<PaymentPage> {
     };
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // PAYMENT PROCESSING
+  // Handles direct card, PayPal, Google Pay, and Pay Later flows
+  // ─────────────────────────────────────────────────────────────────────────
+
   /// Handle payment submission (Native direct API integration)
   Future<void> _handlePayment() async {
     if (!_formKey.currentState!.validate() || _isProcessing) {
@@ -1151,7 +1208,9 @@ class _PaymentPageState extends State<PaymentPage> {
       }
     } catch (e) {
       debugPrint('Direct API payment error: $e');
-      await _clearCartOnPaymentExit();
+      // IMPORTANT: Do NOT clear cart on failure.
+      // User should be able to modify order and retry payment.
+      // Cart is only cleared on SUCCESSFUL payment.
       if (mounted) {
         String errMsg = 'Payment failed. Please try again.';
         if (e.toString().contains('card_declined')) {
@@ -1263,6 +1322,7 @@ class _PaymentPageState extends State<PaymentPage> {
           },
           onError: (error) {
             Logger.error('PayPal error', error);
+            // Do NOT clear cart on failure - user can retry.
             Fluttertoast.showToast(msg: 'PayPal Error: ${error.toString()}');
           },
           onCancel: (params) {
@@ -1273,6 +1333,11 @@ class _PaymentPageState extends State<PaymentPage> {
       ),
     );
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COUPON MANAGEMENT
+  // Apply and remove promo codes with dynamic breakdown recalculation
+  // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _applyPromoCode() async {
     final code = _couponController.text.trim();
@@ -1289,33 +1354,16 @@ class _PaymentPageState extends State<PaymentPage> {
     setState(() => _isProcessing = true);
 
     try {
-      final previousPayable = _amount;
-      
-      // DEBUG: Print values BEFORE applying coupon
       debugPrint('╔════════════════════════════════════════════════════════════╗');
       debugPrint('║          VALUE BEFORE APPLY COUPON                         ║');
       debugPrint('╠════════════════════════════════════════════════════════════╣');
       debugPrint('║ Total Amount: $_amount');
-      debugPrint('║ Subtotal: $_subtotalExclGst');
-      debugPrint('║ Shipping: $_shippingCost');
-      debugPrint('║ GST/Tax: $_gstAmount');
-      debugPrint('║ Discount: $_discountAmount');
       debugPrint('║ Coupon Code: $_couponCode');
       debugPrint('║ Coupon Applied: $_isCouponApplied');
       debugPrint('╚════════════════════════════════════════════════════════════╝');
-      
+
       final cartContainer = await _getPaymentCartContainer();
       final cartForCoupon = cartContainer?['cart'] as Map<String, dynamic>?;
-
-      debugPrint('╔════════════════ COUPON APPLY CART DEBUG ════════════════╗');
-      debugPrint('║ cartContainer keys: ${cartContainer?.keys.join(", ") ?? "null"}');
-      debugPrint('║ cartForCoupon: ${cartForCoupon?.length ?? 0} items');
-      if (cartForCoupon != null) {
-        cartForCoupon.forEach((key, item) {
-          debugPrint('║   - $key: qty=${item['qty']}, price=${item['price']}');
-        });
-      }
-      debugPrint('╚════════════════════════════════════════════════════════╝');
 
       if (cartForCoupon == null || cartForCoupon.isEmpty) {
         Fluttertoast.showToast(msg: 'Cart is empty');
@@ -1339,89 +1387,22 @@ class _PaymentPageState extends State<PaymentPage> {
         return;
       }
 
-      final shipping = _toDouble(response['shipping']) ??
-          _toDouble(response['normal_shipping_cost']) ??
-          _toDouble(response['shipping_cost']) ??
-          0.0;
-      final freightRule = _resolveFreightRule(
-        rawShippingCost: shipping,
-        orderType: (() {
-          final fromRoot = _extractOrderType(data: response);
-          if (fromRoot.isNotEmpty) return fromRoot;
-          return _extractOrderTypeFromCartContainer(response);
-        })(),
-        showRequestFreightCost:
-            response['show_request_freight_cost'] ??
-            _extractFreightCostFlagFromCartItems(response),
-        showFreeShippingIcon:
-            response['show_free_shipping_icon'] ??
-            _extractFreeShippingIconFromCartItems(response),
-      );
-      final effectiveShipping = freightRule.shippingCost;
-      final gst = _toDouble(response['tax']) ?? 0.0;
-      final totalWithGstFromResponse =
-          _toDouble(response['total_with_gst']) ?? 0.0;
-      final discountFromResponse = _toDouble(response['discount']) ?? 0.0;
+      // Calculate breakdown using helper
+      final breakdown = await _calculateBreakdownFromResponse(response, cartContainer);
+      _applyBreakdownToState(breakdown, breakdown.amount);
 
-      double subtotal = totalWithGstFromResponse - effectiveShipping - gst;
-      if (subtotal <= 0) {
-        subtotal = _subtotalFromCartResponse(response);
-      }
-
-      final totalWithGst = totalWithGstFromResponse > 0
-          ? totalWithGstFromResponse
-          : (subtotal + effectiveShipping + gst);
-      debugPrint(
-        'PAYMENT_TOTAL_DEBUG[apply]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$effectiveShipping, gst=$gst, final_total=$totalWithGst',
-      );
-
+      // Extract and apply coupon details
+      final couponDetails = _extractCouponDetails(response);
       if (mounted) {
         setState(() {
-          _shippingCost = effectiveShipping;
-          _gstAmount = gst;
-          _amount = totalWithGst;
-          _subtotalExclGst = subtotal;
-          _discountAmount = discountFromResponse;
-
-          _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
-          _showFreeShippingLabel = freightRule.showFreeShippingLabel;
+          _couponCode = couponDetails['code'] as String;
+          _couponOfferSubtitle = couponDetails['subtitle'] as String;
+          _couponDiscount = couponDetails['discount'] as double;
+          _isCouponApplied = true;
         });
       }
 
-      if (mounted) {
-        final coupon = response['coupon'] as Map<String, dynamic>?;
-        final couponCode = coupon?['code']?.toString();
-        final couponPrice = _toDouble(coupon?['price']) ?? 0.0;
-        final couponType =
-            (coupon?['coupon_discount_type'] ?? '').toString().toLowerCase();
-
-        double computedCouponDiscount = discountFromResponse;
-        if (computedCouponDiscount <= 0 && couponPrice > 0) {
-          if (couponType == 'percentage' || couponType == 'percent') {
-            computedCouponDiscount = (subtotal * couponPrice) / 100;
-          } else {
-            computedCouponDiscount = couponPrice;
-          }
-        }
-
-        if (mounted) {
-          setState(() {
-            // Use only API response data - trust backend to handle coupon correctly
-            _couponCode = couponCode ?? code;
-            
-            // Format offer subtitle from coupon response
-            if (couponType == 'percentage' || couponType == 'percent') {
-              _couponOfferSubtitle = '${couponPrice.toStringAsFixed(0)}% OFF';
-            } else {
-              _couponOfferSubtitle = '\$${couponPrice.toStringAsFixed(2)} OFF';
-            }
-            
-            _couponDiscount = computedCouponDiscount > 0 ? computedCouponDiscount : 0.0;
-            _isCouponApplied = true;
-          });
-        }
-      }
-
+      // Update payment intent
       try {
         if (_orderNumber != null) {
           await _paymentService.createPaymentIntent(
@@ -1432,19 +1413,12 @@ class _PaymentPageState extends State<PaymentPage> {
         }
       } catch (_) {}
 
-      // DEBUG: Print values AFTER applying coupon
       debugPrint('╔════════════════════════════════════════════════════════════╗');
       debugPrint('║          VALUE AFTER APPLY COUPON                          ║');
       debugPrint('╠════════════════════════════════════════════════════════════╣');
       debugPrint('║ Total Amount: $_amount');
-      debugPrint('║ Subtotal: $_subtotalExclGst');
-      debugPrint('║ Shipping: $_shippingCost');
-      debugPrint('║ GST/Tax: $_gstAmount');
-      debugPrint('║ Discount: $_discountAmount');
       debugPrint('║ Coupon Code: $_couponCode');
-      debugPrint('║ Coupon Discount: $_couponDiscount');
       debugPrint('║ Coupon Applied: $_isCouponApplied');
-      debugPrint('║ Coupon Offer: $_couponOfferSubtitle');
       debugPrint('╚════════════════════════════════════════════════════════════╝');
 
       final successMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
@@ -1598,29 +1572,19 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _removeCoupon() async {
     if (_isProcessing) return;
 
-    setState(() {
-      _isProcessing = true;
-    });
+    setState(() => _isProcessing = true);
 
     try {
-      // DEBUG: Print values BEFORE removing coupon
       debugPrint('╔════════════════════════════════════════════════════════════╗');
       debugPrint('║          VALUE BEFORE REMOVE COUPON                        ║');
       debugPrint('╠════════════════════════════════════════════════════════════╣');
       debugPrint('║ Total Amount: $_amount');
-      debugPrint('║ Subtotal: $_subtotalExclGst');
-      debugPrint('║ Shipping: $_shippingCost');
-      debugPrint('║ GST/Tax: $_gstAmount');
-      debugPrint('║ Discount: $_discountAmount');
       debugPrint('║ Coupon Code: $_couponCode');
-      debugPrint('║ Coupon Discount: $_couponDiscount');
       debugPrint('║ Coupon Applied: $_isCouponApplied');
       debugPrint('╚════════════════════════════════════════════════════════════╝');
-      
+
       final cartContainer = await _getPaymentCartContainer();
       final oldCart = cartContainer?['cart'] as Map<String, dynamic>?;
-
-      debugPrint('COUPON_REMOVE_CART_PAYLOAD_SOURCE: ${cartContainer != null ? "ok (${oldCart?.length ?? 0} items)" : "null"}');
 
       if (oldCart != null) {
         final payload = {
@@ -1630,59 +1594,22 @@ class _PaymentPageState extends State<PaymentPage> {
 
         final response = await _cartService.removeCoupon(payload);
 
+        // Ensure coupon is cleared in response (backend may still return it)
         final sanitizedResponse = Map<String, dynamic>.from(response);
-        // Backend may still return a coupon object even after remove.
-        // Keep local state source-of-truth as coupon removed.
         sanitizedResponse.remove('coupon');
         sanitizedResponse['discount'] = 0;
         sanitizedResponse['coupon_discount'] = 0;
 
-        final shipping = _toDouble(sanitizedResponse['shipping']) ??
-            _toDouble(sanitizedResponse['normal_shipping_cost']) ??
-            _toDouble(sanitizedResponse['shipping_cost']) ??
-            0.0;
-        final freightRule = _resolveFreightRule(
-          rawShippingCost: shipping,
-          orderType: (() {
-            final fromRoot = _extractOrderType(data: sanitizedResponse);
-            if (fromRoot.isNotEmpty) return fromRoot;
-            return _extractOrderTypeFromCartContainer(sanitizedResponse);
-          })(),
-          showRequestFreightCost:
-              sanitizedResponse['show_request_freight_cost'] ??
-              _extractFreightCostFlagFromCartItems(sanitizedResponse),
-          showFreeShippingIcon:
-              sanitizedResponse['show_free_shipping_icon'] ??
-              _extractFreeShippingIconFromCartItems(sanitizedResponse),
+        // Calculate breakdown using helper
+        final breakdown = await _calculateBreakdownFromResponse(
+          sanitizedResponse,
+          cartContainer,
         );
-        final effectiveShipping = freightRule.shippingCost;
-        final gst = _toDouble(sanitizedResponse['tax']) ?? 0.0;
-        final totalWithGstFromResponse =
-            _toDouble(sanitizedResponse['total_with_gst']) ?? 0.0;
+        _applyBreakdownToState(breakdown, breakdown.amount);
 
-        double subtotal = totalWithGstFromResponse - effectiveShipping - gst;
-        if (subtotal <= 0) {
-          subtotal = _subtotalFromCartResponse(sanitizedResponse);
-        }
-
-        final totalWithGst = totalWithGstFromResponse > 0
-            ? totalWithGstFromResponse
-            : (subtotal + effectiveShipping + gst);
-        debugPrint(
-          'PAYMENT_TOTAL_DEBUG[remove]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$effectiveShipping, gst=$gst, final_total=$totalWithGst',
-        );
-
+        // Clear UI coupon state
         if (mounted) {
           setState(() {
-            _shippingCost = effectiveShipping;
-            _gstAmount = gst;
-            _amount = totalWithGst;
-            _subtotalExclGst = subtotal;
-            _discountAmount = _toDouble(sanitizedResponse['discount']) ?? 0.0;
-
-            _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
-            _showFreeShippingLabel = freightRule.showFreeShippingLabel;
-
             _couponCode = null;
             _couponOfferSubtitle = null;
             _couponDiscount = 0.0;
@@ -1691,29 +1618,22 @@ class _PaymentPageState extends State<PaymentPage> {
           });
         }
 
-        if (mounted) {
-          try {
-            if (_orderNumber != null) {
-              await _paymentService.createPaymentIntent(
-                orderNumber: _orderNumber!,
-                amount: _amount ?? 0.0,
-                currency: _currency ?? 'AUD',
-              );
-            }
-          } catch (_) {}
-        }
+        // Update payment intent
+        try {
+          if (_orderNumber != null) {
+            await _paymentService.createPaymentIntent(
+              orderNumber: _orderNumber!,
+              amount: _amount ?? 0.0,
+              currency: _currency ?? 'AUD',
+            );
+          }
+        } catch (_) {}
 
-        // DEBUG: Print values AFTER removing coupon
         debugPrint('╔════════════════════════════════════════════════════════════╗');
         debugPrint('║          VALUE AFTER REMOVE COUPON                         ║');
         debugPrint('╠════════════════════════════════════════════════════════════╣');
         debugPrint('║ Total Amount: $_amount');
-        debugPrint('║ Subtotal: $_subtotalExclGst');
-        debugPrint('║ Shipping: $_shippingCost');
-        debugPrint('║ GST/Tax: $_gstAmount');
-        debugPrint('║ Discount: $_discountAmount');
         debugPrint('║ Coupon Code: $_couponCode');
-        debugPrint('║ Coupon Discount: $_couponDiscount');
         debugPrint('║ Coupon Applied: $_isCouponApplied');
         debugPrint('╚════════════════════════════════════════════════════════════╝');
 
@@ -1739,11 +1659,7 @@ class _PaymentPageState extends State<PaymentPage> {
         textColor: Colors.white,
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -1792,6 +1708,133 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
+  /// Calculate shipping breakdown from response data with freight rules
+  Future<_ShippingBreakdown> _calculateBreakdownFromResponse(
+    Map<String, dynamic> response,
+    Map<String, dynamic>? cartResponse,
+  ) async {
+    final shippingCost = _extractShippingCostFromResponse(response);
+    final orderType = _resolveOrderType(
+      data: response,
+      cartResponse: cartResponse,
+    );
+
+    final effectiveShowRequestFreightCost =
+        response['show_request_freight_cost'] ??
+        _extractFreightCostFlagFromCartItems(response);
+    final effectiveShowFreeShippingIcon =
+        response['show_free_shipping_icon'] ??
+        _extractFreeShippingIconFromCartItems(response);
+
+    final freightRule = _resolveFreightRule(
+      rawShippingCost: shippingCost,
+      orderType: orderType,
+      showRequestFreightCost: effectiveShowRequestFreightCost,
+      showFreeShippingIcon: effectiveShowFreeShippingIcon,
+    );
+
+    final gst = _toDouble(response['tax']) ?? 0.0;
+    final totalWithGstFromResponse = _toDouble(response['total_with_gst']) ?? 0.0;
+    final discountFromResponse = _toDouble(response['discount']) ?? 0.0;
+
+    double subtotal = totalWithGstFromResponse - freightRule.shippingCost - gst;
+    if (subtotal <= 0) {
+      subtotal = _subtotalFromCartResponse(response);
+    }
+
+    final totalWithGst = totalWithGstFromResponse > 0
+        ? totalWithGstFromResponse
+        : (subtotal + freightRule.shippingCost + gst);
+
+    return _ShippingBreakdown(
+      subtotalExclGst: subtotal,
+      shippingCost: freightRule.shippingCost,
+      gstAmount: gst,
+      discountAmount: discountFromResponse,
+      amount: totalWithGst,
+      specialDiscount: 0.0,
+      hasPendingFreightQuote: freightRule.hasPendingFreightQuote,
+      isPayLater: false,
+      showFreeShippingLabel: freightRule.showFreeShippingLabel,
+    );
+  }
+
+  /// Helper to extract and format special discount from order data
+  double _extractSpecialDiscount(
+    String orderSource,
+    Map<String, dynamic>? order,
+    Map<String, dynamic>? orderData,
+  ) {
+    if (orderSource != 'mobile') return 0.0;
+
+    final dynamic rawDisc =
+        orderData?['special_discount'] ?? order?['special_discount'];
+    if (rawDisc == null) return 0.0;
+
+    final String cleanPrice = rawDisc
+        .toString()
+        .replaceAll(',', '')
+        .replaceAll('\$', '')
+        .trim();
+    return double.tryParse(cleanPrice) ?? 0.0;
+  }
+
+  /// Apply breakdown values to state and update UI
+  void _applyBreakdownToState(
+    _ShippingBreakdown breakdown,
+    double? overrideAmount,
+  ) {
+    if (mounted) {
+      setState(() {
+        _shippingCost = breakdown.shippingCost;
+        _gstAmount = breakdown.gstAmount;
+        _amount = overrideAmount ?? breakdown.amount;
+        _subtotalExclGst = breakdown.subtotalExclGst;
+        _discountAmount = breakdown.discountAmount;
+        _hasPendingFreightQuote = breakdown.hasPendingFreightQuote;
+        _showFreeShippingLabel = breakdown.showFreeShippingLabel;
+      });
+    }
+  }
+
+  /// Extract coupon details from API response
+  Map<String, dynamic> _extractCouponDetails(Map<String, dynamic> response) {
+    final coupon = response['coupon'] as Map<String, dynamic>?;
+    final couponCode = coupon?['code']?.toString();
+    final couponPrice = _toDouble(coupon?['price']) ?? 0.0;
+    final couponType =
+        (coupon?['coupon_discount_type'] ?? '').toString().toLowerCase();
+    final discountFromResponse = _toDouble(response['discount']) ?? 0.0;
+
+    double computedCouponDiscount = discountFromResponse;
+    if (computedCouponDiscount <= 0 && couponPrice > 0) {
+      if (couponType == 'percentage' || couponType == 'percent') {
+        computedCouponDiscount =
+            (_subtotalExclGst ?? 0) * couponPrice / 100;
+      } else {
+        computedCouponDiscount = couponPrice;
+      }
+    }
+
+    String offerSubtitle = '';
+    if (couponType == 'percentage' || couponType == 'percent') {
+      offerSubtitle = '${couponPrice.toStringAsFixed(0)}% OFF';
+    } else {
+      offerSubtitle = '\$${couponPrice.toStringAsFixed(2)} OFF';
+    }
+
+    return {
+      'code': couponCode ?? '',
+      'discount': computedCouponDiscount > 0 ? computedCouponDiscount : 0.0,
+      'subtitle': offerSubtitle,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STATE MANAGEMENT & UI VISIBILITY
+  // Getters for conditional payment options visibility and method selection
+  // ─────────────────────────────────────────────────────────────────────────
+
   bool get _canShowPaymentOptionsByStatus =>
       _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
 
@@ -1810,6 +1853,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
     return method;
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // UI BUILDING
+  // Build payment page scaffold, forms, and order summary
+  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
