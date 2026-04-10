@@ -1111,21 +1111,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       await StorageService.saveCheckoutData({'post_code': zip});
     }
 
-    if (_cartData != null && _cartData!.isNotEmpty) {
-      final num totalPrice =
-          (_responseData!['totalPrice'] as num?) ??
-          (_safeNum(order['subtotal']) > 0
-              ? _safeNum(order['subtotal'])
-              : _safeNum(order['pay_amount'] ?? order['total']));
-      await StorageService.saveCartData({
-        'cart': _cartData!,
-        'totalPrice': totalPrice,
-        'show_request_freight_cost':
-            _responseData!['show_request_freight_cost'] ?? 0,
-        'discount': _responseData!['discount'],
-        'coupon_discount': _responseData!['coupon_discount'],
-      });
-    }
+    // NOTE: Do NOT save order cart to SharedPreferences cart_data key.
+    // That would overwrite the user's actual shopping cart.
+    // Instead, pass the order cart via navigation argument 'order_cart'
+    // so the payment page can use it for coupon operations without touching the real cart.
 
     final grandTotal = _safeParseAmount(
       _responseData?['grand_total'] ??
@@ -1150,6 +1139,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       arguments: {
         // Always set so back from payment goes to Profile, not Order Details
         'from_my_orders_payment': true,
+        // Pass order cart directly so payment page can use it for coupon operations
+        // WITHOUT touching the user's real shopping cart in SharedPreferences
+        'order_cart': _cartData,
         // PASSED EXACT VALUES TO ENSURE UI PARITY AND AVOID RECALCULATION ERRORS
         'summary_grand_total': grandTotal,
         'summary_tax': tax,

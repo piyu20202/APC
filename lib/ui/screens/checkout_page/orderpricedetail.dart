@@ -910,9 +910,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       final prettyResponse = const JsonEncoder.withIndent(
         '  ',
       ).convert(response);
-      debugPrint('----------api response start------------');
+      debugPrint('===== STORE_ORDER_API_RESPONSE (Continue To Payment) START =====');
       debugPrint(prettyResponse);
-      debugPrint('-----------api reponse end-------------');
+      debugPrint('===== STORE_ORDER_API_RESPONSE (Continue To Payment) END =====');
 
       // Check if order was successfully placed with order_number
       final order = response['order'] as Map<String, dynamic>?;
@@ -1004,7 +1004,6 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           await _handleGooglePayClick();
           return;
         }
-
 
         // For other payment methods
         if (_selectedPaymentMethod == 'PayPal') {
@@ -1215,7 +1214,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       if (updatedCart == null) {
         // Treat as logical failure, but do not change existing totals
         Fluttertoast.showToast(
-          msg: response['message'] ?? 'Unable to apply promo code. Please try again.',
+          msg:
+              response['message'] ??
+              'Unable to apply promo code. Please try again.',
           toastLength: Toast.LENGTH_LONG,
           backgroundColor: Colors.red,
           textColor: Colors.white,
@@ -1435,6 +1436,14 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         orderPayload['payment_method'] = 'Google Pay';
 
         final response = await _orderService.storeOrder(orderPayload);
+
+        final prettyStoreOrderResponse = const JsonEncoder.withIndent(
+          '  ',
+        ).convert(response);
+        debugPrint('===== STORE_ORDER_API_RESPONSE (Google Pay) START =====');
+        debugPrint(prettyStoreOrderResponse);
+        debugPrint('===== STORE_ORDER_API_RESPONSE (Google Pay) END =====');
+
         await StorageService.saveOrderData(response);
         // DO NOT clear cart here - cart will be cleared only after successful payment
         await StorageService.clearCheckoutData();
@@ -1801,6 +1810,14 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         orderPayload['payment_method'] = 'Apple Pay';
 
         final response = await _orderService.storeOrder(orderPayload);
+
+        final prettyStoreOrderResponse = const JsonEncoder.withIndent(
+          '  ',
+        ).convert(response);
+        debugPrint('===== STORE_ORDER_API_RESPONSE (Apple Pay) START =====');
+        debugPrint(prettyStoreOrderResponse);
+        debugPrint('===== STORE_ORDER_API_RESPONSE (Apple Pay) END =====');
+
         await StorageService.saveOrderData(response);
         // DO NOT clear cart here - cart will be cleared only after successful payment
         await StorageService.clearCheckoutData();

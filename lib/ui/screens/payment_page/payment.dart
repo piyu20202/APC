@@ -13,6 +13,7 @@ import 'package:pay/pay.dart';
 import 'package:apcproject/config/environment.dart';
 import 'package:apcproject/data/models/user_model.dart';
 import 'package:apcproject/core/utils/logger.dart';
+import 'package:apcproject/core/utils/coupon_cart_display.dart';
 import 'package:flutter_paypal/flutter_paypal.dart';
 
 class _ShippingBreakdown {
@@ -111,6 +112,7 @@ class _PaymentPageState extends State<PaymentPage> {
   final TextEditingController _couponController = TextEditingController();
   String? _couponCode;
   double _couponDiscount = 0.0;
+  String? _couponOfferSubtitle;
   bool _isCouponApplied = false;
 
   @override
@@ -416,6 +418,31 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
+  double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    if (v is String) {
+      return double.tryParse(
+        v.replaceAll(',', '').replaceAll('\$', '').replaceAll('AUD', '').trim(),
+      );
+    }
+    return null;
+  }
+
+  double _subtotalFromCartResponse(Map<String, dynamic> response) {
+    final cart = response['cart'];
+    if (cart is! Map) return 0.0;
+
+    double subtotal = 0.0;
+    for (final entry in cart.values) {
+      if (entry is! Map) continue;
+      final qty = _toDouble(entry['qty']) ?? 0.0;
+      final price = _toDouble(entry['price']) ?? 0.0;
+      subtotal += qty * price;
+    }
+    return subtotal;
+  }
+
   Future<void> _initializePayment() async {
     try {
       debugPrint('=== PAYMENT PAGE INITIALIZATION ===');
@@ -516,33 +543,36 @@ class _PaymentPageState extends State<PaymentPage> {
             'old_cart': oldCart,
           });
 
-          double? toDouble(dynamic v) {
-            if (v == null) return null;
-            if (v is num) return v.toDouble();
-            if (v is String) return double.tryParse(v.replaceAll(',', ''));
-            return null;
-          }
-
           final orderType = (shippingResponse['order_type'] ?? '')
               .toString()
               .toLowerCase();
 
           // Map shipping cost using prioritized keys from API
-          shippingCost = toDouble(shippingResponse['shipping']) ??
-                         toDouble(shippingResponse['normal_shipping_cost']) ??
-                         toDouble(shippingResponse['shipping_cost']) ?? 0.0;
+          shippingCost = _toDouble(shippingResponse['shipping']) ??
+                         _toDouble(shippingResponse['normal_shipping_cost']) ??
+                         _toDouble(shippingResponse['shipping_cost']) ?? 0.0;
 
-          gstAmount = toDouble(shippingResponse['tax']);
+          gstAmount = _toDouble(shippingResponse['tax']);
           
-          // Use total_with_gst as the source of truth for final amount
-          amount = toDouble(shippingResponse['total_with_gst']) ?? amount;
+          // Use total_with_gst as source of truth only when it is a valid positive value.
+          final shippingTotalWithGst = _toDouble(shippingResponse['total_with_gst']);
+          if (shippingTotalWithGst != null && shippingTotalWithGst > 0) {
+            amount = shippingTotalWithGst;
+            debugPrint(
+              'PAYMENT_TOTAL_DEBUG[init]: using API total_with_gst=$shippingTotalWithGst',
+            );
+          } else {
+            debugPrint(
+              'PAYMENT_TOTAL_DEBUG[init]: API total_with_gst invalid (${shippingResponse['total_with_gst']}), fallback total will be used',
+            );
+          }
 
           // Back-calculate subtotal to ensure mathematical consistency in UI
           // Subtotal (Items) = Grand Total - GST - Shipping
           subtotalExclGst = amount - (gstAmount ?? 0.0) - (shippingCost ?? 0.0);
 
-          final discount = toDouble(cartResponse?['discount']);
-          final couponDiscount = toDouble(cartResponse?['coupon_discount']);
+          final discount = _toDouble(cartResponse?['discount']);
+          final couponDiscount = _toDouble(cartResponse?['coupon_discount']);
           discountAmount = discount ?? couponDiscount;
 
           final showRequest =
@@ -657,6 +687,22 @@ class _PaymentPageState extends State<PaymentPage> {
         }
         _isLoading = false;
       });
+
+      if (mounted) {
+        final cartSnap = await StorageService.getCartData();
+        if (mounted) {
+          setState(() {
+            _couponCode = CouponCartDisplay.couponCode(cartSnap);
+            _couponOfferSubtitle = CouponCartDisplay.offerSubtitle(cartSnap);
+            _couponDiscount = CouponCartDisplay.savingsFromCart(
+              cartSnap,
+              grandTotalAfter: _amount,
+            );
+            _isCouponApplied =
+                _couponCode != null && _couponCode!.isNotEmpty;
+          });
+        }
+      }
 
       try {
         await _paymentService.createPaymentIntent(
@@ -1006,43 +1052,154 @@ class _PaymentPageState extends State<PaymentPage> {
     setState(() => _isProcessing = true);
 
     try {
+      final previousPayable = _amount;
+      
+      // DEBUG: Print values BEFORE applying coupon
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║          VALUE BEFORE APPLY COUPON                         ║');
+      debugPrint('╠════════════════════════════════════════════════════════════╣');
+      debugPrint('║ Total Amount: $_amount');
+      debugPrint('║ Subtotal: $_subtotalExclGst');
+      debugPrint('║ Shipping: $_shippingCost');
+      debugPrint('║ GST/Tax: $_gstAmount');
+      debugPrint('║ Discount: $_discountAmount');
+      debugPrint('║ Coupon Code: $_couponCode');
+      debugPrint('║ Coupon Applied: $_isCouponApplied');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      
       final cartResponse = await StorageService.getCartData();
-      if (cartResponse == null || cartResponse['cart'] == null) {
+
+      // In My Orders → Pay Now flow, use the order cart passed via arguments.
+      // This prevents the user's real shopping cart from being used or corrupted.
+      final bool fromMyOrders = widget.arguments?['from_my_orders_payment'] == true;
+      final Map<String, dynamic>? orderCartArg =
+          widget.arguments?['order_cart'] as Map<String, dynamic>?;
+      final cartForCoupon = fromMyOrders && orderCartArg != null
+          ? orderCartArg
+          : (cartResponse?['cart'] as Map<String, dynamic>?);
+
+      if (cartForCoupon == null) {
         Fluttertoast.showToast(msg: 'Cart is empty');
         return;
       }
 
       final response = await _cartService.applyCoupon({
-        'old_cart': cartResponse['cart'],
+        'old_cart': cartForCoupon,
         'code': code,
       });
 
       if (response['cart'] == null) {
+        final errorMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
+            ? response['message'].toString().trim()
+            : 'Unable to apply promo code.';
         Fluttertoast.showToast(
-          msg: response['message'] ?? 'Unable to apply promo code.',
+          msg: errorMessage,
           backgroundColor: Colors.red,
           textColor: Colors.white,
         );
         return;
       }
 
-      await StorageService.saveCartData(response);
-      await _initializePayment(); // Refresh UI totals
+      final shipping = _toDouble(response['shipping']) ??
+          _toDouble(response['normal_shipping_cost']) ??
+          _toDouble(response['shipping_cost']) ??
+          0.0;
+      final gst = _toDouble(response['tax']) ?? 0.0;
+      final totalWithGstFromResponse =
+          _toDouble(response['total_with_gst']) ?? 0.0;
+      final discountFromResponse = _toDouble(response['discount']) ?? 0.0;
+
+      double subtotal = totalWithGstFromResponse - shipping - gst;
+      if (subtotal <= 0) {
+        subtotal = _subtotalFromCartResponse(response);
+      }
+
+      final totalWithGst = totalWithGstFromResponse > 0
+          ? totalWithGstFromResponse
+          : (subtotal + shipping + gst);
+      debugPrint(
+        'PAYMENT_TOTAL_DEBUG[apply]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$shipping, gst=$gst, final_total=$totalWithGst',
+      );
 
       if (mounted) {
         setState(() {
-          _couponCode = code;
-          _isCouponApplied = true;
-          final oldTotal = (cartResponse['totalPrice'] as num?)?.toDouble();
-          final newTotal = (response['totalPrice'] as num?)?.toDouble();
-          _couponDiscount = (oldTotal != null && newTotal != null)
-              ? (oldTotal - newTotal)
-              : 0.0;
+          _shippingCost = shipping;
+          _gstAmount = gst;
+          _amount = totalWithGst;
+          _subtotalExclGst = subtotal;
+          _discountAmount = discountFromResponse;
+
+          _hasPendingFreightQuote =
+              (_toDouble(response['show_request_freight_cost']) ?? 0) > 0;
+          _showFreeShippingLabel =
+              (_toDouble(response['show_free_shipping_icon']) ?? 0) == 1;
         });
       }
 
+      if (mounted) {
+        final coupon = response['coupon'] as Map<String, dynamic>?;
+        final couponCode = coupon?['code']?.toString();
+        final couponPrice = _toDouble(coupon?['price']) ?? 0.0;
+        final couponType =
+            (coupon?['coupon_discount_type'] ?? '').toString().toLowerCase();
+
+        double computedCouponDiscount = discountFromResponse;
+        if (computedCouponDiscount <= 0 && couponPrice > 0) {
+          if (couponType == 'percentage' || couponType == 'percent') {
+            computedCouponDiscount = (subtotal * couponPrice) / 100;
+          } else {
+            computedCouponDiscount = couponPrice;
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            // Use only API response data - trust backend to handle coupon correctly
+            _couponCode = couponCode ?? code;
+            
+            // Format offer subtitle from coupon response
+            if (couponType == 'percentage' || couponType == 'percent') {
+              _couponOfferSubtitle = '${couponPrice.toStringAsFixed(0)}% OFF';
+            } else {
+              _couponOfferSubtitle = '\$${couponPrice.toStringAsFixed(2)} OFF';
+            }
+            
+            _couponDiscount = computedCouponDiscount > 0 ? computedCouponDiscount : 0.0;
+            _isCouponApplied = true;
+          });
+        }
+      }
+
+      try {
+        if (_orderNumber != null) {
+          await _paymentService.createPaymentIntent(
+            orderNumber: _orderNumber!,
+            amount: _amount ?? 0.0,
+            currency: _currency ?? 'AUD',
+          );
+        }
+      } catch (_) {}
+
+      // DEBUG: Print values AFTER applying coupon
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║          VALUE AFTER APPLY COUPON                          ║');
+      debugPrint('╠════════════════════════════════════════════════════════════╣');
+      debugPrint('║ Total Amount: $_amount');
+      debugPrint('║ Subtotal: $_subtotalExclGst');
+      debugPrint('║ Shipping: $_shippingCost');
+      debugPrint('║ GST/Tax: $_gstAmount');
+      debugPrint('║ Discount: $_discountAmount');
+      debugPrint('║ Coupon Code: $_couponCode');
+      debugPrint('║ Coupon Discount: $_couponDiscount');
+      debugPrint('║ Coupon Applied: $_isCouponApplied');
+      debugPrint('║ Coupon Offer: $_couponOfferSubtitle');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+
+      final successMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
+          ? response['message'].toString().trim()
+          : 'Promo code applied';
       Fluttertoast.showToast(
-        msg: response['message'] ?? 'Promo code applied',
+        msg: successMessage,
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
@@ -1058,27 +1215,38 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _fetchAvailableCoupons({VoidCallback? onUpdate}) async {
+    if (_isLoadingCoupons) return;
     if (_availableCoupons.isNotEmpty) return;
 
-    setState(() => _isLoadingCoupons = true);
+    if (mounted) setState(() => _isLoadingCoupons = true);
     if (onUpdate != null) onUpdate();
 
     try {
       final coupons = await _cartService.getAvailableCoupons();
-      setState(() {
-        _availableCoupons = coupons;
-        _isLoadingCoupons = false;
-      });
+      if (mounted) {
+        setState(() {
+          _availableCoupons = coupons;
+          _isLoadingCoupons = false;
+        });
+      }
       if (onUpdate != null) onUpdate();
     } catch (e) {
       Logger.error('Error fetching coupons', e);
-      setState(() => _isLoadingCoupons = false);
+      if (mounted) setState(() => _isLoadingCoupons = false);
       if (onUpdate != null) onUpdate();
       Fluttertoast.showToast(msg: 'Failed to fetch available coupons');
     }
   }
 
   void _showCouponsModal() async {
+    // If we haven't fetched coupons yet, fetch them first before showing modal
+    // This allows showing a loader on the payment page button
+    if (_availableCoupons.isEmpty) {
+      await _fetchAvailableCoupons();
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1088,7 +1256,7 @@ class _PaymentPageState extends State<PaymentPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            // Initiate fetch with modal-specific state refresher
+            // Refresh logic if needed, but will return early if already fetched
             _fetchAvailableCoupons(onUpdate: () => setModalState(() {}));
             
             return Container(
@@ -1132,7 +1300,7 @@ class _PaymentPageState extends State<PaymentPage> {
                                   final discountType = (coupon['coupon_discount_type']?.toString() ?? '').toLowerCase();
                                   
                                   String discountLabel = '';
-                                  if (discountType == 'percent') {
+                                  if (discountType == 'percent' || discountType == 'percentage') {
                                     discountLabel = '$discountValue% OFF';
                                   } else {
                                     discountLabel = '\$$discountValue OFF';
@@ -1183,29 +1351,125 @@ class _PaymentPageState extends State<PaymentPage> {
     });
 
     try {
+      // DEBUG: Print values BEFORE removing coupon
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║          VALUE BEFORE REMOVE COUPON                        ║');
+      debugPrint('╠════════════════════════════════════════════════════════════╣');
+      debugPrint('║ Total Amount: $_amount');
+      debugPrint('║ Subtotal: $_subtotalExclGst');
+      debugPrint('║ Shipping: $_shippingCost');
+      debugPrint('║ GST/Tax: $_gstAmount');
+      debugPrint('║ Discount: $_discountAmount');
+      debugPrint('║ Coupon Code: $_couponCode');
+      debugPrint('║ Coupon Discount: $_couponDiscount');
+      debugPrint('║ Coupon Applied: $_isCouponApplied');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      
       final cartResponse = await StorageService.getCartData();
-      final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
+
+      // In My Orders → Pay Now flow, use the order cart passed via arguments.
+      // This prevents the user's real shopping cart from being touched.
+      final bool fromMyOrders = widget.arguments?['from_my_orders_payment'] == true;
+      final Map<String, dynamic>? orderCartArg =
+          widget.arguments?['order_cart'] as Map<String, dynamic>?;
+      final oldCart = fromMyOrders && orderCartArg != null
+          ? orderCartArg
+          : (cartResponse?['cart'] as Map<String, dynamic>?);
 
       if (oldCart != null) {
-        final payload = {'old_cart': oldCart, 'code': _couponCode ?? ''};
+        final payload = {
+          'old_cart': oldCart,
+          'code': (_couponCode ?? _couponController.text.trim()),
+        };
 
         final response = await _cartService.removeCoupon(payload);
 
-        await StorageService.saveCartData(response);
-        await _initializePayment(); // Refresh UI totals
+        final sanitizedResponse = Map<String, dynamic>.from(response);
+        // Backend may still return a coupon object even after remove.
+        // Keep local state source-of-truth as coupon removed.
+        sanitizedResponse.remove('coupon');
+        sanitizedResponse['discount'] = 0;
+        sanitizedResponse['coupon_discount'] = 0;
+
+        final shipping = _toDouble(sanitizedResponse['shipping']) ??
+            _toDouble(sanitizedResponse['normal_shipping_cost']) ??
+            _toDouble(sanitizedResponse['shipping_cost']) ??
+            0.0;
+        final gst = _toDouble(sanitizedResponse['tax']) ?? 0.0;
+        final totalWithGstFromResponse =
+            _toDouble(sanitizedResponse['total_with_gst']) ?? 0.0;
+
+        double subtotal = totalWithGstFromResponse - shipping - gst;
+        if (subtotal <= 0) {
+          subtotal = _subtotalFromCartResponse(sanitizedResponse);
+        }
+
+        final totalWithGst = totalWithGstFromResponse > 0
+            ? totalWithGstFromResponse
+            : (subtotal + shipping + gst);
+        debugPrint(
+          'PAYMENT_TOTAL_DEBUG[remove]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$shipping, gst=$gst, final_total=$totalWithGst',
+        );
 
         if (mounted) {
           setState(() {
+            _shippingCost = shipping;
+            _gstAmount = gst;
+            _amount = totalWithGst;
+            _subtotalExclGst = subtotal;
+            _discountAmount = _toDouble(sanitizedResponse['discount']) ?? 0.0;
+
+            _hasPendingFreightQuote =
+              (_toDouble(sanitizedResponse['show_request_freight_cost']) ?? 0) > 0;
+            _showFreeShippingLabel =
+              (_toDouble(sanitizedResponse['show_free_shipping_icon']) ?? 0) == 1;
+
             _couponCode = null;
+            _couponOfferSubtitle = null;
             _couponDiscount = 0.0;
             _isCouponApplied = false;
             _couponController.clear();
           });
         }
 
+        if (mounted) {
+          try {
+            if (_orderNumber != null) {
+              await _paymentService.createPaymentIntent(
+                orderNumber: _orderNumber!,
+                amount: _amount ?? 0.0,
+                currency: _currency ?? 'AUD',
+              );
+            }
+          } catch (_) {}
+        }
+
+        // DEBUG: Print values AFTER removing coupon
+        debugPrint('╔════════════════════════════════════════════════════════════╗');
+        debugPrint('║          VALUE AFTER REMOVE COUPON                         ║');
+        debugPrint('╠════════════════════════════════════════════════════════════╣');
+        debugPrint('║ Total Amount: $_amount');
+        debugPrint('║ Subtotal: $_subtotalExclGst');
+        debugPrint('║ Shipping: $_shippingCost');
+        debugPrint('║ GST/Tax: $_gstAmount');
+        debugPrint('║ Discount: $_discountAmount');
+        debugPrint('║ Coupon Code: $_couponCode');
+        debugPrint('║ Coupon Discount: $_couponDiscount');
+        debugPrint('║ Coupon Applied: $_isCouponApplied');
+        debugPrint('╚════════════════════════════════════════════════════════════╝');
+
+        final removedMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
+            ? response['message'].toString().trim()
+            : 'Promo code removed';
         Fluttertoast.showToast(
-          msg: response['message'] ?? 'Promo code removed',
+          msg: removedMessage,
           backgroundColor: Colors.orange,
+          textColor: Colors.white,
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: 'Cart is empty',
+          backgroundColor: Colors.red,
           textColor: Colors.white,
         );
       }
@@ -1509,6 +1773,8 @@ class _PaymentPageState extends State<PaymentPage> {
     final total = _amount ?? 0.0;
     final String rawDataStr = _orderData.toString().toLowerCase();
     final currencySign = _orderData?['currency_sign']?.toString() ?? '\$';
+    final hasAppliedCoupon =
+        _isCouponApplied && _couponCode != null && _couponCode!.isNotEmpty;
 
     String formatPrice(double? v) =>
         v != null ? '$currencySign${v.toStringAsFixed(2)}' : '-';
@@ -1542,6 +1808,33 @@ class _PaymentPageState extends State<PaymentPage> {
               'Total Of Items (excl. GST)',
               formatPrice(_subtotalExclGst),
             ),
+            if (hasAppliedCoupon) ...[
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _couponOfferSubtitle != null && _couponOfferSubtitle!.isNotEmpty
+                        ? '$_couponCode $_couponOfferSubtitle'
+                        : '$_couponCode',
+                    style: TextStyle(
+                      color: Colors.green[700],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (_couponDiscount > 0)
+                    Text(
+                      '-${formatPrice(_couponDiscount)}',
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
 
             // Special Discount (Red) - Mobile Only
@@ -1628,9 +1921,13 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: _isProcessing ? null : _applyPromoCode,
+                  onPressed: _isProcessing
+                      ? null
+                      : (hasAppliedCoupon ? _removeCoupon : _applyPromoCode),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF151D51),
+                    backgroundColor: hasAppliedCoupon
+                        ? Colors.orange
+                        : const Color(0xFF151D51),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -1638,8 +1935,8 @@ class _PaymentPageState extends State<PaymentPage> {
                     minimumSize: const Size(90, 44),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Apply',
+                  child: Text(
+                    hasAppliedCoupon ? 'Remove' : 'Apply',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1649,9 +1946,20 @@ class _PaymentPageState extends State<PaymentPage> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: _showCouponsModal,
-                icon: const Icon(Icons.local_offer_outlined, size: 16),
-                label: const Text('View Available Offers'),
+                onPressed: (_isLoadingCoupons || _isProcessing) ? null : _showCouponsModal,
+                icon: _isLoadingCoupons
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
+                        ),
+                      )
+                    : const Icon(Icons.local_offer_outlined, size: 16),
+                label: Text(
+                  _isLoadingCoupons ? 'Loading Offers...' : 'View Available Offers',
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF151D51),
                   padding: EdgeInsets.zero,
@@ -1664,35 +1972,21 @@ class _PaymentPageState extends State<PaymentPage> {
               ),
             ),
             // Show applied promo code message
-            if (_couponCode != null && _couponCode!.isNotEmpty) ...[
+            if (hasAppliedCoupon) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
                   Icon(Icons.check_circle, size: 16, color: Colors.green[600]),
                   const SizedBox(width: 4),
                   Text(
-                    'Promo code "$_couponCode" applied',
+                    _couponOfferSubtitle != null &&
+                            _couponOfferSubtitle!.isNotEmpty
+                        ? '$_couponCode $_couponOfferSubtitle'
+                        : '$_couponCode',
                     style: TextStyle(
                       color: Colors.green[700],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _isProcessing ? null : _removeCoupon,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(50, 30),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      'Remove',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

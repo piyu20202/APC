@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/user_model.dart';
 import '../data/models/settings_model.dart';
@@ -142,6 +143,16 @@ class StorageService {
 
   /// Save cart response data to SharedPreferences
   static Future<void> saveCartData(Map<String, dynamic> cartResponse) async {
+    // CRITICAL GUARD: Prevent any "paylater" or payment data from overwriting cart.
+    // Cart should only contain 'cart', 'discount', 'coupon_discount', 'totalPrice', etc.
+    // If response contains payment-specific fields, reject it to protect Pay Later flow.
+    if (cartResponse.containsKey('paylater') || 
+        cartResponse.containsKey('payment_method') || 
+        cartResponse.containsKey('manual_order_by_admin')) {
+      debugPrint('SECURITY: Rejected saveCartData() - contains payment data instead of cart data');
+      return; // Reject this save to prevent cart corruption
+    }
+    
     final prefs = await SharedPreferences.getInstance();
     final cartJson = jsonEncode(cartResponse);
     await prefs.setString(_keyCartData, cartJson);

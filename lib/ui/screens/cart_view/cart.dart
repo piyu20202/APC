@@ -334,7 +334,7 @@ class _CartPageState extends State<CartPage> {
     updatedResponse['totalQty'] =
         _serverReportedQty ?? _calculateTotalQuantity();
     updatedResponse['totalPrice'] =
-        _serverReportedTotal ?? _calculateSubtotal();
+      _serverReportedTotal ?? _calculateSubtotal();
 
     _lastCartResponse = updatedResponse;
     await StorageService.saveCartData(updatedResponse);
