@@ -1139,6 +1139,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       arguments: {
         // Always set so back from payment goes to Profile, not Order Details
         'from_my_orders_payment': true,
+        // Full response passed directly so payment page can use cart data
+        // (product_sizeType, show_free_shipping_icon etc.) without storage roundtrip
+        'order_data': _responseData,
         // Pass order cart directly so payment page can use it for coupon operations
         // WITHOUT touching the user's real shopping cart in SharedPreferences
         'order_cart': _cartData,

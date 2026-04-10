@@ -40,6 +40,18 @@ class _ShippingBreakdown {
   final bool showFreeShippingLabel;
 }
 
+class _FreightRuleResult {
+  const _FreightRuleResult({
+    required this.shippingCost,
+    required this.hasPendingFreightQuote,
+    required this.showFreeShippingLabel,
+  });
+
+  final double shippingCost;
+  final bool hasPendingFreightQuote;
+  final bool showFreeShippingLabel;
+}
+
 class PaymentPage extends StatefulWidget {
   final Map<String, dynamic>? arguments;
 
@@ -139,6 +151,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   void dispose() {
+    // NOTE: Do NOT clear payment_cart_snapshot here.
+    // If user presses back button, we want to preserve the snapshot so they
+    // can return to Order Price Details and try different coupon or payment method.
+    // Snapshot should only be cleared after payment is SUCCESSFUL.
     _paymentResultSubscription?.cancel();
     _couponController.dispose();
     _cardNumberController.dispose();
@@ -373,10 +389,47 @@ class _PaymentPageState extends State<PaymentPage> {
         ? parse(data['tax'])
         : parse(order?['tax_amount']);
 
-    final orderType = (order?['order_type'] ?? '').toString().toLowerCase();
-    final double shippingCost = (orderType == 'large')
+    String orderType = _extractOrderType(data: data, order: order);
+
+    // In PayLater flow server returns order_type:"normal" even for large
+    // products. Fall back to scanning cart items (both top-level cart key and
+    // order['cart']) for product_sizeType.
+    if (orderType.isEmpty || orderType == 'normal') {
+      final fromDataCart = _extractOrderTypeFromCartContainer(data);
+      final fromOrderCart = (order?['cart'] is Map)
+          ? _extractOrderTypeFromCartContainer({'cart': order!['cart']})
+          : '';
+      if (fromDataCart.isNotEmpty && fromDataCart != 'normal') {
+        orderType = fromDataCart;
+      } else if (fromOrderCart.isNotEmpty && fromOrderCart != 'normal') {
+        orderType = fromOrderCart;
+      }
+    }
+
+    final double rawShippingCost = (orderType == 'large')
         ? parse(order?['shipping_cost'])
         : parse(order?['normal_shipping_cost']);
+
+    final effectiveShowRequestFreightCost =
+        data['show_request_freight_cost'] ??
+        _extractFreightCostFlagFromCartItems(data) ??
+        ((order?['cart'] is Map)
+            ? _extractFreightCostFlagFromCartItems({'cart': order!['cart']})
+            : null);
+
+    final effectiveShowFreeShippingIcon =
+        data['show_free_shipping_icon'] ??
+        _extractFreeShippingIconFromCartItems(data) ??
+        ((order?['cart'] is Map)
+            ? _extractFreeShippingIconFromCartItems({'cart': order!['cart']})
+            : null);
+
+    final freightRule = _resolveFreightRule(
+      rawShippingCost: rawShippingCost,
+      orderType: orderType,
+      showRequestFreightCost: effectiveShowRequestFreightCost,
+      showFreeShippingIcon: effectiveShowFreeShippingIcon,
+    );
 
     final double totalAmount = parse(data['grand_total']) > 0
         ? parse(data['grand_total'])
@@ -399,23 +452,131 @@ class _PaymentPageState extends State<PaymentPage> {
 
     // Subtotal logic synced with Order Details (Work backwards from Grand Total)
     subtotalExclGst =
-        (totalAmount - gstAmount - shippingCost + specialDiscount);
+        (totalAmount - gstAmount - freightRule.shippingCost + specialDiscount);
 
     return _ShippingBreakdown(
       subtotalExclGst: subtotalExclGst,
-      shippingCost: shippingCost,
+      shippingCost: freightRule.shippingCost,
       gstAmount: gstAmount,
       discountAmount: discountAmount,
       amount: totalAmount,
       specialDiscount: specialDiscount,
-      hasPendingFreightQuote:
-          orderType == 'large' || parse(data['show_request_freight_cost']) == 1,
+      hasPendingFreightQuote: freightRule.hasPendingFreightQuote,
       isPayLater: false,
-      showFreeShippingLabel:
-          !(orderType == 'large' ||
-              parse(data['show_request_freight_cost']) == 1) &&
-          parse(data['show_free_shipping_icon']) == 1,
+      showFreeShippingLabel: freightRule.showFreeShippingLabel,
     );
+  }
+
+  _FreightRuleResult _resolveFreightRule({
+    required double rawShippingCost,
+    dynamic orderType,
+    dynamic showRequestFreightCost,
+    dynamic showFreeShippingIcon,
+  }) {
+    final normalizedOrderType = (orderType ?? '').toString().toLowerCase();
+    final requestFreightCost = _toDouble(showRequestFreightCost) ?? 0.0;
+    final freeShippingIcon = _toDouble(showFreeShippingIcon) ?? 0.0;
+
+    final hasPendingFreightQuote =
+        normalizedOrderType == 'large' || requestFreightCost > 0;
+    final showFreeShippingLabel =
+        !hasPendingFreightQuote && freeShippingIcon == 1;
+
+    final shippingCost = hasPendingFreightQuote || showFreeShippingLabel
+        ? 0.0
+        : (rawShippingCost < 0 ? 0.0 : rawShippingCost);
+
+    return _FreightRuleResult(
+      shippingCost: shippingCost,
+      hasPendingFreightQuote: hasPendingFreightQuote,
+      showFreeShippingLabel: showFreeShippingLabel,
+    );
+  }
+
+  String _extractOrderType({
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? order,
+  }) {
+    final raw =
+        data?['order_type'] ??
+        data?['product_sizeType'] ??
+        order?['order_type'] ??
+        order?['product_sizeType'] ??
+        '';
+
+    return raw.toString().toLowerCase().trim();
+  }
+
+  String _extractOrderTypeFromCartContainer(Map<String, dynamic>? data) {
+    final cart = data?['cart'];
+    if (cart is! Map) return '';
+
+    for (final rawEntry in cart.values) {
+      if (rawEntry is! Map) continue;
+
+      final entry = Map<String, dynamic>.from(rawEntry as Map);
+      final itemRaw = entry['item'];
+      final item = itemRaw is Map ? Map<String, dynamic>.from(itemRaw) : null;
+
+      final value =
+          entry['order_type'] ??
+          entry['product_sizeType'] ??
+          item?['order_type'] ??
+          item?['product_sizeType'];
+
+      final normalized = value?.toString().toLowerCase().trim() ?? '';
+      if (normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+
+    return '';
+  }
+
+  /// Returns the first non-null `show_free_shipping_icon` found across all
+  /// cart items (entry level first, then item sub-object).
+  dynamic _extractFreeShippingIconFromCartItems(Map<String, dynamic>? data) {
+    final cart = data?['cart'];
+    if (cart is! Map) return null;
+
+    for (final rawEntry in cart.values) {
+      if (rawEntry is! Map) continue;
+      final entry = rawEntry as Map;
+
+      var value = entry['show_free_shipping_icon'];
+      if (value != null) return value;
+
+      final itemRaw = entry['item'];
+      if (itemRaw is Map) {
+        value = itemRaw['show_free_shipping_icon'];
+        if (value != null) return value;
+      }
+    }
+
+    return null;
+  }
+
+  /// Returns the first non-null `show_request_freight_cost` found across all
+  /// cart items (entry level first, then item sub-object).
+  dynamic _extractFreightCostFlagFromCartItems(Map<String, dynamic>? data) {
+    final cart = data?['cart'];
+    if (cart is! Map) return null;
+
+    for (final rawEntry in cart.values) {
+      if (rawEntry is! Map) continue;
+      final entry = rawEntry as Map;
+
+      var value = entry['show_request_freight_cost'];
+      if (value != null) return value;
+
+      final itemRaw = entry['item'];
+      if (itemRaw is Map) {
+        value = itemRaw['show_request_freight_cost'];
+        if (value != null) return value;
+      }
+    }
+
+    return null;
   }
 
   double? _toDouble(dynamic v) {
@@ -443,13 +604,60 @@ class _PaymentPageState extends State<PaymentPage> {
     return subtotal;
   }
 
+  bool get _isFromMyOrdersPayment =>
+      widget.arguments?['from_my_orders_payment'] == true;
+
+  Future<Map<String, dynamic>?> _getPaymentCartContainer() async {
+    if (_isFromMyOrdersPayment) {
+      // Prefer direct argument cart first (avoids storage roundtrip)
+      final argCart = widget.arguments?['order_cart'];
+      if (argCart is Map && argCart.isNotEmpty) {
+        debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (order_cart argument) - ${argCart.length} items');
+        return {'cart': Map<String, dynamic>.from(argCart as Map)};
+      }
+      // Fallback: read cart from the full order_data argument
+      final argOrderData = widget.arguments?['order_data'];
+      if (argOrderData is Map) {
+        final cart = (argOrderData as Map)['cart'];
+        if (cart is Map && cart.isNotEmpty) {
+          debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (order_data argument cart) - ${cart.length} items');
+          return {'cart': Map<String, dynamic>.from(cart as Map)};
+        }
+      }
+      debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (no cart available)');
+      return null;
+    }
+
+    final snapshot = await StorageService.getPaymentCartSnapshot();
+    if (snapshot != null && snapshot['cart'] is Map) {
+      final cartItems = (snapshot['cart'] as Map).length;
+      debugPrint('PAYMENT_CART_SOURCE: payment_cart_snapshot - $cartItems items');
+      return snapshot;
+    }
+
+    debugPrint('PAYMENT_CART_SOURCE: snapshot null/empty, trying cart_data fallback');
+    final cartData = await StorageService.getCartData();
+    if (cartData != null && cartData['cart'] is Map) {
+      final cartItems = (cartData['cart'] as Map).length;
+      debugPrint('PAYMENT_CART_SOURCE: cart_data_fallback - $cartItems items');
+      return cartData;
+    }
+
+    debugPrint('PAYMENT_CART_SOURCE: all sources null/empty');
+    return null;
+  }
+
   Future<void> _initializePayment() async {
     try {
       debugPrint('=== PAYMENT PAGE INITIALIZATION ===');
 
-      Map<String, dynamic>? orderData = await StorageService.getOrderData();
+      // For PayLater flow, prefer the full response passed directly as argument
+      // so we have the cart (product_sizeType etc.) without a storage roundtrip.
+      Map<String, dynamic>? orderData =
+          (widget.arguments?['order_data'] as Map?)?.cast<String, dynamic>() ??
+          await StorageService.getOrderData();
 
-      debugPrint('Order data: ${orderData != null ? "Found" : "Not found"}');
+      debugPrint('Order data: ${orderData != null ? "Found (from: ${widget.arguments?['order_data'] != null ? 'argument' : 'storage'})" : "Not found"}');
 
       if (orderData == null) {
         final bool fromMyOrdersPayment =
@@ -512,6 +720,16 @@ class _PaymentPageState extends State<PaymentPage> {
       final UserModel? currentUser = await StorageService.getUserData();
       _isTradeUser = currentUser?.isTradeUser ?? 0;
 
+      debugPrint(
+        '╔══════ PAYMENT OPTIONS VISIBILITY FLAGS ══════╗\n'
+        '║ manual_order_by_admin : $_manualOrderByAdmin\n'
+        '║ is_trade_user         : $_isTradeUser  (user: ${currentUser?.name ?? "null"})\n'
+        '║ payment_status        : $_orderPaymentStatus\n'
+        '║ canShowByStatus       : ${_orderPaymentStatus == "partial" || _orderPaymentStatus == "unpaid"}\n'
+        '║ canShowAltMethods     : ${_manualOrderByAdmin == 0 && _isTradeUser == 0}\n'
+        '╚══════════════════════════════════════════════╝',
+      );
+
       final payAmount = order?['pay_amount'] as num?;
       final totalAmount = order?['total'] as num?;
       double amount = (payAmount ?? totalAmount)?.toDouble() ?? 0.0;
@@ -532,7 +750,7 @@ class _PaymentPageState extends State<PaymentPage> {
       try {
         final checkoutData = await StorageService.getCheckoutData();
         final postcode = (checkoutData?['post_code'] as String?)?.trim() ?? '';
-        final cartResponse = await StorageService.getCartData();
+        final cartResponse = await _getPaymentCartContainer();
         final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
         final bool fromMyOrdersPayment =
             widget.arguments?['from_my_orders_payment'] == true;
@@ -543,27 +761,59 @@ class _PaymentPageState extends State<PaymentPage> {
             'old_cart': oldCart,
           });
 
-          final orderType = (shippingResponse['order_type'] ?? '')
-              .toString()
-              .toLowerCase();
+          final shippingOrderType = _extractOrderType(data: shippingResponse);
+          final snapshotOrderType = _extractOrderType(data: cartResponse);
+          final cartItemOrderType = _extractOrderTypeFromCartContainer(
+            cartResponse,
+          );
+          final orderType = shippingOrderType.isNotEmpty
+              ? shippingOrderType
+              : (snapshotOrderType.isNotEmpty
+                    ? snapshotOrderType
+                    : cartItemOrderType);
+
+          final effectiveShowRequestFreightCost =
+              (shippingResponse['show_request_freight_cost'] != null)
+              ? shippingResponse['show_request_freight_cost']
+              : (cartResponse?['show_request_freight_cost'] ??
+                 _extractFreightCostFlagFromCartItems(cartResponse));
+          final effectiveShowFreeShippingIcon =
+              (shippingResponse['show_free_shipping_icon'] != null)
+              ? shippingResponse['show_free_shipping_icon']
+              : (cartResponse?['show_free_shipping_icon'] ??
+                 _extractFreeShippingIconFromCartItems(cartResponse));
 
           // Map shipping cost using prioritized keys from API
-          shippingCost = _toDouble(shippingResponse['shipping']) ??
-                         _toDouble(shippingResponse['normal_shipping_cost']) ??
-                         _toDouble(shippingResponse['shipping_cost']) ?? 0.0;
+          final rawShippingCost =
+              _toDouble(shippingResponse['shipping']) ??
+              _toDouble(shippingResponse['normal_shipping_cost']) ??
+              _toDouble(shippingResponse['shipping_cost']) ??
+              0.0;
+
+          final freightRule = _resolveFreightRule(
+            rawShippingCost: rawShippingCost,
+            orderType: orderType,
+            showRequestFreightCost: effectiveShowRequestFreightCost,
+            showFreeShippingIcon: effectiveShowFreeShippingIcon,
+          );
+
+          shippingCost = freightRule.shippingCost;
 
           gstAmount = _toDouble(shippingResponse['tax']);
           
-          // Use total_with_gst as source of truth only when it is a valid positive value.
+          // Use total_with_gst from shipping API ONLY as a fallback when
+          // order amount is 0 or unavailable. The stored order amount is the
+          // source of truth — overriding it with a shipping API response that
+          // may have used a stale/wrong cart causes wrong totals on retry.
           final shippingTotalWithGst = _toDouble(shippingResponse['total_with_gst']);
-          if (shippingTotalWithGst != null && shippingTotalWithGst > 0) {
+          if (amount <= 0 && shippingTotalWithGst != null && shippingTotalWithGst > 0) {
             amount = shippingTotalWithGst;
             debugPrint(
-              'PAYMENT_TOTAL_DEBUG[init]: using API total_with_gst=$shippingTotalWithGst',
+              'PAYMENT_TOTAL_DEBUG[init]: order amount was 0, using API total_with_gst=$shippingTotalWithGst',
             );
           } else {
             debugPrint(
-              'PAYMENT_TOTAL_DEBUG[init]: API total_with_gst invalid (${shippingResponse['total_with_gst']}), fallback total will be used',
+              'PAYMENT_TOTAL_DEBUG[init]: keeping order amount=$amount (API total_with_gst=$shippingTotalWithGst)',
             );
           }
 
@@ -575,23 +825,10 @@ class _PaymentPageState extends State<PaymentPage> {
           final couponDiscount = _toDouble(cartResponse?['coupon_discount']);
           discountAmount = discount ?? couponDiscount;
 
-          final showRequest =
-              (shippingResponse['show_request_freight_cost'] as num?)
-                  ?.toDouble() ??
-              0;
-          // Pending freight affects UI messaging; Pay Later UI mode is controlled
-          // only by route arguments from My Orders flow.
-
-          if (orderType == 'large' || showRequest > 0) {
-            _hasPendingFreightQuote = true;
-            _showFreeShippingLabel = false;
-          } else {
-            _hasPendingFreightQuote = false;
-            _showFreeShippingLabel =
-                (shippingResponse['show_free_shipping_icon'] as num?)
-                    ?.toInt() ==
-                1;
-          }
+            // Pending freight affects UI messaging; Pay Later UI mode is controlled
+            // only by route arguments from My Orders flow.
+            _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
+            _showFreeShippingLabel = freightRule.showFreeShippingLabel;
         } else {
           final snap = _breakdownFromStoredOrder(orderData);
           subtotalExclGst = snap.subtotalExclGst;
@@ -689,7 +926,7 @@ class _PaymentPageState extends State<PaymentPage> {
       });
 
       if (mounted) {
-        final cartSnap = await StorageService.getCartData();
+        final cartSnap = await _getPaymentCartContainer();
         if (mounted) {
           setState(() {
             _couponCode = CouponCartDisplay.couponCode(cartSnap);
@@ -725,7 +962,7 @@ class _PaymentPageState extends State<PaymentPage> {
         return false;
       }
 
-      final cartResponse = await StorageService.getCartData();
+      final cartResponse = await _getPaymentCartContainer();
       if (cartResponse == null || cartResponse['cart'] == null) {
         Fluttertoast.showToast(msg: 'Cart is empty');
         return false;
@@ -1067,18 +1304,20 @@ class _PaymentPageState extends State<PaymentPage> {
       debugPrint('║ Coupon Applied: $_isCouponApplied');
       debugPrint('╚════════════════════════════════════════════════════════════╝');
       
-      final cartResponse = await StorageService.getCartData();
+      final cartContainer = await _getPaymentCartContainer();
+      final cartForCoupon = cartContainer?['cart'] as Map<String, dynamic>?;
 
-      // In My Orders → Pay Now flow, use the order cart passed via arguments.
-      // This prevents the user's real shopping cart from being used or corrupted.
-      final bool fromMyOrders = widget.arguments?['from_my_orders_payment'] == true;
-      final Map<String, dynamic>? orderCartArg =
-          widget.arguments?['order_cart'] as Map<String, dynamic>?;
-      final cartForCoupon = fromMyOrders && orderCartArg != null
-          ? orderCartArg
-          : (cartResponse?['cart'] as Map<String, dynamic>?);
+      debugPrint('╔════════════════ COUPON APPLY CART DEBUG ════════════════╗');
+      debugPrint('║ cartContainer keys: ${cartContainer?.keys.join(", ") ?? "null"}');
+      debugPrint('║ cartForCoupon: ${cartForCoupon?.length ?? 0} items');
+      if (cartForCoupon != null) {
+        cartForCoupon.forEach((key, item) {
+          debugPrint('║   - $key: qty=${item['qty']}, price=${item['price']}');
+        });
+      }
+      debugPrint('╚════════════════════════════════════════════════════════╝');
 
-      if (cartForCoupon == null) {
+      if (cartForCoupon == null || cartForCoupon.isEmpty) {
         Fluttertoast.showToast(msg: 'Cart is empty');
         return;
       }
@@ -1104,35 +1343,48 @@ class _PaymentPageState extends State<PaymentPage> {
           _toDouble(response['normal_shipping_cost']) ??
           _toDouble(response['shipping_cost']) ??
           0.0;
+      final freightRule = _resolveFreightRule(
+        rawShippingCost: shipping,
+        orderType: (() {
+          final fromRoot = _extractOrderType(data: response);
+          if (fromRoot.isNotEmpty) return fromRoot;
+          return _extractOrderTypeFromCartContainer(response);
+        })(),
+        showRequestFreightCost:
+            response['show_request_freight_cost'] ??
+            _extractFreightCostFlagFromCartItems(response),
+        showFreeShippingIcon:
+            response['show_free_shipping_icon'] ??
+            _extractFreeShippingIconFromCartItems(response),
+      );
+      final effectiveShipping = freightRule.shippingCost;
       final gst = _toDouble(response['tax']) ?? 0.0;
       final totalWithGstFromResponse =
           _toDouble(response['total_with_gst']) ?? 0.0;
       final discountFromResponse = _toDouble(response['discount']) ?? 0.0;
 
-      double subtotal = totalWithGstFromResponse - shipping - gst;
+      double subtotal = totalWithGstFromResponse - effectiveShipping - gst;
       if (subtotal <= 0) {
         subtotal = _subtotalFromCartResponse(response);
       }
 
       final totalWithGst = totalWithGstFromResponse > 0
           ? totalWithGstFromResponse
-          : (subtotal + shipping + gst);
+          : (subtotal + effectiveShipping + gst);
       debugPrint(
-        'PAYMENT_TOTAL_DEBUG[apply]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$shipping, gst=$gst, final_total=$totalWithGst',
+        'PAYMENT_TOTAL_DEBUG[apply]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$effectiveShipping, gst=$gst, final_total=$totalWithGst',
       );
 
       if (mounted) {
         setState(() {
-          _shippingCost = shipping;
+          _shippingCost = effectiveShipping;
           _gstAmount = gst;
           _amount = totalWithGst;
           _subtotalExclGst = subtotal;
           _discountAmount = discountFromResponse;
 
-          _hasPendingFreightQuote =
-              (_toDouble(response['show_request_freight_cost']) ?? 0) > 0;
-          _showFreeShippingLabel =
-              (_toDouble(response['show_free_shipping_icon']) ?? 0) == 1;
+          _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
+          _showFreeShippingLabel = freightRule.showFreeShippingLabel;
         });
       }
 
@@ -1365,16 +1617,10 @@ class _PaymentPageState extends State<PaymentPage> {
       debugPrint('║ Coupon Applied: $_isCouponApplied');
       debugPrint('╚════════════════════════════════════════════════════════════╝');
       
-      final cartResponse = await StorageService.getCartData();
+      final cartContainer = await _getPaymentCartContainer();
+      final oldCart = cartContainer?['cart'] as Map<String, dynamic>?;
 
-      // In My Orders → Pay Now flow, use the order cart passed via arguments.
-      // This prevents the user's real shopping cart from being touched.
-      final bool fromMyOrders = widget.arguments?['from_my_orders_payment'] == true;
-      final Map<String, dynamic>? orderCartArg =
-          widget.arguments?['order_cart'] as Map<String, dynamic>?;
-      final oldCart = fromMyOrders && orderCartArg != null
-          ? orderCartArg
-          : (cartResponse?['cart'] as Map<String, dynamic>?);
+      debugPrint('COUPON_REMOVE_CART_PAYLOAD_SOURCE: ${cartContainer != null ? "ok (${oldCart?.length ?? 0} items)" : "null"}');
 
       if (oldCart != null) {
         final payload = {
@@ -1395,34 +1641,47 @@ class _PaymentPageState extends State<PaymentPage> {
             _toDouble(sanitizedResponse['normal_shipping_cost']) ??
             _toDouble(sanitizedResponse['shipping_cost']) ??
             0.0;
+        final freightRule = _resolveFreightRule(
+          rawShippingCost: shipping,
+          orderType: (() {
+            final fromRoot = _extractOrderType(data: sanitizedResponse);
+            if (fromRoot.isNotEmpty) return fromRoot;
+            return _extractOrderTypeFromCartContainer(sanitizedResponse);
+          })(),
+          showRequestFreightCost:
+              sanitizedResponse['show_request_freight_cost'] ??
+              _extractFreightCostFlagFromCartItems(sanitizedResponse),
+          showFreeShippingIcon:
+              sanitizedResponse['show_free_shipping_icon'] ??
+              _extractFreeShippingIconFromCartItems(sanitizedResponse),
+        );
+        final effectiveShipping = freightRule.shippingCost;
         final gst = _toDouble(sanitizedResponse['tax']) ?? 0.0;
         final totalWithGstFromResponse =
             _toDouble(sanitizedResponse['total_with_gst']) ?? 0.0;
 
-        double subtotal = totalWithGstFromResponse - shipping - gst;
+        double subtotal = totalWithGstFromResponse - effectiveShipping - gst;
         if (subtotal <= 0) {
           subtotal = _subtotalFromCartResponse(sanitizedResponse);
         }
 
         final totalWithGst = totalWithGstFromResponse > 0
             ? totalWithGstFromResponse
-            : (subtotal + shipping + gst);
+            : (subtotal + effectiveShipping + gst);
         debugPrint(
-          'PAYMENT_TOTAL_DEBUG[remove]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$shipping, gst=$gst, final_total=$totalWithGst',
+          'PAYMENT_TOTAL_DEBUG[remove]: api_total=$totalWithGstFromResponse, subtotal=$subtotal, shipping=$effectiveShipping, gst=$gst, final_total=$totalWithGst',
         );
 
         if (mounted) {
           setState(() {
-            _shippingCost = shipping;
+            _shippingCost = effectiveShipping;
             _gstAmount = gst;
             _amount = totalWithGst;
             _subtotalExclGst = subtotal;
             _discountAmount = _toDouble(sanitizedResponse['discount']) ?? 0.0;
 
-            _hasPendingFreightQuote =
-              (_toDouble(sanitizedResponse['show_request_freight_cost']) ?? 0) > 0;
-            _showFreeShippingLabel =
-              (_toDouble(sanitizedResponse['show_free_shipping_icon']) ?? 0) == 1;
+            _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
+            _showFreeShippingLabel = freightRule.showFreeShippingLabel;
 
             _couponCode = null;
             _couponOfferSubtitle = null;
@@ -1533,6 +1792,25 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
+  bool get _canShowPaymentOptionsByStatus =>
+      _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
+
+  bool get _canShowAlternativePaymentMethods =>
+      _manualOrderByAdmin == 0 && _isTradeUser == 0;
+
+  String get _effectiveSelectedPaymentMethod {
+    final method = _selectedPaymentMethod.trim();
+    if (method.isEmpty) return 'Credit Card';
+
+    final isAlternativeMethod =
+        method == 'PayPal' || method == 'Google Pay' || method == 'Apple Pay';
+    if (isAlternativeMethod && !_canShowAlternativePaymentMethods) {
+      return 'Credit Card';
+    }
+
+    return method;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isPayLaterFlow = widget.arguments?['is_pay_later'] == true;
@@ -1541,6 +1819,7 @@ class _PaymentPageState extends State<PaymentPage> {
     // Back from My Orders payment → Profile (avoid popping to Order Details)
     // EXCEPT for Pay Later flow where we explicitly want to go back to Order Details.
     final bool useProfileBack = fromMyOrdersPayment && !isPayLaterFlow;
+    final effectivePaymentMethod = _effectiveSelectedPaymentMethod;
     return PopScope(
       canPop: !useProfileBack,
       onPopInvokedWithResult: (didPop, _) {
@@ -1612,24 +1891,24 @@ class _PaymentPageState extends State<PaymentPage> {
                       _buildOrderSummaryCard(),
                       const SizedBox(height: 24),
 
-                      if (!_isPayLater) ...[
+                      if (_isPayLater) ...[
+                        _buildSubmitButton(),
+                      ] else if (_canShowPaymentOptionsByStatus) ...[
                         _buildPaymentMethodSection(),
                         const SizedBox(height: 24),
 
-                        if (_selectedPaymentMethod == 'Credit Card') ...[
+                        if (effectivePaymentMethod == 'Credit Card') ...[
                           const SizedBox(height: 12),
                           _buildCardInputFields(),
                           const SizedBox(height: 12),
                           _buildSubmitButton(),
-                        ] else if (_selectedPaymentMethod == 'PayPal') ...[
+                        ] else if (effectivePaymentMethod == 'PayPal') ...[
                           _buildPayPalButton(),
-                        ] else if (_selectedPaymentMethod == 'Google Pay') ...[
+                        ] else if (effectivePaymentMethod == 'Google Pay') ...[
                           _buildGooglePayButton(),
-                        ] else if (_selectedPaymentMethod.isNotEmpty) ...[
+                        ] else if (effectivePaymentMethod.isNotEmpty) ...[
                           _buildSubmitButton(),
                         ],
-                      ] else ...[
-                        _buildSubmitButton(),
                       ],
                     ],
                   ),
@@ -1641,10 +1920,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Widget _buildPaymentMethodSection() {
     final bool isIOS = Platform.isIOS;
+    final effectivePaymentMethod = _effectiveSelectedPaymentMethod;
 
     // Payment options sirf tab dikhein jab Partial ya Unpaid ho
-    final bool canShowPayments =
-        _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
+    final bool canShowPayments = _canShowPaymentOptionsByStatus;
 
     if (!canShowPayments) return const SizedBox.shrink();
 
@@ -1668,20 +1947,50 @@ class _PaymentPageState extends State<PaymentPage> {
               child: _paymentOptionRow(
                 'Credit Card',
                 Icons.credit_card,
-                _selectedPaymentMethod == 'Credit Card',
+                effectivePaymentMethod == 'Credit Card',
               ),
             ),
+
+            // Info banner when alternative methods are restricted
+            if (!_canShowAlternativePaymentMethods) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFCC02)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 18, color: Color(0xFFF9A825)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _manualOrderByAdmin == 1
+                            ? 'This order was created by admin. Only Credit Card payment is available.'
+                            : 'Trade account orders can only be paid via Credit Card.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF5D4037),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
 
             // 2. PayPal + Google/Apple Pay —
             // sirf jab manual_order_by_admin == 0 AND is_trade_user == 0
-            if (_manualOrderByAdmin == 0 && _isTradeUser == 0) ...[
+            if (_canShowAlternativePaymentMethods) ...[
               GestureDetector(
                 onTap: () => setState(() => _selectedPaymentMethod = 'PayPal'),
                 child: _paymentOptionRow(
                   'PayPal',
                   Icons.payment,
-                  _selectedPaymentMethod == 'PayPal',
+                  effectivePaymentMethod == 'PayPal',
                 ),
               ),
               if (!kIsWeb && !isIOS) ...[
@@ -1692,7 +2001,7 @@ class _PaymentPageState extends State<PaymentPage> {
                   child: _paymentOptionRow(
                     'Google Pay',
                     Icons.account_balance_wallet,
-                    _selectedPaymentMethod == 'Google Pay',
+                    effectivePaymentMethod == 'Google Pay',
                     isEnabled: true,
                     trailing: _isInitializingGooglePay
                         ? const SizedBox(
@@ -2027,6 +2336,17 @@ class _PaymentPageState extends State<PaymentPage> {
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+            if (!_hasPendingFreightQuote && _showFreeShippingLabel) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Your Order Eligible for Free Delivery',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.green.shade700,
                   fontWeight: FontWeight.bold,
                 ),
               ),

@@ -378,7 +378,10 @@ class _ListingProductCardState extends State<ListingProductCard> {
       );
       final payload = await builder.buildPayload();
       final response = await _cartService.addProducts(payload);
-      await StorageService.saveCartData(response);
+      await StorageService.saveCartDataWithProductHints(
+        response,
+        listingProduct: widget.product,
+      );
       if (!context.mounted) return;
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
@@ -743,7 +746,10 @@ class _ProductListCardState extends State<ProductListCard> {
       );
       final payload = await builder.buildPayload();
       final response = await _cartService.addProducts(payload);
-      await StorageService.saveCartData(response);
+      await StorageService.saveCartDataWithProductHints(
+        response,
+        listingProduct: widget.product,
+      );
       if (!context.mounted) return;
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();

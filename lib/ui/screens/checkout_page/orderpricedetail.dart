@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:apcproject/services/storage_service.dart';
+import 'package:apcproject/services/navigation_service.dart';
 import 'package:apcproject/data/services/order_service.dart';
 import 'package:apcproject/data/services/cart_service.dart';
 import 'package:apcproject/data/models/user_model.dart';
@@ -28,6 +29,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
   final CartService _cartService = CartService();
   final PaymentService _paymentService = PaymentService();
   bool _isSubmitting = false;
+  // Guard: once order is placed on this page, don't place it again if user
+  // returns from payment page and presses Continue a second time.
+  bool _orderPlaced = false;
+  Map<String, dynamic>? _placedCartResponse; // cart snapshot from first order
   String? _couponCode;
   double _couponDiscount = 0.0;
   final TextEditingController _couponController = TextEditingController();
@@ -103,6 +108,26 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     }
   }
 
+  Future<Map<String, dynamic>?> _getCheckoutCartContainer() async {
+    final cartData = await StorageService.getCartData();
+    if (cartData != null && cartData['cart'] is Map) {
+      debugPrint('CHECKOUT_CART_SOURCE: cart_data');
+      return cartData;
+    }
+
+    // FALLBACK for OPD workflow: If cart_data is empty (cleared at checkout),
+    // use the payment_cart_snapshot that checkout just saved. This allows OPD
+    // to calculate totals and pass cart to payment page for coupon operations.
+    final snapshot = await StorageService.getPaymentCartSnapshot();
+    if (snapshot != null && snapshot['cart'] is Map) {
+      debugPrint('CHECKOUT_CART_SOURCE: payment_cart_snapshot (OPD fallback)');
+      return snapshot;
+    }
+
+    debugPrint('CHECKOUT_CART_SOURCE: none (both cart_data and snapshot unavailable)');
+    return null;
+  }
+
   @override
   void dispose() {
     _couponController.removeListener(_onCouponTextChanged);
@@ -120,7 +145,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       final postcode = checkoutData?['post_code'] as String?;
 
       // Get cart data for old_cart
-      final cartResponse = await StorageService.getCartData();
+      final cartResponse = await _getCheckoutCartContainer();
       if (cartResponse != null) {
         // Debug: print full cart JSON (including shipping) to console
         try {
@@ -129,7 +154,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           ).convert(cartResponse);
           _printLongString(
             prettyCartJson,
-            'CART DATA (StorageService.getCartData)',
+            'CHECKOUT CART CONTAINER',
           );
         } catch (_) {
           // Ignore JSON encoding issues in debug logging
@@ -285,7 +310,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
     });
 
     try {
-      final cartResponse = await StorageService.getCartData();
+      final cartResponse = await _getCheckoutCartContainer();
       final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
 
       if (oldCart != null) {
@@ -293,7 +318,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
 
         final response = await _cartService.removeCoupon(payload);
 
-        await StorageService.saveCartData(response);
+        await StorageService.clearPaymentCartSnapshot();
+        await StorageService.savePaymentCartSnapshot(response);
         await _loadCartTotals();
 
         if (mounted) {
@@ -851,7 +877,26 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       }
 
       // Get cart data
-      final cartResponse = await StorageService.getCartData();
+      final cartResponse = await _getCheckoutCartContainer();
+
+      // If order was already placed on this page (user returned from payment
+      // page and pressed Continue again), skip storeOrder and re-navigate to
+      // payment with existing order data — prevents double-order creation.
+      if (_orderPlaced && _placedCartResponse != null) {
+        debugPrint('ORDER_ALREADY_PLACED: re-navigating to payment with existing order');
+        // NOTE: Do NOT clear snapshot here. Keep the existing snapshot so coupon
+        // operations and other payment-page features continue to work.
+        await StorageService.savePaymentCartSnapshot(_placedCartResponse!);
+        if (!mounted) return;
+        Navigator.pushNamed(
+          context,
+          '/payment',
+          arguments: {'payment_method': _selectedPaymentMethod},
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
       if (cartResponse == null || cartResponse['cart'] == null) {
         if (mounted) {
           Fluttertoast.showToast(
@@ -890,6 +935,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       debugPrint('###############Start COMPLETE ORDER####################');
       debugPrint('API ORDER PRICE: $apiPrice');
       debugPrint('UI TOTAL PAYABLE: $_totalPayable');
+      debugPrint('Cart items in payload: ${(orderPayload['cart'] as Map?)?.length ?? 0}');
+      (orderPayload['cart'] as Map?)?.forEach((key, item) {
+        debugPrint('  - $key: qty=${item['qty']}, price=${item['price']}');
+      });
       debugPrint('###############End COMPLETE ORDER#######################');
 
       // Log POST body with proper formatting
@@ -900,11 +949,26 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       debugPrint(prettyPayload);
       debugPrint('*************checkout post body end***********');
 
+      // CRITICAL: Clear stale order data BEFORE calling storeOrder
+      // to prevent backend from accidentally reusing old order
+      await StorageService.clearOrderData();
+
       // Call API to place order BEFORE payment gateway
+      debugPrint('CALLING storeOrder API...');
       final response = await _orderService.storeOrder(orderPayload);
+      debugPrint('storeOrder API returned. Keys: ${response.keys.join(", ")}');
 
       // Save order response for later (payment gateway, order success page, etc.)
       await StorageService.saveOrderData(response);
+
+      // Verify what was saved to storage
+      final savedOrderData = await StorageService.getOrderData();
+      final savedOrder = savedOrderData?['order'] as Map?;
+      debugPrint('╔════════ ORDER SAVED TO STORAGE ════════╗');
+      debugPrint('║ Saved pay_amount: ${savedOrder?['pay_amount']}');
+      debugPrint('║ Saved total: ${savedOrder?['total']}');
+      debugPrint('║ Saved order_number: ${savedOrder?['order_number']}');
+      debugPrint('╚════════════════════════════════════════╝');
 
       // Log API response with proper formatting
       final prettyResponse = const JsonEncoder.withIndent(
@@ -913,6 +977,17 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       debugPrint('===== STORE_ORDER_API_RESPONSE (Continue To Payment) START =====');
       debugPrint(prettyResponse);
       debugPrint('===== STORE_ORDER_API_RESPONSE (Continue To Payment) END =====');
+
+      // CRITICAL DEBUG: Log the amount from the order response
+      final createdOrder = response['order'] as Map<String, dynamic>?;
+      final createdOrderAmount = createdOrder?['pay_amount'] ?? createdOrder?['total'];
+      debugPrint('╔════════════════════════════════════════════════════════╗');
+      debugPrint('║ ORDER CREATED - AMOUNT VERIFICATION                   ║');
+      debugPrint('║ UI Total Payable: $_totalPayable');
+      debugPrint('║ API Response order.pay_amount: ${createdOrder?['pay_amount']}');
+      debugPrint('║ API Response order.total: ${createdOrder?['total']}');
+      debugPrint('║ EFFECTIVE AMOUNT FOR PAYMENT: $createdOrderAmount');
+      debugPrint('╚════════════════════════════════════════════════════════╝');
 
       // Check if order was successfully placed with order_number
       final order = response['order'] as Map<String, dynamic>?;
@@ -928,8 +1003,15 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         return;
       }
 
-      // DO NOT clear cart here - cart will be cleared only after successful payment
-      // Cart will be cleared in payment.dart (card payment) or here (Google Pay) after payment success
+      // Business rule: once order is created on server, clear user cart immediately
+      // regardless of payment completion status.
+      await StorageService.clearCartData();
+      NavigationService.instance.refreshCartCount();
+      NavigationService.instance.refreshCartItems();
+
+      // Mark order as placed so second Continue press re-uses this order
+      _orderPlaced = true;
+      _placedCartResponse = cartResponse;
 
       if (mounted) {
         // Debug logging before navigation
@@ -954,6 +1036,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         // Same path as Credit Card — payment page with methods (cart cleared after pay).
         if (_isPayLater) {
           debugPrint('Pay Later / freight quote — Navigating to payment page');
+          await StorageService.clearPaymentCartSnapshot(); // Clear stale snapshot first
+          await StorageService.savePaymentCartSnapshot(cartResponse);
           await StorageService.clearCheckoutData();
           if (mounted) {
             Navigator.pushNamed(
@@ -968,6 +1052,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         // Route to appropriate payment flow based on selected payment method.
         if (_selectedPaymentMethod == 'Credit Card') {
           debugPrint('Credit Card selected - Navigating to payment page');
+          await StorageService.clearPaymentCartSnapshot(); // Clear stale snapshot first
+          await StorageService.savePaymentCartSnapshot(cartResponse);
           await StorageService.clearCheckoutData();
           if (!mounted) return;
           Navigator.pushNamed(
@@ -1010,6 +1096,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           debugPrint(
             '$_selectedPaymentMethod selected - Navigating to payment page',
           );
+          await StorageService.clearPaymentCartSnapshot(); // Clear stale snapshot first
+          await StorageService.savePaymentCartSnapshot(cartResponse);
           await StorageService.clearCheckoutData();
           if (!mounted) return;
           Navigator.pushNamed(
@@ -1027,9 +1115,12 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         if (!mounted) return;
         if (processPayment == 1) {
           debugPrint('Process payment = 1, navigating to payment page');
+          await StorageService.clearPaymentCartSnapshot(); // Clear stale snapshot first
+          await StorageService.savePaymentCartSnapshot(cartResponse);
           Navigator.pushNamed(context, '/payment');
         } else {
           debugPrint('Process payment = 0, navigating to order-placed page');
+          await StorageService.clearPaymentCartSnapshot();
           Navigator.pushNamed(context, '/order-placed');
         }
       }
@@ -1194,7 +1285,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
 
     try {
       // Read existing cart – this is what must remain if coupon fails
-      final cartResponse = await StorageService.getCartData();
+      final cartResponse = await _getCheckoutCartContainer();
       if (cartResponse == null || cartResponse['cart'] == null) {
         Fluttertoast.showToast(
           msg: 'Cart is empty',
@@ -1232,7 +1323,8 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           : 0.0;
 
       // Persist new cart + refresh totals shown on card
-      await StorageService.saveCartData(response);
+      await StorageService.clearPaymentCartSnapshot();
+      await StorageService.savePaymentCartSnapshot(response);
       await _loadCartTotals();
 
       if (mounted) {
@@ -1417,7 +1509,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           throw Exception('User not logged in');
         }
 
-        final cartResponse = await StorageService.getCartData();
+        final cartResponse = await _getCheckoutCartContainer();
         if (cartResponse == null || cartResponse['cart'] == null) {
           throw Exception('Cart is empty');
         }
@@ -1445,7 +1537,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         debugPrint('===== STORE_ORDER_API_RESPONSE (Google Pay) END =====');
 
         await StorageService.saveOrderData(response);
-        // DO NOT clear cart here - cart will be cleared only after successful payment
+        await StorageService.clearCartData();
+        NavigationService.instance.refreshCartCount();
+        NavigationService.instance.refreshCartItems();
         await StorageService.clearCheckoutData();
 
         final order = response['order'] as Map<String, dynamic>?;
@@ -1791,7 +1885,7 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
           throw Exception('User not logged in');
         }
 
-        final cartResponse = await StorageService.getCartData();
+        final cartResponse = await _getCheckoutCartContainer();
         if (cartResponse == null || cartResponse['cart'] == null) {
           throw Exception('Cart is empty');
         }
@@ -1819,7 +1913,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         debugPrint('===== STORE_ORDER_API_RESPONSE (Apple Pay) END =====');
 
         await StorageService.saveOrderData(response);
-        // DO NOT clear cart here - cart will be cleared only after successful payment
+        await StorageService.clearCartData();
+        NavigationService.instance.refreshCartCount();
+        NavigationService.instance.refreshCartItems();
         await StorageService.clearCheckoutData();
 
         final order = response['order'] as Map<String, dynamic>?;

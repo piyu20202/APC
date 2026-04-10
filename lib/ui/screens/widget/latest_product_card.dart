@@ -364,7 +364,10 @@ class _LatestProductCardState extends State<LatestProductCard> {
       );
       final payload = await builder.buildPayload();
       final response = await _cartService.addProducts(payload);
-      await StorageService.saveCartData(response);
+      await StorageService.saveCartDataWithProductHints(
+        response,
+        listingProduct: widget.product,
+      );
       if (!context.mounted) return;
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();

@@ -510,7 +510,29 @@ class _CartPageState extends State<CartPage> {
     if (storedCartResponse != null) {
       final cartEntries = storedCartResponse['cart'];
       if (cartEntries is Map<String, dynamic>) {
-        oldCartPayload = cartEntries;
+        // Enrich each cart entry with show_free_shipping_icon and
+        // show_freight_cost_icon from its 'item' sub-object (if not already
+        // present at entry level). This ensures the server receives these
+        // flags and can return correct freight/free-shipping values.
+        final enriched = <String, dynamic>{};
+        cartEntries.forEach((key, value) {
+          if (value is Map) {
+            final entry = Map<String, dynamic>.from(value as Map);
+            final itemObj = entry['item'];
+            if (itemObj is Map) {
+              entry['show_free_shipping_icon'] ??=
+                  itemObj['show_free_shipping_icon'];
+              entry['show_freight_cost_icon'] ??=
+                  itemObj['show_freight_cost_icon'];
+              entry['show_request_freight_cost'] ??=
+                  itemObj['show_request_freight_cost'];
+            }
+            enriched[key] = entry;
+          } else {
+            enriched[key] = value;
+          }
+        });
+        oldCartPayload = enriched;
       }
     }
 
@@ -558,6 +580,13 @@ class _CartPageState extends State<CartPage> {
     });
 
     try {
+      // CRITICAL: Clear ALL stale data from previous sessions BEFORE starting checkout
+      // This ensures we start with a clean slate and don't accidentally use old order/payment data
+      debugPrint('CHECKOUT_INIT: Clearing stale shared preferences data...');
+      await StorageService.clearOrderData();
+      await StorageService.clearPaymentCartSnapshot();
+      debugPrint('CHECKOUT_INIT: Stale data cleared');
+
       final payload = await _buildUpdatePayload();
 
       // Log POST body
@@ -576,7 +605,44 @@ class _CartPageState extends State<CartPage> {
       debugPrint(prettyResponse);
       debugPrint('==============================');
 
-      await StorageService.saveCartData(response);
+      debugPrint('CHECKOUT_SUCCESS: /user/cart/update response received');
+
+      // ── FREIGHT DEBUG LOG ─────────────────────────────────────────────────
+      debugPrint('╔══════════════ CHECKOUT FREIGHT FLAGS ══════════════════════╗');
+      debugPrint('║ show_request_freight_cost : ${response['show_request_freight_cost']}');
+      debugPrint('║ show_free_shipping_icon   : ${response['show_free_shipping_icon']}');
+      debugPrint('║ order_type                : ${response['order_type']}');
+      debugPrint('║ shipping                  : ${response['shipping']}');
+      debugPrint('║ tax                       : ${response['tax']}');
+      debugPrint('║ total_with_gst            : ${response['total_with_gst']}');
+      // Per-cart-item freight fields (cart-entry level + item sub-object level)
+      final debugCart = response['cart'];
+      if (debugCart is Map) {
+        debugCart.forEach((key, val) {
+          if (val is Map) {
+            final st   = val['product_sizeType'];
+            final srfc = val['show_request_freight_cost'];
+            final sfsi = val['show_free_shipping_icon'];
+            final itemObj = val['item'];
+            final itemSt   = itemObj is Map ? itemObj['product_sizeType']      : '-';
+            final itemSrfc = itemObj is Map ? itemObj['show_request_freight_cost'] : '-';
+            final itemSfsi = itemObj is Map ? itemObj['show_free_shipping_icon']   : '-';
+            debugPrint(
+              '║   entry[$key]  product_sizeType=$st | show_request_freight_cost=$srfc | show_free_shipping_icon=$sfsi',
+            );
+            debugPrint(
+              '║     .item      product_sizeType=$itemSt | show_request_freight_cost=$itemSrfc | show_free_shipping_icon=$itemSfsi',
+            );
+          }
+        });
+      }
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      // ─────────────────────────────────────────────────────────────────────
+
+      await StorageService.savePaymentCartSnapshot(response);
+      debugPrint('PAYMENT_SNAPSHOT_SAVED: true');
+      await StorageService.clearCartData();
+      debugPrint('CART_DATA_CLEARED_AFTER_CHECKOUT: true');
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
@@ -591,13 +657,11 @@ class _CartPageState extends State<CartPage> {
 
       if (!mounted) return;
       setState(() {
-        _lastCartResponse = response;
-        cartItems = refreshedItems;
-        _serverReportedTotal = (response['totalPrice'] as num?)?.toDouble();
-        _serverReportedQty = response['totalQty'] as int?;
-        _unitPrices
-          ..clear()
-          ..addAll(_deriveUnitPriceMap(refreshedItems));
+        _lastCartResponse = null;
+        cartItems = [];
+        _serverReportedTotal = 0;
+        _serverReportedQty = 0;
+        _unitPrices.clear();
         _quantityChanges.clear();
         _removedProductIds.clear();
         _removedCartItemIds.clear();

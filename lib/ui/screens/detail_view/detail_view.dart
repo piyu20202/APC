@@ -2626,7 +2626,10 @@ class _DetailViewState extends State<DetailView> {
         payload,
       );
 
-      await StorageService.saveCartData(enrichedResponse);
+      await StorageService.saveCartDataWithProductHints(
+        enrichedResponse,
+        listingProduct: _product?.toJson() ?? {},
+      );
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 

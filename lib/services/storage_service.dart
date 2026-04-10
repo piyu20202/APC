@@ -12,6 +12,7 @@ class StorageService {
   static const String _keyIsLoggedIn = 'is_logged_in';
   static const String _keySettingsData = 'settings_data';
   static const String _keyCartData = 'cart_data';
+  static const String _keyPaymentCartSnapshot = 'payment_cart_snapshot';
   static const String _keyCheckoutData = 'checkout_data';
   static const String _keyOrderData = 'order_data';
 
@@ -141,6 +142,56 @@ class StorageService {
 
   // ============ Cart Storage Methods ============
 
+  /// Save cart response, injecting listing-product freight flags into the
+  /// matching cart entry so they survive through checkout → payment page.
+  ///
+  /// [listingProduct] is the raw product map from the listing / detail screen
+  /// (must contain `id`, `show_free_shipping_icon`, `show_freight_cost_icon`,
+  /// `show_request_freight_cost`, and `product_sizeType`).
+  static Future<void> saveCartDataWithProductHints(
+    Map<String, dynamic> cartResponse, {
+    required Map<String, dynamic> listingProduct,
+  }) async {
+    final productId = listingProduct['id'];
+    final cart = cartResponse['cart'];
+
+    if (productId != null && cart is Map) {
+      final enrichedCart = <String, dynamic>{};
+
+      (cart as Map).forEach((key, val) {
+        if (val is Map && key.toString().startsWith('${productId}_')) {
+          final entry = Map<String, dynamic>.from(val as Map);
+
+          void injectIfAbsent(String field) {
+            final v = listingProduct[field];
+            if (v != null) {
+              entry[field] ??= v;
+              final itemRaw = entry['item'];
+              if (itemRaw is Map) {
+                final item = Map<String, dynamic>.from(itemRaw as Map);
+                item[field] ??= v;
+                entry['item'] = item;
+              }
+            }
+          }
+
+          injectIfAbsent('show_free_shipping_icon');
+          injectIfAbsent('show_freight_cost_icon');
+          injectIfAbsent('show_request_freight_cost');
+          injectIfAbsent('product_sizeType');
+
+          enrichedCart[key] = entry;
+        } else {
+          enrichedCart[key] = val;
+        }
+      });
+
+      cartResponse = {...cartResponse, 'cart': enrichedCart};
+    }
+
+    return saveCartData(cartResponse);
+  }
+
   /// Save cart response data to SharedPreferences
   static Future<void> saveCartData(Map<String, dynamic> cartResponse) async {
     // CRITICAL GUARD: Prevent any "paylater" or payment data from overwriting cart.
@@ -178,6 +229,45 @@ class StorageService {
   static Future<void> clearCartData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyCartData);
+  }
+
+  /// Save temporary payment cart snapshot (for payment-page-only operations)
+  static Future<void> savePaymentCartSnapshot(
+    Map<String, dynamic> cartResponse,
+  ) async {
+    if (cartResponse['cart'] == null || cartResponse['cart'] is! Map) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final snapshot = <String, dynamic>{
+      ...cartResponse,
+      'snapshot_created_at_ms': DateTime.now().millisecondsSinceEpoch,
+    };
+    final snapJson = jsonEncode(snapshot);
+    await prefs.setString(_keyPaymentCartSnapshot, snapJson);
+  }
+
+  /// Get temporary payment cart snapshot
+  static Future<Map<String, dynamic>?> getPaymentCartSnapshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    final snapJson = prefs.getString(_keyPaymentCartSnapshot);
+
+    if (snapJson != null) {
+      try {
+        final snapMap = jsonDecode(snapJson) as Map<String, dynamic>;
+        return snapMap;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Clear temporary payment cart snapshot
+  static Future<void> clearPaymentCartSnapshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyPaymentCartSnapshot);
   }
 
   // ============ Checkout Storage Methods ============
@@ -249,6 +339,7 @@ class StorageService {
     await clearLoginData();
     await clearSettings();
     await clearCartData();
+    await clearPaymentCartSnapshot();
     await clearCheckoutData();
     await clearOrderData();
   }
