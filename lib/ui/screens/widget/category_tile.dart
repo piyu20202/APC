@@ -15,6 +15,9 @@ class CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final labelFontSize = (screenWidth * 0.035).clamp(11.0, 14.0);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -23,24 +26,27 @@ class CategoryTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              spreadRadius: 2,
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.08),
+              spreadRadius: 1,
+              blurRadius: 6,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Expanded image section to fill most of the card
+            // Image section with AspectRatio to ensure proportional scaling
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
                 ),
-                child: _buildCategoryImage(),
+                child: AspectRatio(
+                  aspectRatio: 1.0,
+                  child: _buildCategoryImage(),
+                ),
               ),
             ),
             // Category name at the bottom
@@ -51,10 +57,10 @@ class CategoryTile extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
+                style: TextStyle(
+                  fontSize: labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF151D51),
+                  color: const Color(0xFF151D51),
                 ),
               ),
             ),
@@ -75,7 +81,7 @@ class CategoryTile extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: image!,
         width: double.infinity,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain, // Scale proportional
         placeholder: (context, url) => Container(
           width: double.infinity,
           color: Colors.grey[200],
@@ -97,7 +103,7 @@ class CategoryTile extends StatelessWidget {
     return Image.asset(
       image!,
       width: double.infinity,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain, // Scale proportional
       errorBuilder: (context, error, stackTrace) => _buildDummyImage(),
     );
   }
@@ -118,7 +124,7 @@ class CategoryTile extends StatelessWidget {
     return Image.asset(
       dummyImages[index],
       width: double.infinity,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain, // Scale proportional
       errorBuilder: (context, error, stackTrace) => Container(
         width: double.infinity,
         decoration: const BoxDecoration(

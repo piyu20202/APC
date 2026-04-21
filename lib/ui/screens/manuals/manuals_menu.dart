@@ -25,7 +25,7 @@ class ManualsMenuPage extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +99,7 @@ class ManualsMenuPage extends StatelessWidget {
                 },
               ),
 
-              const Spacer(),
+              const SizedBox(height: 24),
             ],
           ),
         ),

@@ -95,6 +95,7 @@ class _SearchScreenState extends State<SearchScreen> {
       final result = await _repository.searchProducts(
         searchKeyword: query,
         page: page.toString(),
+        perPage: '20',
       );
 
       final List<dynamic> products = result['products'];

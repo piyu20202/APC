@@ -6,6 +6,8 @@ import '../../core/utils/logger.dart';
 import '../../core/services/categories_cache_service.dart';
 import '../models/homepage_model.dart';
 import '../models/categories_model.dart';
+import '../../services/custom_menu_service.dart';
+
 
 /// Helper class to store category structure information
 class CategoryStructure {
@@ -299,6 +301,20 @@ class HomepageService {
       } else {
         Logger.warning('Categories key not found or is null');
         Logger.info('Available keys: ${response.keys.join(", ")}');
+      }
+
+      // --- Extract and persist custom_menus ---
+      if (response.containsKey('custom_menus') &&
+          response['custom_menus'] != null) {
+        try {
+          final rawMenus = response['custom_menus'];
+          if (rawMenus is Map<String, dynamic>) {
+            await CustomMenuService.saveCustomMenus(rawMenus);
+            Logger.info('Saved ${rawMenus.length} custom_menus to storage');
+          }
+        } catch (e) {
+          Logger.warning('Failed to save custom_menus: $e');
+        }
       }
 
       Logger.info('Total categories parsed: ${categories.length}');

@@ -24,6 +24,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' hide Category;
 import '../../../services/route_observer.dart';
 import '../webview_view/webview_page.dart';
+import '../../../services/custom_menu_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSearchTap;
@@ -844,6 +845,27 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Widget _buildCategoriesSection() {
+    final size = MediaQuery.of(context).size;
+    final screenWidth = size.width;
+    
+    // Adaptive grid parameters
+    final bool isTablet = screenWidth > 600;
+    final bool isSmall = screenWidth < 360;
+    final int crossAxisCount = isTablet ? 4 : 3;
+    
+    // Relative padding and spacing
+    final horizontalPadding = (screenWidth * 0.04).clamp(12.0, 20.0);
+    final gridSpacing = (screenWidth * 0.03).clamp(8.0, 16.0);
+    
+    // Dynamic height calculation for childAspectRatio
+    // We target a square image area + space for 2 lines of text
+    final itemWidth = (screenWidth - (horizontalPadding * 2) - (gridSpacing * (crossAxisCount - 1))) / crossAxisCount;
+    final double labelFontSize = (screenWidth * 0.032).clamp(10.0, 13.0);
+    // Height for text area: 2 lines * (fontSize * line-height) + vertical padding
+    final double textAreaHeight = (labelFontSize * 1.2 * 2) + (isSmall ? 10 : 14);
+    final itemHeight = itemWidth + textAreaHeight;
+    final childAspectRatio = itemWidth / itemHeight;
+
     return Consumer<HomepageProvider>(
       builder: (context, homeProvider, _) {
         final isLoadingHomepage = homeProvider.isLoading;
@@ -857,27 +879,27 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
     if (isLoadingHomepage) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Categories',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: (screenWidth * 0.05).clamp(18.0, 24.0),
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF151D51),
+                color: const Color(0xFF151D51),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: gridSpacing),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.9,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: gridSpacing,
+                mainAxisSpacing: gridSpacing,
+                childAspectRatio: childAspectRatio,
               ),
               itemCount: 6,
               itemBuilder: (context, index) {
@@ -928,7 +950,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         categories.asMap().forEach((index, cat) {
           if (index < 3) {
             Logger.info(
-              'Category $index: name="${cat.name}", image="${cat.image}"',
+              'Category $index: name="${cat.name}", photo="${cat.photo}"',
             );
           }
         });
@@ -967,27 +989,27 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Categories',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: (screenWidth * 0.05).clamp(18.0, 24.0),
               fontWeight: FontWeight.bold,
-              color: Color(0xFF151D51),
+              color: const Color(0xFF151D51),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: gridSpacing),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.9,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: gridSpacing,
+              mainAxisSpacing: gridSpacing,
+              childAspectRatio: childAspectRatio,
             ),
             itemCount: categories.length, // ALL categories - no limit
             itemBuilder: (context, index) {
@@ -1003,8 +1025,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
               return GestureDetector(
                 onTap: () {
-                  final name = (category.name).toLowerCase();
-                  if (name == 'sale') {
+                  if (category.slug == 'sale') {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -1031,62 +1052,64 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Expanded image section to fill most of the card
+                      // Image section with AspectRatio to ensure proportional scaling
                       Expanded(
                         child: ClipRRect(
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(12),
                             topRight: Radius.circular(12),
                           ),
-                          child:
-                              category.image != null &&
-                                      category.image!.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: category.image!,
+                          child: AspectRatio(
+                            aspectRatio: 1.0,
+                            child: category.image != null &&
+                                    category.image!.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: category.image!,
+                                    width: double.infinity,
+                                    fit: BoxFit.contain, // Scale proportional
+                                    placeholder: (context, url) => Container(
                                       width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(
-                                        width: double.infinity,
-                                        color: Colors.grey[200],
-                                        child: const Center(
-                                          child: SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
                                           ),
                                         ),
                                       ),
-                                      errorWidget: (context, url, error) =>
-                                          Image.asset(
-                                        'assets/images/no_image.png',
-                                        width: double.infinity,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    )
-                                  : Image.asset(
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        Image.asset(
                                       'assets/images/no_image.png',
                                       width: double.infinity,
                                       fit: BoxFit.contain,
                                     ),
+                                  )
+                                : Image.asset(
+                                    'assets/images/no_image.png',
+                                    width: double.infinity,
+                                    fit: BoxFit.contain,
+                                  ),
+                          ),
                         ),
                       ),
-                      // Category name at the bottom
+                      // Category name at the bottom - height ensured by childAspectRatio
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 6,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: screenWidth * 0.01,
+                          vertical: isSmall ? 4 : 6,
                         ),
                         child: Text(
                           category.name,
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF151D51),
+                          style: TextStyle(
+                            fontSize: labelFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF151D51),
                           ),
                         ),
                       ),
@@ -1662,6 +1685,33 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     Logger.info(
       'Category tapped: ${category.name} (ID: ${category.id}) - pageOpen: ${category.pageOpen}',
     );
+
+    // --- Step 1: Check custom_menus by category ID (dynamic, backend-driven) ---
+    final customMenu = await CustomMenuService.getMenuForCategory(category.id);
+    if (customMenu != null) {
+      Logger.info(
+        'custom_menus match for ID ${category.id}: type=${customMenu.type}',
+      );
+      if (customMenu.isCustomNative) {
+        // type == "custom" → open native Installation Manuals screen (tab 3)
+        NavigationService.instance.switchToTab(3);
+        return;
+      }
+      if (customMenu.isForm && customMenu.url.isNotEmpty) {
+        // type == "form" → open WebView with the given URL
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WebViewPage(
+              url: customMenu.url,
+              title: category.name,
+            ),
+          ),
+        );
+        return;
+      }
+    }
 
     final normalizedPageOpen = category.pageOpen.toLowerCase().trim();
 

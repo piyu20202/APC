@@ -11,6 +11,8 @@ import '../../../data/services/homepage_service.dart';
 import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
 import '../webview_view/webview_page.dart';
+import '../../../services/navigation_service.dart';
+import '../../../services/custom_menu_service.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -22,6 +24,26 @@ class AppDrawer extends StatefulWidget {
 class _AppDrawerState extends State<AppDrawer> {
   String? _selectedTitle;
   final HomepageService _homepageService = HomepageService();
+
+  /// Find category by slug from homepage data
+  Category? _findCategoryBySlug(String slug) {
+    final homeProvider = Provider.of<HomepageProvider>(context, listen: false);
+    final homepageData = homeProvider.homepageData;
+
+    if (homepageData == null || homepageData.categories.isEmpty) {
+      Logger.warning('No categories available in homepage data');
+      return null;
+    }
+
+    try {
+      return homepageData.categories.firstWhere(
+        (cat) => cat.slug == slug,
+      );
+    } catch (e) {
+      Logger.warning('Category slug "$slug" not found in homepage data');
+      return null;
+    }
+  }
 
   /// Find category by name from homepage data
   Category? _findCategoryByName(String categoryName) {
@@ -54,9 +76,93 @@ class _AppDrawerState extends State<AppDrawer> {
     }
   }
 
-  /// Navigate to category (same logic as home page)
+  /// Navigate by known category ID — checks custom_menus first, then falls back
+  /// to slug lookup + normal routing. Use this for drawer items where you know
+  /// the exact backend category ID.
+  Future<void> _navigateByCategoryId(int categoryId, String displayName) async {
+    Navigator.pop(context); // Close drawer first
+
+    // Step 1: Check custom_menus by ID (same logic as home page)
+    final customMenu = await CustomMenuService.getMenuForCategory(categoryId);
+    if (customMenu != null) {
+      Logger.info(
+        'Drawer custom_menus match for ID $categoryId: type=${customMenu.type}',
+      );
+      if (customMenu.isCustomNative) {
+        NavigationService.instance.switchToTab(3);
+        return;
+      }
+      if (customMenu.isForm && customMenu.url.isNotEmpty) {
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WebViewPage(
+                url: customMenu.url,
+                title: displayName,
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    // Step 2: No custom_menus entry — find the category and use normal routing
+    final homeProvider = Provider.of<HomepageProvider>(context, listen: false);
+    final homepageData = homeProvider.homepageData;
+    Category? category;
+    if (homepageData != null) {
+      try {
+        category = homepageData.categories.firstWhere(
+          (cat) => cat.id == categoryId,
+        );
+      } catch (_) {}
+    }
+
+    if (category != null) {
+      await _navigateWithCategory(category);
+    } else {
+      Logger.warning('Category ID $categoryId not found in homepage data');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$displayName category not found'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Navigate to category by slug (for items without a known fixed ID)
+  Future<void> _navigateToCategoryBySlug(String slug) async {
+    Navigator.pop(context); // Close drawer first
+
+    final category = _findCategoryBySlug(slug);
+    if (category != null) {
+      await _navigateWithCategory(category);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Category not found'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Navigate to category by name (legacy support)
   Future<void> _navigateToCategoryByName(String categoryName) async {
     Navigator.pop(context); // Close drawer first
+
+    // Handle Installation Manuals special navigation via name check (fallback)
+    if (categoryName.toLowerCase().contains('installation manuals')) {
+      NavigationService.instance.switchToTab(3);
+      return;
+    }
 
     final category = _findCategoryByName(categoryName);
     if (category == null) {
@@ -72,9 +178,42 @@ class _AppDrawerState extends State<AppDrawer> {
       return;
     }
 
+    await _navigateWithCategory(category);
+  }
+
+  /// Internal helper for shared navigation logic
+  Future<void> _navigateWithCategory(Category category) async {
     Logger.info(
-      'Navigating to category: ${category.name} (ID: ${category.id}) - pageOpen: ${category.pageOpen}',
+      'Navigating to category: ${category.name} (ID: ${category.id}, Slug: ${category.slug}) - pageOpen: ${category.pageOpen}',
     );
+
+    // --- Step 1: Check custom_menus by category ID (dynamic, backend-driven) ---
+    final customMenu = await CustomMenuService.getMenuForCategory(category.id);
+    if (customMenu != null) {
+      Logger.info(
+        'Drawer custom_menus match for ID ${category.id}: type=${customMenu.type}',
+      );
+      if (customMenu.isCustomNative) {
+        // type == "custom" → open native screen (e.g., Installation Manuals tab)
+        NavigationService.instance.switchToTab(3);
+        return;
+      }
+      if (customMenu.isForm && customMenu.url.isNotEmpty) {
+        // type == "form" → open WebView
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WebViewPage(
+                url: customMenu.url,
+                title: category.name,
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
 
     final normalizedPageOpen = category.pageOpen.toLowerCase();
 
@@ -267,89 +406,95 @@ class _AppDrawerState extends State<AppDrawer> {
             _buildItem(
               icon: Icons.settings_input_component,
               title: 'Gate Automation Kits',
-              onTap: () => _navigateToCategoryByName('Gate Automation Kits'),
+              onTap: () => _navigateToCategoryBySlug('gate-automation-kits'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.home_repair_service,
               title: 'Gate & Fencing Hardware',
-              onTap: () => _navigateToCategoryByName('Gate & Fencing Hardware'),
+              onTap: () => _navigateToCategoryBySlug('gate-fencing-hardware'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.electric_bolt,
               title: 'Brushless Electric Gate Kits',
               onTap: () =>
-                  _navigateToCategoryByName('Brushless Electric Gate Kits'),
+                  _navigateToCategoryBySlug('brushless-electric-gate-kits'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.handyman,
               title: 'Premium Hardware for Cantilever, Sliding & Swing Gates',
-              onTap: () => _navigateToCategoryByName(
-                'Premium Hardware for Cantilever, Sliding & Swing Gates',
+              onTap: () => _navigateToCategoryBySlug(
+                'premium-hardware-for-cantilever-sliding-swing-gates',
               ),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.auto_awesome_mosaic,
               title: 'Gate, Automation & Hardware Combos',
-              onTap: () => _navigateToCategoryByName(
-                'Gate, Automation & Hardware Combos',
+              onTap: () => _navigateToCategoryBySlug(
+                'gate-automation-hardware-combos',
               ),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.door_sliding,
               title: 'Gates & Gate Frames',
-              onTap: () => _navigateToCategoryByName('Gates & Gate Frames'),
+              onTap: () => _navigateToCategoryBySlug('gates-gate-frames'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.build_circle,
               title: 'Custom Made Gates',
-              onTap: () => _navigateToCategoryByName('Custom Made Gates'),
+              onTap: () => _navigateByCategoryId(18, 'Custom Made Gates'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.traffic,
               title: 'Boom Gates',
-              onTap: () => _navigateToCategoryByName('Boom Gates'),
+              onTap: () => _navigateToCategoryBySlug('boom-gates'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.videocam,
               title: 'Video Intercoms and Surveillance Systems',
-              onTap: () => _navigateToCategoryByName(
-                'Video Intercoms and Surveillance Systems',
+              onTap: () => _navigateToCategoryBySlug(
+                'video-intercoms-and-surveillance-systems',
               ),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.settings_remote,
               title: 'Remotes',
-              onTap: () => _navigateToCategoryByName('Remotes'),
+              onTap: () => _navigateToCategoryBySlug('remotes'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.security,
               title: 'Access Control & Accessories',
               onTap: () =>
-                  _navigateToCategoryByName('Access Control & Accessories'),
+                  _navigateToCategoryBySlug('access-control-accessories'),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.power,
               title: 'Replacement Parts, Power Supplies & Cables',
-              onTap: () => _navigateToCategoryByName(
-                'Replacement Parts, Power Supplies & Cables',
+              onTap: () => _navigateToCategoryBySlug(
+                'replacement-parts-power-supplies-cables',
               ),
             ),
             _buildSeparator(),
             _buildItem(
               icon: Icons.solar_power,
               title: 'Solar Equipment',
-              onTap: () => _navigateToCategoryByName('Solar Equipment'),
+              onTap: () => _navigateToCategoryBySlug('solar-equipment'),
+            ),
+            _buildSeparator(),
+            _buildItem(
+              icon: Icons.menu_book,
+              title: 'Installation Manuals',
+              onTap: () => _navigateByCategoryId(14, 'Installation Manuals'),
             ),
             _buildSeparator(),
             _buildItem(

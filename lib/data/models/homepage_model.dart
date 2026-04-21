@@ -175,6 +175,7 @@ class Category {
   final int id;
   final String name;
   final String? image;
+  final String? photo;
   final String pageOpen;
   final String? slug;
   final String? categorySlugUrl;
@@ -185,6 +186,7 @@ class Category {
     required this.id,
     required this.name,
     this.image,
+    this.photo,
     this.pageOpen = '',
     this.slug,
     this.categorySlugUrl,
@@ -206,6 +208,9 @@ class Category {
         image: json['image'] is String
             ? json['image']
             : json['image']?.toString(),
+        photo: json['photo'] is String
+            ? json['photo']
+            : json['photo']?.toString(),
         pageOpen: json['page_open'] is String
             ? json['page_open'] as String
             : json['page_open']?.toString() ?? '',
@@ -227,7 +232,7 @@ class Category {
       );
     } catch (e) {
       // Return a default category if parsing fails
-      return Category(id: 0, name: 'Unknown Category', image: null);
+      return Category(id: 0, name: 'Unknown Category', image: null, photo: null);
     }
   }
 
@@ -236,6 +241,7 @@ class Category {
       'id': id,
       'name': name,
       'image': image,
+      'photo': photo,
       'page_open': pageOpen,
       'slug': slug,
       'category_slug_url': categorySlugUrl,

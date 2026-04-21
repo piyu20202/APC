@@ -167,7 +167,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           categorySlug: widget.categorySlug,
           categoryType: widget.categoryType,
           page: widget.page,
-          perPage: widget.perPage,
+          perPage: widget.perPage ?? 20,
           categoryId: widget.categoryId,
           subcategoryId: widget.subcategoryId,
           childcategoryId: widget.childcategoryId,

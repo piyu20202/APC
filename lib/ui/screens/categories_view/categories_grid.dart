@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../data/services/homepage_service.dart';
 import '../../../data/models/categories_model.dart';
 import '../../../core/utils/logger.dart';
+import '../../../services/navigation_service.dart';
 import 'subcategory_page.dart';
 import '../productlist_view/productlist.dart';
 import '../widget/category_tile.dart';
@@ -107,25 +108,40 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
       );
     }
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth > 600;
+    final int crossAxisCount = isTablet ? 3 : 2;
+    
+    // Relative padding and spacing
+    final horizontalPadding = (screenWidth * 0.04).clamp(12.0, 20.0);
+    final gridSpacing = (screenWidth * 0.04).clamp(12.0, 16.0);
+    
+    // Dynamic height calculation for childAspectRatio to avoid overflow
+    final itemWidth = (screenWidth - (horizontalPadding * 2) - (gridSpacing * (crossAxisCount - 1))) / crossAxisCount;
+    final double labelFontSize = (screenWidth * 0.035).clamp(11.0, 14.0);
+    final double textAreaHeight = (labelFontSize * 1.2 * 2) + 16;
+    final itemHeight = itemWidth + textAreaHeight;
+    final childAspectRatio = itemWidth / itemHeight;
+
     return Container(
       color: Colors.white,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: GridView.builder(
-            padding: const EdgeInsets.only(bottom: 80),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.95,
+            padding: const EdgeInsets.only(top: 16, bottom: 80),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: gridSpacing,
+              mainAxisSpacing: gridSpacing,
+              childAspectRatio: childAspectRatio,
             ),
             itemCount: _categories.length,
             itemBuilder: (context, index) {
               final category = _categories[index];
               return CategoryTile(
                 name: category.name,
-                image: category.image, // Use image for grid display
+                image: category.image,
                 onTap: () => _navigateToCategory(category),
               );
             },
@@ -139,6 +155,17 @@ class _CategoriesGridScreenState extends State<CategoriesGridScreen> {
     Logger.info(
       'Category tapped: ${category.name} (ID: ${category.id}) - pageOpen: ${category.pageOpen}',
     );
+
+    // Handle Installation Manuals special navigation
+    final normalizedName = category.name.toLowerCase().trim();
+    if (normalizedName.contains('installation manuals')) {
+      NavigationService.instance.switchToTab(3);
+      // If we are on a pushed screen, pop back to main navigation
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      return;
+    }
 
     final normalizedPageOpen = category.pageOpen.toLowerCase();
 

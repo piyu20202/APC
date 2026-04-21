@@ -222,6 +222,7 @@ class _DetailViewState extends State<DetailView> {
         if (_selectedUpgradeIndex == 0 &&
             detailResponse.upgradeProducts.isNotEmpty) {
           _selectedSubProductIndex[detailResponse.upgradeProducts[0].id] = -1;
+          _hasUserManuallySelectedUpgrade = true; // Mark as selected by default
         }
         _addOnSelections = List<bool>.filled(
           detailResponse.addonProducts.length,
@@ -1603,6 +1604,19 @@ class _DetailViewState extends State<DetailView> {
     return upgradeProduct.name;
   }
 
+  /// Gets a unified selection key for the current upgrade selection
+  String? get _currentUpgradeSelectionKey {
+    if (_selectedUpgradeIndex < 0 ||
+        _selectedUpgradeIndex >= _upgradeProducts.length) {
+      return null;
+    }
+    final item = _upgradeProducts[_selectedUpgradeIndex];
+    final subIndex = _selectedSubProductIndex[item.id] ?? -1;
+    return subIndex >= 0
+        ? 'sub_${_selectedUpgradeIndex}_$subIndex'
+        : 'main_$_selectedUpgradeIndex';
+  }
+
   Widget _buildKitIncludes() {
     if (!_isKitProduct) {
       return const SizedBox.shrink();
@@ -1697,11 +1711,8 @@ class _DetailViewState extends State<DetailView> {
         children: [
           _buildSectionHeader('Customise your Kit'),
           const SizedBox(height: 12),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _qtyUpgradeProducts.length,
-            itemBuilder: (context, index) {
+          Column(
+            children: List.generate(_qtyUpgradeProducts.length, (index) {
               final item = _qtyUpgradeProducts[index];
               final selectedQty =
                   _selectedQtyForCustomise[item.id] ?? item.productBaseQuantity;
@@ -1891,7 +1902,7 @@ class _DetailViewState extends State<DetailView> {
                   ],
                 ),
               );
-            },
+            }),
           ),
         ],
       ),
@@ -1924,11 +1935,8 @@ class _DetailViewState extends State<DetailView> {
               style: TextStyle(fontSize: 14, color: Colors.grey[700]),
             )
           else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _upgradeProducts.length,
-              itemBuilder: (context, index) {
+            Column(
+              children: List.generate(_upgradeProducts.length, (index) {
                 final item = _upgradeProducts[index];
                 final selectedSubIndex =
                     _selectedSubProductIndex[item.id] ?? -1;
@@ -1950,7 +1958,7 @@ class _DetailViewState extends State<DetailView> {
                       }),
                   ],
                 );
-              },
+              }),
             ),
         ],
       ),
@@ -1981,11 +1989,7 @@ class _DetailViewState extends State<DetailView> {
         children: [
           Radio<String>(
             value: 'main_$index',
-            groupValue: _selectedUpgradeIndex == index && selectedSubIndex == -1
-                ? 'main_$index'
-                : (_selectedUpgradeIndex == index && selectedSubIndex >= 0
-                      ? 'sub_${index}_$selectedSubIndex'
-                      : null),
+            groupValue: _currentUpgradeSelectionKey,
             activeColor: Colors.blue,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -2171,13 +2175,7 @@ class _DetailViewState extends State<DetailView> {
         children: [
           Radio<String>(
             value: 'sub_${parentIndex}_$subIndex',
-            groupValue:
-                _selectedUpgradeIndex == parentIndex && selectedSubIndex >= 0
-                ? 'sub_${parentIndex}_$selectedSubIndex'
-                : (_selectedUpgradeIndex == parentIndex &&
-                          selectedSubIndex == -1
-                      ? 'main_$parentIndex'
-                      : null),
+            groupValue: _currentUpgradeSelectionKey,
             activeColor: Colors.blue,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -2321,11 +2319,8 @@ class _DetailViewState extends State<DetailView> {
             'Add-On Items (Discounted when purchased along with this Kit)',
           ),
           const SizedBox(height: 12),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _addonProducts.length,
-            itemBuilder: (context, index) {
+          Column(
+            children: List.generate(_addonProducts.length, (index) {
               final item = _addonProducts[index];
               final isSelected =
                   index < _addOnSelections.length && _addOnSelections[index];
@@ -2345,9 +2340,8 @@ class _DetailViewState extends State<DetailView> {
                     width: 1,
                   ),
                 ),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center, // Changed from start to center for better alignment without IntrinsicHeight
                     children: [
                       Transform.scale(
                         scale: 0.9,
@@ -2572,9 +2566,8 @@ class _DetailViewState extends State<DetailView> {
                       ),
                     ],
                   ),
-                ),
-              );
-            },
+                );
+            }),
           ),
         ],
       ),
