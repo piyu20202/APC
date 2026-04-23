@@ -62,6 +62,7 @@ class ApiEndpoints {
 
   // Profile endpoints
   static const String updateProfile = '/user/profile';
+  static const String deleteAccount = '/user/profile/delete';
 
   // Payment endpoints (CyberSource)
   static const String createPaymentIntent = '/user/payment/create-intent';

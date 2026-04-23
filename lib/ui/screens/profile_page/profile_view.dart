@@ -9,6 +9,7 @@ import 'myorder.dart';
 import 'editprofile.dart';
 import 'resetpassword.dart';
 import '../signup_view/trader_upgrade_flow.dart';
+import '../../../screens/userdelete.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -137,6 +138,20 @@ class _ProfileViewState extends State<ProfileView> {
                         },
                       ),
                       _buildDivider(),
+                      _buildMenuItem(
+                        context: context,
+                        title: 'Delete Account',
+                        isDestructive: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UserDeletePage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDivider(),
                       Consumer<AuthProvider>(
                         builder: (context, authProvider, _) {
                           final isGuest = !authProvider.isLoggedIn;
@@ -146,7 +161,7 @@ class _ProfileViewState extends State<ProfileView> {
                             onTap: () {
                               _showLogoutDialog(context, isGuest: isGuest);
                             },
-                            isLogout: true,
+                            isDestructive: true,
                           );
                         },
                       ),
@@ -270,7 +285,7 @@ class _ProfileViewState extends State<ProfileView> {
     required BuildContext context,
     required String title,
     required VoidCallback onTap,
-    bool isLogout = false,
+    bool isDestructive = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -283,7 +298,7 @@ class _ProfileViewState extends State<ProfileView> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
-            color: isLogout ? Colors.red : const Color(0xFF151D51),
+            color: isDestructive ? Colors.red : const Color(0xFF151D51),
           ),
         ),
       ),
