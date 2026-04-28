@@ -6,6 +6,7 @@ import 'ui/screens/cart_view/cart.dart';
 import 'ui/screens/profile_page/profile_view.dart';
 import 'ui/screens/search_view/search.dart';
 import 'ui/screens/manuals/manuals_menu.dart';
+import 'ui/screens/contact_view/call_us_page.dart';
 import 'services/user_role_service.dart';
 import 'services/navigation_service.dart';
 import 'services/storage_service.dart';
@@ -84,10 +85,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _onItemTapped(int index) {
-    if (index == 4) {
-      _makePhoneCall();
-      return;
-    }
     setState(() {
       _selectedIndex = index;
       if (index == 2) {
@@ -198,7 +195,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       const SearchScreen(),
       const CartPage(),
       const ManualsMenuPage(),
-      const SizedBox.shrink(),
+      CallUsPage(onCallTap: _makePhoneCall),
       const ProfileView(),
     ];
   }
