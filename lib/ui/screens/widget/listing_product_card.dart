@@ -219,7 +219,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
                   const SizedBox(height: 6),
                   // Price and Cart Row
                   SizedBox(
-                    height: 36,
+                    height: 40,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [

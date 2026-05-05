@@ -46,3 +46,27 @@ app.*.map.json
 
 # PayPal config with real keys (use paypal_config.example.json as template)
 /assets/paypal_config.json
+
+# Documentation & Reports
+api_days_plan.md
+api_days_schedule.csv
+API_Usage_Report.txt
+BACKEND_REQUIREMENTS_PRODUCTION.md
+CLIENT_EMAIL_CONTRACT_EXTENSION.md
+CLIENT_EMAIL_CONTRACT_EXTENSION.txt
+CYBERSOURCE_LARAVEL_INTEGRATION_GUIDE.txt
+FUTURE_ENHANCEMENTS.md
+FUTURE_ENHANCEMENTS.txt
+PAYMENT_FLOW_DOCUMENTATION.md
+PAYPAL_INTEGRATION_IMPLEMENTATION.md
+PAYPAL_MOBILE_INTEGRATION_REQUIREMENTS.txt
+PENDING_FEATURES.md
+PENDING_FEATURES.txt
+Planned_API_Integration_Matrix.csv
+Planned_API_Integration_Matrix.txt
+PRODUCTION_RELEASE_CHECKLIST.md
+Release_Build_Configuration_Form.txt
+schedule_overview.csv
+schedule.csv
+schedule.md
+TESTING_GUIDE.md

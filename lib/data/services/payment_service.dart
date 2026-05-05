@@ -9,25 +9,25 @@ import '../../services/storage_service.dart';
 class PaymentService {
   // Add this flag to switch between mock and real API
   // Change to false when backend is ready
-  static const bool useMockApi = true;
+  static const bool useMockApi = false;
 
   // Google Pay: Use mock mode (true) or real backend API (false)
   // Set to false to use CyberSource backend integration
   // Set to true to revert to mock mode if any issues occur
-  static const bool useMockGooglePay = true; // Reverted to mock mode
+  static const bool useMockGooglePay = false; // Set to false for production
 
   // Google Pay token API (CyberSource): keep OFF until backend endpoint is ready
   // When backend is ready:
   // - set useMockGooglePay = false
   // - set enableGooglePayTokenApi = true
-  static const bool enableGooglePayTokenApi = false;
+  static const bool enableGooglePayTokenApi = true;
 
   // Card payment API (raw card fields)
   static const bool enableCardPaymentApi = true;
 
   // Apple Pay: Use mock mode (true) or real backend API (false)
   // Set to false to use CyberSource backend integration
-  static const bool useMockApplePay = true; // Set to false when backend is ready
+  static const bool useMockApplePay = false; // Set to false for production
 
   // PayPal: Use mock mode (true) or real backend API (false)
   // Set to false when backend PayPal endpoint is ready

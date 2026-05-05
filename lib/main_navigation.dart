@@ -79,7 +79,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Phone number not available or cannot be dialed')),
+        const SnackBar(
+          content: Text('Phone number not available or cannot be dialed'),
+        ),
       );
     }
   }
@@ -138,7 +140,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         bottomNavigationBar: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-             BottomNavigationBar(
+            BottomNavigationBar(
               type: BottomNavigationBarType.fixed,
               currentIndex: _selectedIndex,
               onTap: _onItemTapped,

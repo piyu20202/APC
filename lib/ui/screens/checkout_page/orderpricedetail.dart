@@ -974,9 +974,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
       final prettyResponse = const JsonEncoder.withIndent(
         '  ',
       ).convert(response);
-      debugPrint('===== STORE_ORDER_API_RESPONSE (Continue To Payment) START =====');
+      debugPrint('******************Order response start*************');
       debugPrint(prettyResponse);
-      debugPrint('===== STORE_ORDER_API_RESPONSE (Continue To Payment) END =====');
+      debugPrint('******************order response end *************');
 
       // CRITICAL DEBUG: Log the amount from the order response
       final createdOrder = response['order'] as Map<String, dynamic>?;
@@ -1125,6 +1125,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         }
       }
     } on ApiException catch (e) {
+      debugPrint('******************Order response start*************');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
+      debugPrint('******************order response end *************');
       if (mounted) {
         // Check if it's an unauthorized error (401)
         if (e.statusCode == 401) {
@@ -1529,12 +1532,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
 
         final response = await _orderService.storeOrder(orderPayload);
 
-        final prettyStoreOrderResponse = const JsonEncoder.withIndent(
-          '  ',
-        ).convert(response);
-        debugPrint('===== STORE_ORDER_API_RESPONSE (Google Pay) START =====');
-        debugPrint(prettyStoreOrderResponse);
-        debugPrint('===== STORE_ORDER_API_RESPONSE (Google Pay) END =====');
+        debugPrint('******************Order response start*************');
+        debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+        debugPrint('******************order response end *************');
 
         await StorageService.saveOrderData(response);
         await StorageService.clearCartData();
@@ -1571,6 +1571,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         amount: amount,
         paymentResult: paymentResult,
       );
+
+      debugPrint('***********payment sesssion start******');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+      debugPrint('***********payment sesssion end******');
 
       final paymentToken = response['payment_token'] as String?;
 
@@ -1905,12 +1909,9 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
 
         final response = await _orderService.storeOrder(orderPayload);
 
-        final prettyStoreOrderResponse = const JsonEncoder.withIndent(
-          '  ',
-        ).convert(response);
-        debugPrint('===== STORE_ORDER_API_RESPONSE (Apple Pay) START =====');
-        debugPrint(prettyStoreOrderResponse);
-        debugPrint('===== STORE_ORDER_API_RESPONSE (Apple Pay) END =====');
+        debugPrint('******************Order response start*************');
+        debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+        debugPrint('******************order response end *************');
 
         await StorageService.saveOrderData(response);
         await StorageService.clearCartData();
@@ -1940,6 +1941,10 @@ class _OrderPriceDetailPageState extends State<OrderPriceDetailPage> {
         amount: amount,
         paymentResult: paymentResult,
       );
+
+      debugPrint('***********payment sesssion start******');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(paymentResponse));
+      debugPrint('***********payment sesssion end******');
 
       debugPrint('Apple Pay payment processed: $paymentResponse');
 

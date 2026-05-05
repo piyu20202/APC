@@ -15,6 +15,9 @@ import 'package:apcproject/data/models/user_model.dart';
 import 'package:apcproject/core/utils/logger.dart';
 import 'package:apcproject/core/utils/coupon_cart_display.dart';
 import 'package:flutter_paypal/flutter_paypal.dart';
+import 'package:apcproject/data/services/payment_config_service.dart';
+import 'package:apcproject/data/models/payment_config_model.dart';
+import 'package:apcproject/core/exceptions/api_exception.dart';
 
 class _ShippingBreakdown {
   const _ShippingBreakdown({
@@ -135,14 +138,32 @@ class _PaymentPageState extends State<PaymentPage> {
     _initializeGooglePay();
   }
 
-  /// Load PayPal configuration from assets
+  /// Load PayPal configuration from API (with asset fallback)
   Future<void> _loadPayPalConfig() async {
     try {
+      // 1. Try to load from cached API configuration
+      final config = await PaymentConfigService.getCachedConfig();
+      if (config != null && config.paypal != null) {
+        final pp = config.paypal!;
+        if (pp.clientKey != null && pp.secretKey != null) {
+          setState(() {
+            _paypalConfig = {
+              'mode': 'live', // API provided keys are production
+              'production_client_id': pp.clientKey,
+              'production_secret_key': pp.secretKey,
+            };
+          });
+          debugPrint('PayPal config loaded from API cache');
+          return;
+        }
+      }
+
+      // 2. Fallback to assets
       final String jsonString = await rootBundle.loadString(
         'assets/paypal_config.json',
       );
       _paypalConfig = jsonDecode(jsonString) as Map<String, dynamic>;
-      debugPrint('PayPal config loaded: ${_paypalConfig?['mode']}');
+      debugPrint('PayPal config loaded from assets (fallback): ${_paypalConfig?['mode']}');
     } catch (e) {
       debugPrint('Error loading PayPal config: $e');
       _paypalConfig = null;
@@ -199,10 +220,42 @@ class _PaymentPageState extends State<PaymentPage> {
     }
     try {
       if (mounted) setState(() => _isInitializingGooglePay = true);
-      _googlePayConfig = await PaymentConfiguration.fromAsset(
+
+      // 1. Load base configuration from asset
+      final String jsonString = await rootBundle.loadString(
         BuildConfig.googlePayConfigAsset,
       );
+      final Map<String, dynamic> configMap = jsonDecode(jsonString);
+
+      // 2. Try to override with dynamic config from API
+      final dynamicConfig = await PaymentConfigService.getCachedConfig();
+      if (dynamicConfig != null && dynamicConfig.googlepay != null) {
+        final gpay = dynamicConfig.googlepay!;
+        if (gpay.merchantId != null && gpay.merchantId!.isNotEmpty) {
+          debugPrint('Overriding Google Pay merchantId with: ${gpay.merchantId}');
+          
+          // Update merchantInfo
+          if (configMap['data'] != null && configMap['data']['merchantInfo'] != null) {
+            configMap['data']['merchantInfo']['merchantId'] = gpay.merchantId;
+          }
+          
+          // Update gatewayMerchantId (CyberSource) if present
+          final allowedMethods = configMap['data']?['allowedPaymentMethods'] as List?;
+          if (allowedMethods != null && allowedMethods.isNotEmpty) {
+            final tokenSpec = allowedMethods[0]['tokenizationSpecification'];
+            if (tokenSpec != null && tokenSpec['parameters'] != null) {
+              // Note: gatewayMerchantId usually matches or is related to merchantId
+              // For now we override the main merchantId as per the API sample response
+              // configMap['data']['allowedPaymentMethods'][0]['tokenizationSpecification']['parameters']['gatewayMerchantId'] = gpay.merchantId;
+            }
+          }
+        }
+      }
+
+      // 3. Initialize Pay client
+      _googlePayConfig = PaymentConfiguration.fromJsonString(jsonEncode(configMap));
       _payClient = Pay({PayProvider.google_pay: _googlePayConfig!});
+      
       _isGooglePayAvailable = await _payClient!.userCanPay(
         PayProvider.google_pay,
       );
@@ -268,6 +321,10 @@ class _PaymentPageState extends State<PaymentPage> {
         amount: amount,
         paymentResult: paymentResult,
       );
+
+      debugPrint('***********payment sesssion start******');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+      debugPrint('***********payment sesssion end******');
 
       final paymentToken = response['payment_token'] as String?;
       if (paymentToken != null && paymentToken.isNotEmpty) {
@@ -610,6 +667,19 @@ class _PaymentPageState extends State<PaymentPage> {
     return null;
   }
 
+  /// Safely parse dynamic value to int (supports num/string input)
+  int? _toInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      final cleaned = v.trim();
+      if (cleaned.isEmpty) return null;
+      return int.tryParse(cleaned);
+    }
+    return null;
+  }
+
   /// Extract shipping cost from response, checking multiple possible keys
   double _extractShippingCostFromResponse(Map<String, dynamic> response) {
     return _toDouble(response['shipping']) ??
@@ -759,7 +829,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
       final order = resolvedOrderData['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
-      final orderId = order?['id'] as int?;
+      final orderId = _toInt(order?['id']);
 
       // Initialize status-based flags
       _manualOrderByAdmin =
@@ -782,9 +852,9 @@ class _PaymentPageState extends State<PaymentPage> {
         '╚══════════════════════════════════════════════╝',
       );
 
-      final payAmount = order?['pay_amount'] as num?;
-      final totalAmount = order?['total'] as num?;
-      double amount = (payAmount ?? totalAmount)?.toDouble() ?? 0.0;
+      final payAmount = _toDouble(order?['pay_amount']);
+      final totalAmount = _toDouble(order?['total']);
+      double amount = payAmount ?? totalAmount ?? 0.0;
 
       if (orderNumber == null || orderId == null) {
         if (mounted) {
@@ -949,17 +1019,13 @@ class _PaymentPageState extends State<PaymentPage> {
         // ABSOLUTE OVERRIDE: If we have explicit values from Order Details, use them exactly.
         // This prevents different roundings or back-calculations from creating discrepancies.
         if (widget.arguments?['summary_grand_total'] != null) {
-          _amount = (widget.arguments?['summary_grand_total'] as num)
-              .toDouble();
-          _gstAmount = (widget.arguments?['summary_tax'] as num).toDouble();
-          _shippingCost = (widget.arguments?['summary_shipping'] as num)
-              .toDouble();
-          _discountAmount = (widget.arguments?['summary_discount'] as num)
-              .toDouble();
+          _amount = _toDouble(widget.arguments?['summary_grand_total']) ?? _amount;
+          _gstAmount = _toDouble(widget.arguments?['summary_tax']) ?? _gstAmount;
+          _shippingCost = _toDouble(widget.arguments?['summary_shipping']) ?? _shippingCost;
+          _discountAmount = _toDouble(widget.arguments?['summary_discount']) ?? _discountAmount;
           _specialDiscount =
-              (widget.arguments?['summary_special_discount'] as num).toDouble();
-          _subtotalExclGst = (widget.arguments?['summary_subtotal'] as num)
-              .toDouble();
+              _toDouble(widget.arguments?['summary_special_discount']) ?? _specialDiscount;
+          _subtotalExclGst = _toDouble(widget.arguments?['summary_subtotal']) ?? _subtotalExclGst;
         }
 
         if (_gstAmount! > 0 && _subtotalExclGst! > 0) {
@@ -1035,6 +1101,11 @@ class _PaymentPageState extends State<PaymentPage> {
           widget.arguments?['payment_method'] ?? 'Credit Card';
 
       final response = await _orderService.storeOrder(payload);
+      
+      debugPrint('******************Order response start*************');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+      debugPrint('******************order response end *************');
+
       final order = response['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
       if (orderNumber == null || orderNumber.isEmpty) {
@@ -1044,6 +1115,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
       await StorageService.saveOrderData(response);
       return true;
+    } on ApiException catch (e) {
+      debugPrint('******************Order response start*************');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
+      debugPrint('******************order response end *************');
+      return false;
     } catch (e) {
       debugPrint('Error creating order for direct payment: $e');
       Fluttertoast.showToast(msg: 'Failed to place order. Please try again.');
@@ -1170,7 +1246,9 @@ class _PaymentPageState extends State<PaymentPage> {
         cardholderName: _cardholderNameController.text.trim(),
       );
 
-      debugPrint('Direct API payment response received: $response');
+      debugPrint('***********payment sesssion start******');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+      debugPrint('***********payment sesssion end******');
 
       // 3. Handle successful payment
       // Response format: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
@@ -1206,6 +1284,12 @@ class _PaymentPageState extends State<PaymentPage> {
           response['message'] ?? 'Payment failed. Please try again.',
         );
       }
+    } on ApiException catch (e) {
+      debugPrint('***********payment sesssion start******');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
+      debugPrint('***********payment sesssion end******');
+      if (mounted) setState(() => _isProcessing = false);
+      Fluttertoast.showToast(msg: e.message);
     } catch (e) {
       debugPrint('Direct API payment error: $e');
       // IMPORTANT: Do NOT clear cart on failure.
@@ -1291,13 +1375,17 @@ class _PaymentPageState extends State<PaymentPage> {
             setState(() => _isProcessing = true);
             try {
               // Call backend to fix order status
-              await _paymentService.processPayPal(
+              final response = await _paymentService.processPayPal(
                 orderNumber: _orderNumber!,
                 orderId: _orderId!,
                 amount: _amount!,
                 currency: _currency ?? 'AUD',
                 paymentResult: Map<String, dynamic>.from(params),
               );
+
+              debugPrint('***********payment sesssion start******');
+              debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+              debugPrint('***********payment sesssion end******');
 
               await StorageService.clearCartData();
               if (mounted) {

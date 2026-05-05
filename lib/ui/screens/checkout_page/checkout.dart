@@ -747,13 +747,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
             await StorageService.saveCheckoutData(checkoutData);
 
-            // Directly navigate to shared payment page (normal flow)
+            // Navigate to Order Price Detail page (correct checkout funnel)
+            // This page creates the order via storeOrder() API and handles payment
+            // method selection before navigating to the payment page.
             if (mounted) {
-              Navigator.pushNamed(
-                context,
-                '/payment',
-                arguments: const {'payment_method': 'Credit Card'},
-              );
+              Navigator.pushNamed(context, '/order-price-detail');
             }
           }
         },

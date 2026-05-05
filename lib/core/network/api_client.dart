@@ -42,7 +42,15 @@ class ApiClient {
       debugPrint('POST Request: $url');
       debugPrint('Headers: $defaultHeaders');
       if (body != null) {
-        debugPrint('Body: $body');
+        debugPrint('Body (Raw): $body');
+        try {
+          final prettyBody = const JsonEncoder.withIndent('  ').convert(body);
+          debugPrint('╔════════ POSTMAN COPY BODY START ════════╗');
+          debugPrint(prettyBody);
+          debugPrint('╚════════ POSTMAN COPY BODY END ══════════╝');
+        } catch (e) {
+          debugPrint('Could not pretty print body: $e');
+        }
       }
 
       final response = await http
@@ -149,9 +157,37 @@ class ApiClient {
   /// Handle API response
   static Map<String, dynamic> _handleResponse(http.Response response) {
     final statusCode = response.statusCode;
+    final url = response.request?.url.toString() ?? '';
+
+    // Decorate logs for specific endpoints as requested by user
+    bool isOrder = url.contains('store/order');
+    bool isPayment = url.contains('payment');
+
+    if (isOrder) {
+      debugPrint('******************Order response start*************');
+    } else if (isPayment) {
+      debugPrint('***********payment sesssion start******');
+    }
 
     debugPrint('Response Status: $statusCode');
-    debugPrint('Response Body: ${response.body}');
+    
+    // Try to pretty print the body if it's JSON
+    try {
+      final dynamic parsed = jsonDecode(response.body);
+      if (parsed is Map || parsed is List) {
+        debugPrint(const JsonEncoder.withIndent('  ').convert(parsed));
+      } else {
+        debugPrint('Response Body: ${response.body}');
+      }
+    } catch (_) {
+      debugPrint('Response Body: ${response.body}');
+    }
+
+    if (isOrder) {
+      debugPrint('******************order response end *************');
+    } else if (isPayment) {
+      debugPrint('***********payment sesssion end******');
+    }
 
     // Check if response body is empty
     if (response.body.isEmpty) {

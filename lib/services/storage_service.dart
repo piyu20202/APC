@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/user_model.dart';
 import '../data/models/settings_model.dart';
+import '../data/models/payment_config_model.dart';
 import '../services/user_role_service.dart';
 
 class StorageService {
@@ -15,6 +16,7 @@ class StorageService {
   static const String _keyPaymentCartSnapshot = 'payment_cart_snapshot';
   static const String _keyCheckoutData = 'checkout_data';
   static const String _keyOrderData = 'order_data';
+  static const String _keyPaymentConfig = 'payment_config_data';
 
   /// Save login response data to SharedPreferences
   static Future<void> saveLoginData(LoginResponse response) async {
@@ -342,5 +344,37 @@ class StorageService {
     await clearPaymentCartSnapshot();
     await clearCheckoutData();
     await clearOrderData();
+    await clearPaymentConfig();
+  }
+
+  // ============ Payment Configuration Storage Methods ============
+
+  /// Save payment configuration data to SharedPreferences
+  static Future<void> savePaymentConfig(PaymentConfigModel config) async {
+    final prefs = await SharedPreferences.getInstance();
+    final configJson = jsonEncode(config.toJson());
+    await prefs.setString(_keyPaymentConfig, configJson);
+  }
+
+  /// Get payment configuration data from SharedPreferences
+  static Future<PaymentConfigModel?> getPaymentConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final configJson = prefs.getString(_keyPaymentConfig);
+
+    if (configJson != null) {
+      try {
+        final configMap = jsonDecode(configJson) as Map<String, dynamic>;
+        return PaymentConfigModel.fromJson(configMap);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Clear payment configuration data
+  static Future<void> clearPaymentConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyPaymentConfig);
   }
 }

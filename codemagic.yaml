@@ -29,6 +29,13 @@ workflows:
           echo "Installing pods..."
           pod install --repo-update
           cd ..
+      - name: Set up PayPal config
+        script: |
+          if [ -z "$PAYPAL_CONFIG_JSON" ]; then
+            echo "{}" > assets/paypal_config.json
+          else
+            echo $PAYPAL_CONFIG_JSON > assets/paypal_config.json
+          fi
       - name: Build for iOS Simulator
         script: |
           flutter build ios --simulator --debug --no-codesign
@@ -65,6 +72,13 @@ workflows:
           echo "Installing pods..."
           pod install --repo-update
           cd ..
+      - name: Set up PayPal config
+        script: |
+          if [ -z "$PAYPAL_CONFIG_JSON" ]; then
+            echo "{}" > assets/paypal_config.json
+          else
+            echo $PAYPAL_CONFIG_JSON > assets/paypal_config.json
+          fi
       - name: Build for iOS Simulator (Testing)
         script: |
           flutter build ios --simulator --debug --no-codesign \
@@ -107,6 +121,13 @@ workflows:
           echo "Installing pods..."
           pod install --repo-update
           cd ..
+      - name: Set up PayPal config
+        script: |
+          if [ -z "$PAYPAL_CONFIG_JSON" ]; then
+            echo "{}" > assets/paypal_config.json
+          else
+            echo $PAYPAL_CONFIG_JSON > assets/paypal_config.json
+          fi
       - name: Build for iOS Device (Testing)
         script: |
           flutter build ios --release \
@@ -148,12 +169,23 @@ workflows:
           echo "Installing pods with repo update..."
           pod install --repo-update
           cd ..
+      - name: Set up PayPal config
+        script: |
+          # Ensure assets directory exists and write paypal_config.json from env variable
+          # Add PAYPAL_CONFIG_JSON to Codemagic environment variables
+          if [ -z "$PAYPAL_CONFIG_JSON" ]; then
+            echo "Warning: PAYPAL_CONFIG_JSON is not set. Creating dummy file to avoid build error."
+            echo "{}" > assets/paypal_config.json
+          else
+            echo "Creating assets/paypal_config.json from environment variable..."
+            echo $PAYPAL_CONFIG_JSON > assets/paypal_config.json
+          fi
       - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
       - name: Build IPA for TestFlight
         script: |
           flutter build ipa --release \
-            --dart-define=APP_ENV=production \
+            --dart-define=APP_ENV=prod \
             --export-options-plist=ios/ExportOptions.plist
     artifacts:
       - build/ios/ipa/*.ipa

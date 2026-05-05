@@ -1,7 +1,9 @@
 class ApiEndpoints {
   // Base URL
-  static const String baseUrl =
-      'https://www.gurgaonit.com/apc_production_dev/api';
+ /* static const String baseUrl =
+      'https://www.gurgaonit.com/apc_production_dev/api'; */
+
+ static const String baseUrl = 'https://www.automotionplus.com.au/api';
 
   // Authentication endpoints
   static const String login = '/login';
@@ -81,6 +83,9 @@ class ApiEndpoints {
   // PayPal payment endpoints
   static const String processPayPal = '/user/payment/paypal/process';
   static const String verifyPayPalStatus = '/user/payment/paypal/verify-status';
+
+  // Payment configuration endpoint
+  static const String paymentConfigurations = '/user/payment/configurations';
 
   // Manuals endpoint
   static const String manuals = '/user/manuals';

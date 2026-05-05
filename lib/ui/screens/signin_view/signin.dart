@@ -8,6 +8,7 @@ import '../forgotpassword_view/forgotpassword.dart';
 import '../../../data/services/settings_service.dart';
 import '../../../services/storage_service.dart';
 import '../../../core/utils/logger.dart';
+import '../../../data/services/payment_config_service.dart';
 
 class SigninScreen extends StatefulWidget {
   const SigninScreen({super.key});
@@ -88,6 +89,9 @@ class _SigninScreenState extends State<SigninScreen> {
 
       // Save settings to shared preferences
       await StorageService.saveSettings(settings);
+
+      // Fetch and save payment configurations
+      await PaymentConfigService.fetchAndSaveConfig();
 
       Logger.info('Settings fetched and saved successfully');
     } catch (e) {

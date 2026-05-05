@@ -4,6 +4,7 @@ import '../data/models/user_model.dart';
 import '../core/exceptions/api_exception.dart';
 import '../core/utils/logger.dart';
 import '../../services/storage_service.dart';
+import '../data/services/payment_config_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _authRepository;
@@ -56,6 +57,9 @@ class AuthProvider extends ChangeNotifier {
       // Save login data to SharedPreferences
       await StorageService.saveLoginData(response);
 
+      // Fetch and save payment configurations (background process)
+      PaymentConfigService.fetchAndSaveConfig();
+
       // Reset loading state
       _isLoading = false;
       _errorMessage = null;
@@ -107,6 +111,9 @@ class AuthProvider extends ChangeNotifier {
 
       // Save login data to SharedPreferences
       await StorageService.saveLoginData(response);
+
+      // Fetch and save payment configurations (background process)
+      PaymentConfigService.fetchAndSaveConfig();
 
       // Reset loading state
       _isLoading = false;
@@ -167,6 +174,9 @@ class AuthProvider extends ChangeNotifier {
         _errorMessage = null;
         notifyListeners();
         Logger.info('Provider: Session restored for user ${_currentUser?.name}');
+        // Refresh payment configs in background on every app restart
+        // This keeps PayPal/GooglePay/Card keys up-to-date without blocking UI
+        PaymentConfigService.fetchAndSaveConfig();
         return true;
       }
     } catch (e) {
@@ -202,6 +212,9 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = response.user;
 
       await StorageService.saveLoginData(response);
+
+      // Fetch and save payment configurations (background process)
+      PaymentConfigService.fetchAndSaveConfig();
 
       _isLoading = false;
       _errorMessage = null;
@@ -253,6 +266,9 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = response.user;
 
       await StorageService.saveLoginData(response);
+
+      // Fetch and save payment configurations (background process)
+      PaymentConfigService.fetchAndSaveConfig();
 
       _isLoading = false;
       _errorMessage = null;
