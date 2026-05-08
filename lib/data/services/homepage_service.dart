@@ -1009,7 +1009,7 @@ class HomepageService {
   }
 
   /// Fetch products by category ID (can be category, subcategory, childcategory, or subchildcategory)
-  Future<List<LatestProduct>> getProductsByCategory({
+  Future<Map<String, dynamic>> getProductsByCategory({
     String? categorySlug,
     String? categoryType,
     int? page,
@@ -1030,12 +1030,16 @@ class HomepageService {
       if (useDummyData) {
         await Future.delayed(const Duration(milliseconds: 500));
         Logger.info('Using dummy data for products by category');
-        return _generateDummyProducts(
-          categoryId: categoryId,
-          subcategoryId: subcategoryId,
-          childcategoryId: childcategoryId,
-          subchildcategoryId: subchildcategoryId,
-        );
+        return {
+          'products': _generateDummyProducts(
+            categoryId: categoryId,
+            subcategoryId: subcategoryId,
+            childcategoryId: childcategoryId,
+            subchildcategoryId: subchildcategoryId,
+          ),
+          'currentPage': 1,
+          'lastPage': 1,
+        };
       }
 
       final queryParameters = <String, String>{};
@@ -1099,8 +1103,23 @@ class HomepageService {
         }
       }
 
-      Logger.info('Total products parsed: ${products.length}');
-      return products;
+      // Extract pagination info from meta block
+      int currentPage = 1;
+      int lastPage = 1;
+      if (response.containsKey('meta') && response['meta'] != null) {
+        final meta = response['meta'];
+        if (meta is Map<String, dynamic>) {
+          currentPage = (meta['current_page'] ?? 1) as int;
+          lastPage = (meta['last_page'] ?? 1) as int;
+        }
+      }
+
+      Logger.info('Total products parsed: ${products.length}, Page: $currentPage/$lastPage');
+      return {
+        'products': products,
+        'currentPage': currentPage,
+        'lastPage': lastPage,
+      };
     } on ApiException catch (e) {
       Logger.error('API Exception fetching products by category: ${e.message}');
       rethrow;

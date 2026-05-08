@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../categories_view/categories_grid.dart';
 import '../productlist_view/sale_products.dart';
 import '../productlist_view/productlist.dart';
@@ -388,109 +389,39 @@ class _AppDrawerState extends State<AppDrawer> {
                 ),
               ),
             ),
+            _buildSeparator(),
 
-            _buildItem(
-              icon: Icons.local_fire_department,
-              title: 'Sale',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SaleProductsScreen(),
-                  ),
+            // Dynamic Categories from API
+            Consumer<HomepageProvider>(
+              builder: (context, homeProvider, _) {
+                final categories = List<Category>.from(homeProvider.categories)
+                  ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
+                // Filter out categories that are already handled as special items (if any)
+                // For now, we'll show all categories from API.
+                
+                return Column(
+                  children: categories.map((category) {
+                    // Check if this category should be skipped because it's handled separately
+                    // e.g., if Installation Manuals is in the category list
+                    if (category.id == 14) return const SizedBox.shrink();
+
+                    return Column(
+                      children: [
+                        _buildItem(
+                          icon: _getIconForCategory(category),
+                          imageUrl: category.photo,
+                          title: category.name,
+                          onTap: () => _navigateWithCategory(category),
+                        ),
+                        _buildSeparator(),
+                      ],
+                    );
+                  }).toList(),
                 );
               },
             ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.settings_input_component,
-              title: 'Gate Automation Kits',
-              onTap: () => _navigateToCategoryBySlug('gate-automation-kits'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.home_repair_service,
-              title: 'Gate & Fencing Hardware',
-              onTap: () => _navigateToCategoryBySlug('gate-fencing-hardware'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.electric_bolt,
-              title: 'Brushless Electric Gate Kits',
-              onTap: () =>
-                  _navigateToCategoryBySlug('brushless-electric-gate-kits'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.handyman,
-              title: 'Premium Hardware for Cantilever, Sliding & Swing Gates',
-              onTap: () => _navigateToCategoryBySlug(
-                'premium-hardware-for-cantilever-sliding-swing-gates',
-              ),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.auto_awesome_mosaic,
-              title: 'Gate, Automation & Hardware Combos',
-              onTap: () => _navigateToCategoryBySlug(
-                'gate-automation-hardware-combos',
-              ),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.door_sliding,
-              title: 'Gates & Gate Frames',
-              onTap: () => _navigateToCategoryBySlug('gates-gate-frames'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.build_circle,
-              title: 'Custom Made Gates',
-              onTap: () => _navigateByCategoryId(18, 'Custom Made Gates'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.traffic,
-              title: 'Boom Gates',
-              onTap: () => _navigateToCategoryBySlug('boom-gates'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.videocam,
-              title: 'Video Intercoms and Surveillance Systems',
-              onTap: () => _navigateToCategoryBySlug(
-                'video-intercoms-and-surveillance-systems',
-              ),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.settings_remote,
-              title: 'Remotes',
-              onTap: () => _navigateToCategoryBySlug('remotes'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.security,
-              title: 'Access Control & Accessories',
-              onTap: () =>
-                  _navigateToCategoryBySlug('access-control-accessories'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.power,
-              title: 'Replacement Parts, Power Supplies & Cables',
-              onTap: () => _navigateToCategoryBySlug(
-                'replacement-parts-power-supplies-cables',
-              ),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              icon: Icons.solar_power,
-              title: 'Solar Equipment',
-              onTap: () => _navigateToCategoryBySlug('solar-equipment'),
-            ),
-            _buildSeparator(),
+
             _buildItem(
               icon: Icons.menu_book,
               title: 'Installation Manuals',
@@ -516,26 +447,100 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
+  IconData _getIconForCategory(Category category) {
+    final slug = category.slug?.toLowerCase() ?? '';
+    final name = category.name.toLowerCase();
+
+    if (slug.contains('automation') || name.contains('automation')) {
+      return Icons.settings_input_component;
+    }
+    if (slug.contains('fencing') || name.contains('fencing') || name.contains('hardware')) {
+      return Icons.home_repair_service;
+    }
+    if (slug.contains('brushless') || name.contains('brushless')) {
+      return Icons.electric_bolt;
+    }
+    if (slug.contains('premium') || name.contains('premium')) {
+      return Icons.handyman;
+    }
+    if (slug.contains('combo') || name.contains('combo')) {
+      return Icons.auto_awesome_mosaic;
+    }
+    if (slug.contains('gates-gate-frames') || name.contains('frames')) {
+      return Icons.door_sliding;
+    }
+    if (slug.contains('custom') || name.contains('custom')) {
+      return Icons.build_circle;
+    }
+    if (slug.contains('boom') || name.contains('boom')) {
+      return Icons.traffic;
+    }
+    if (slug.contains('intercom') || name.contains('intercom') || name.contains('surveillance')) {
+      return Icons.videocam;
+    }
+    if (slug.contains('remote') || name.contains('remote')) {
+      return Icons.settings_remote;
+    }
+    if (slug.contains('access') || name.contains('access')) {
+      return Icons.security;
+    }
+    if (slug.contains('parts') || name.contains('parts') || name.contains('cable') || name.contains('power')) {
+      return Icons.power;
+    }
+    if (slug.contains('solar') || name.contains('solar')) {
+      return Icons.solar_power;
+    }
+
+    return Icons.category; // Default icon
+  }
+
   Widget _buildItem({
-    required IconData icon,
+    IconData? icon,
+    String? imageUrl,
     required String title,
     required VoidCallback onTap,
   }) {
     final bool isSelected = _selectedTitle == title;
+    
+    Widget leading;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      leading = Container(
+        width: 24,
+        height: 24,
+        color: Colors.transparent,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.contain,
+          placeholder: (context, url) => Icon(
+            icon ?? Icons.category,
+            size: 24,
+            color: isSelected ? Colors.black : const Color(0xFF101010),
+          ),
+          errorWidget: (context, url, error) => Icon(
+            icon ?? Icons.category,
+            size: 24,
+            color: isSelected ? Colors.black : const Color(0xFF101010),
+          ),
+        ),
+      );
+    } else {
+      leading = Icon(
+        icon ?? Icons.category,
+        color: isSelected ? Colors.black : const Color(0xFF101010),
+      );
+    }
+
     return Container(
       color: isSelected ? const Color(0xFFFFC107) : Colors.transparent,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Icon(
-          icon,
-          color: isSelected ? Colors.black : Color(0xFF101010),
-        ),
+        leading: leading,
         title: Text(
           title,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: isSelected ? Colors.black : Color(0xFF101010),
+            color: isSelected ? Colors.black : const Color(0xFF101010),
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -543,7 +548,7 @@ class _AppDrawerState extends State<AppDrawer> {
         trailing: Icon(
           Icons.arrow_forward_ios,
           size: 16,
-          color: isSelected ? Colors.black54 : Color(0xFF101010),
+          color: isSelected ? Colors.black54 : const Color(0xFF101010),
         ),
         onTap: () {
           setState(() {

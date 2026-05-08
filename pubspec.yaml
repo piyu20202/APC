@@ -78,7 +78,6 @@ flutter:
   assets:
     - assets/images/
     - assets/google_pay_config.json
-    - assets/google_pay_config_test.json
     - assets/apple_pay_config.json
     - assets/paypal_config.json
 

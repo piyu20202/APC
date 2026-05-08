@@ -6,7 +6,6 @@ import 'providers/auth_provider.dart';
 import 'providers/homepage_provider.dart';
 import 'ui/screens/splash_view/splash.dart';
 import 'ui/screens/checkout_page/checkout.dart';
-import 'ui/screens/checkout_page/orderpricedetail.dart';
 import 'ui/screens/checkout_page/orderplaced.dart';
 import 'ui/screens/payment_page/payment.dart';
 import 'ui/screens/manuals/manuals_menu.dart';
@@ -70,7 +69,6 @@ class MyApp extends StatelessWidget {
           '/signin': (context) => const SigninScreen(),
           '/signup': (context) => const SignupScreen(),
           '/checkout': (context) => const CheckoutPage(),
-          '/order-price-detail': (context) => const OrderPriceDetailPage(),
           '/payment': (context) {
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
             return PaymentPage(arguments: args);

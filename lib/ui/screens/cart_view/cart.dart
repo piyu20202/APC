@@ -641,8 +641,8 @@ class _CartPageState extends State<CartPage> {
 
       await StorageService.savePaymentCartSnapshot(response);
       debugPrint('PAYMENT_SNAPSHOT_SAVED: true');
-      await StorageService.clearCartData();
-      debugPrint('CART_DATA_CLEARED_AFTER_CHECKOUT: true');
+      // DEFERRED: We no longer clear the main cart here to prevent UI flicker 
+      // and to allow users to return to the cart if they cancel checkout.
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
 
@@ -656,16 +656,10 @@ class _CartPageState extends State<CartPage> {
       );
 
       if (!mounted) return;
-      setState(() {
-        _lastCartResponse = null;
-        cartItems = [];
-        _serverReportedTotal = 0;
-        _serverReportedQty = 0;
-        _unitPrices.clear();
-        _quantityChanges.clear();
-        _removedProductIds.clear();
-        _removedCartItemIds.clear();
-      });
+      // We don't need to manually clear the state here because 
+      // NavigationService.instance.refreshCartItems() already triggers a reload 
+      // which will see the empty cart data in storage.
+      // Clearing it here manually causes a UI flicker before navigation.
 
       if (!mounted) return;
       Navigator.pushNamed(context, '/checkout');

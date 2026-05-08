@@ -15,6 +15,7 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   final _formKey = GlobalKey<FormState>();
+  bool _isSubmitting = false;
 
   // Form controllers
   final _nameController = TextEditingController();
@@ -708,63 +709,87 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () async {
-          // Validate form
-          if (_formKey.currentState!.validate()) {
-            // Double-check user is logged in (defensive check)
-            final authProvider = Provider.of<AuthProvider>(
-              context,
-              listen: false,
-            );
-            if (!authProvider.isLoggedIn) {
-              Fluttertoast.showToast(
-                msg: 'Please login to continue',
-                toastLength: Toast.LENGTH_SHORT,
-              );
-              Navigator.pushReplacementNamed(context, '/signin');
-              return;
-            }
+        onPressed: _isSubmitting
+            ? null
+            : () async {
+                // Validate form
+                if (_formKey.currentState!.validate()) {
+                  // Double-check user is logged in (defensive check)
+                  final authProvider = Provider.of<AuthProvider>(
+                    context,
+                    listen: false,
+                  );
+                  if (!authProvider.isLoggedIn) {
+                    Fluttertoast.showToast(
+                      msg: 'Please login to continue',
+                      toastLength: Toast.LENGTH_SHORT,
+                    );
+                    Navigator.pushReplacementNamed(context, '/signin');
+                    return;
+                  }
 
-            // Save checkout form data (no account creation needed for mobile)
-            final checkoutData = {
-              'shipping_method': _shippingMethod,
-              'pickup_location': _selectedPickupLocation,
-              'name': _nameController.text.trim(),
-              'email': _emailController.text.trim(),
-              'mobile': _mobileController.text.trim(),
-              'company': _companyController.text.trim(),
-              'area_code': _areaCodeController.text.trim(),
-              'landline': _landlineController.text.trim(),
-              'unit': _unitController.text.trim(),
-              'address': _addressController.text.trim(),
-              'suburb': _suburbController.text.trim(),
-              'state': _selectedState,
-              'country':
-                  'AU', // Backend expects country code; dropdown is Australia only
-              'post_code': _postCodeController.text.trim(),
-              'order_note': _orderNoteController.text.trim(),
-            };
+                  setState(() {
+                    _isSubmitting = true;
+                  });
 
-            await StorageService.saveCheckoutData(checkoutData);
+                  try {
+                    // Save checkout form data (no account creation needed for mobile)
+                    final checkoutData = {
+                      'shipping_method': _shippingMethod,
+                      'pickup_location': _selectedPickupLocation,
+                      'name': _nameController.text.trim(),
+                      'email': _emailController.text.trim(),
+                      'mobile': _mobileController.text.trim(),
+                      'company': _companyController.text.trim(),
+                      'area_code': _areaCodeController.text.trim(),
+                      'landline': _landlineController.text.trim(),
+                      'unit': _unitController.text.trim(),
+                      'address': _addressController.text.trim(),
+                      'suburb': _suburbController.text.trim(),
+                      'state': _selectedState,
+                      'country':
+                          'AU', // Backend expects country code; dropdown is Australia only
+                      'post_code': _postCodeController.text.trim(),
+                      'order_note': _orderNoteController.text.trim(),
+                    };
 
-            // Navigate to Order Price Detail page (correct checkout funnel)
-            // This page creates the order via storeOrder() API and handles payment
-            // method selection before navigating to the payment page.
-            if (mounted) {
-              Navigator.pushNamed(context, '/order-price-detail');
-            }
-          }
-        },
+                    await StorageService.saveCheckoutData(checkoutData);
+
+                    // Clear any stale order data before creating a new one on the payment page
+                    await StorageService.clearOrderData();
+
+                    // Navigate directly to the Payment page
+                    if (mounted) {
+                      Navigator.pushNamed(context, '/payment');
+                    }
+                  } finally {
+                    if (mounted) {
+                      setState(() {
+                        _isSubmitting = false;
+                      });
+                    }
+                  }
+                }
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: const Text(
-          'CONTINUE',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        child: _isSubmitting
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Text(
+                'CONTINUE',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }

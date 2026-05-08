@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/exceptions/api_exception.dart';
@@ -143,23 +144,28 @@ class CartService {
   }
 
   /// Get list of available coupons from /user/cart/coupons
-  Future<List<dynamic>> getAvailableCoupons() async {
+  Future<List<dynamic>> getAvailableCoupons(Map<String, dynamic> oldCart) async {
     try {
       Logger.info('Calling get-available-coupons API');
+      
+      // LOG: Check what we are sending as old_cart
+      final payload = {'old_cart': oldCart};
+      debugPrint('COUPON_API_PAYLOAD: ${jsonEncode(payload)}');
+
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.availableCoupons,
+        body: payload,
         requireAuth: true,
       );
-      
-      // ApiClient.get always returns a Map<String, dynamic>
-      if (response.containsKey('data') && response['data'] is List) {
-        return response['data'] as List<dynamic>;
-      }
-      
+
       if (response.containsKey('coupons') && response['coupons'] is List) {
         return response['coupons'] as List<dynamic>;
       }
-      
+
+      if (response.containsKey('data') && response['data'] is List) {
+        return response['data'] as List<dynamic>;
+      }
+
       return [];
     } on ApiException {
       rethrow;

@@ -42,12 +42,14 @@ class ApiClient {
       debugPrint('POST Request: $url');
       debugPrint('Headers: $defaultHeaders');
       if (body != null) {
-        debugPrint('Body (Raw): $body');
+      // debugPrint('Body (Raw): $body');
         try {
           final prettyBody = const JsonEncoder.withIndent('  ').convert(body);
+          /*
           debugPrint('╔════════ POSTMAN COPY BODY START ════════╗');
           debugPrint(prettyBody);
           debugPrint('╚════════ POSTMAN COPY BODY END ══════════╝');
+          */
         } catch (e) {
           debugPrint('Could not pretty print body: $e');
         }
@@ -65,7 +67,7 @@ class ApiClient {
           )
           .timeout(_timeout);
 
-      return _handleResponse(response);
+      return _handleResponse(response, endpoint);
     } on ApiException {
       rethrow;
     } on http.ClientException catch (e) {
@@ -120,9 +122,11 @@ class ApiClient {
       // Log request in debug mode
       debugPrint('GET Request: $url');
       debugPrint('Headers: $defaultHeaders');
+      /*
       if (body != null) {
         debugPrint('Body: $body');
       }
+      */
 
       http.Response response;
 
@@ -144,7 +148,7 @@ class ApiClient {
             .timeout(_timeout);
       }
 
-      return _handleResponse(response);
+      return _handleResponse(response, endpoint);
     } on ApiException {
       rethrow;
     } on http.ClientException catch (e) {
@@ -155,18 +159,21 @@ class ApiClient {
   }
 
   /// Handle API response
-  static Map<String, dynamic> _handleResponse(http.Response response) {
+  static Map<String, dynamic> _handleResponse(http.Response response, String endpoint) {
     final statusCode = response.statusCode;
-    final url = response.request?.url.toString() ?? '';
+    final url = endpoint;
 
     // Decorate logs for specific endpoints as requested by user
     bool isOrder = url.contains('store/order');
     bool isPayment = url.contains('payment');
+    bool isCoupon = url.contains('coupon/apply');
 
     if (isOrder) {
       debugPrint('******************Order response start*************');
     } else if (isPayment) {
       debugPrint('***********payment sesssion start******');
+    } else if (isCoupon) {
+      debugPrint('******************Coupon Apply Response Start*************');
     }
 
     debugPrint('Response Status: $statusCode');
@@ -187,6 +194,8 @@ class ApiClient {
       debugPrint('******************order response end *************');
     } else if (isPayment) {
       debugPrint('***********payment sesssion end******');
+    } else if (isCoupon) {
+      debugPrint('******************Coupon Apply Response End*************');
     }
 
     // Check if response body is empty

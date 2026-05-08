@@ -57,12 +57,19 @@ class PaymentService {
 
     try {
       Logger.info('Creating payment intent for order: $orderNumber');
+      // Fetch dynamic config
+      final config = await StorageService.getPaymentConfig();
+      final cybersource = config?.cybersource;
+
       final response = await ApiClient.post(
         endpoint: ApiEndpoints.createPaymentIntent,
         body: {
           'order_number': orderNumber,
           'amount': amount,
           'currency': currency,
+          if (cybersource?.merchantId != null) 'merchant_id': cybersource!.merchantId,
+          if (cybersource?.accessKey != null) 'access_key': cybersource!.accessKey,
+          if (cybersource?.secretKey != null) 'secret_key': cybersource!.secretKey,
         },
         contentType: 'application/json',
         requireAuth: true,
@@ -90,9 +97,19 @@ class PaymentService {
 
     try {
       Logger.info('Processing payment for order: $orderNumber');
+      // Fetch dynamic config
+      final config = await StorageService.getPaymentConfig();
+      final cybersource = config?.cybersource;
+
       final response = await ApiClient.post(
         endpoint: ApiEndpoints.processPayment,
-        body: {'order_number': orderNumber, ...paymentData},
+        body: {
+          'order_number': orderNumber, 
+          ...paymentData,
+          if (cybersource?.merchantId != null) 'merchant_id': cybersource!.merchantId,
+          if (cybersource?.accessKey != null) 'access_key': cybersource!.accessKey,
+          if (cybersource?.secretKey != null) 'secret_key': cybersource!.secretKey,
+        },
         contentType: 'application/json',
         requireAuth: true,
       );
@@ -143,6 +160,10 @@ class PaymentService {
         throw ApiException(message: 'User email not found', statusCode: 400);
       }
 
+      // Fetch dynamic config
+      final config = await StorageService.getPaymentConfig();
+      final cybersource = config?.cybersource;
+
       Logger.info('Processing card payment (raw) for order ID: $orderId, order number: $orderNumber');
       final response = await ApiClient.post(
         endpoint: ApiEndpoints.cybersourceCardPayment,
@@ -155,6 +176,9 @@ class PaymentService {
           'orderid': orderId, // Send integer order ID, not order number string
           'email': email,
           'user_id': userId, // Add user_id
+          if (cybersource?.merchantId != null) 'merchant_id': cybersource!.merchantId,
+          if (cybersource?.accessKey != null) 'access_key': cybersource!.accessKey,
+          if (cybersource?.secretKey != null) 'secret_key': cybersource!.secretKey,
         },
         contentType: 'application/json',
         requireAuth: true,
@@ -466,6 +490,10 @@ class PaymentService {
           throw ApiException(message: 'User email not found', statusCode: 400);
         }
 
+        // Fetch dynamic config
+        final config = await StorageService.getPaymentConfig();
+        final gpay = config?.googlepay;
+
         response = await ApiClient.post(
           endpoint: ApiEndpoints.googlePayToken,
           body: {
@@ -473,12 +501,17 @@ class PaymentService {
             'orderid': orderNumber, // using order_number as orderid
             'email': email,
             'user_id': userId,
+            if (gpay?.merchantId != null) 'merchant_id': gpay!.merchantId,
           },
           contentType: 'application/json',
           requireAuth: true,
         );
       } else {
         // Existing (older) backend integration kept for compatibility
+        // Fetch dynamic config
+        final config = await StorageService.getPaymentConfig();
+        final gpay = config?.googlepay;
+
         response = await ApiClient.post(
           endpoint: ApiEndpoints.processGooglePay,
           body: {
@@ -486,6 +519,7 @@ class PaymentService {
             'amount': amount,
             'payment_token': token,
             'payment_method': 'google_pay',
+            if (gpay?.merchantId != null) 'merchant_id': gpay!.merchantId,
           },
           contentType: 'application/json',
           requireAuth: true,
@@ -733,6 +767,10 @@ class PaymentService {
 
       Logger.info('Processing PayPal payment for order: $orderNumber');
 
+      // Fetch dynamic config
+      final config = await StorageService.getPaymentConfig();
+      final paypal = config?.paypal;
+
       // Prepare request body
       final requestBody = {
         'orderid': orderId,
@@ -741,6 +779,8 @@ class PaymentService {
         'currency': currency,
         'email': email,
         'user_id': userId,
+        if (paypal?.clientKey != null) 'client_key': paypal!.clientKey,
+        if (paypal?.secretKey != null) 'secret_key': paypal!.secretKey,
       };
 
       // Add payment token - REQUIRED for PayPal (like Google Pay)

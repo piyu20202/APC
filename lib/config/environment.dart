@@ -28,9 +28,8 @@ class BuildConfig {
   static bool get isProd => appEnv == 'prod';
 
   /// Google Pay PaymentConfiguration asset to load.
-  static String get googlePayConfigAsset =>
-      isProd ? 'google_pay_config.json' : 'google_pay_config_test.json';
+  static String get googlePayConfigAsset => 'assets/google_pay_config.json';
 
   /// Apple Pay PaymentConfiguration asset to load.
-  static String get applePayConfigAsset => 'apple_pay_config.json';
+  static String get applePayConfigAsset => 'assets/apple_pay_config.json';
 }

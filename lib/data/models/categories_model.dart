@@ -58,6 +58,14 @@ class CategoryFull {
         : (displayOrderRaw is int
             ? displayOrderRaw
             : int.tryParse(displayOrderRaw.toString()) ?? 0);
+
+    final subs = (json['subs'] as List<dynamic>?)
+            ?.map((item) => SubCategoryFull.fromJson(item as Map<String, dynamic>))
+            .toList() ??
+        [];
+    // Sort subs by displayOrder
+    subs.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
     return CategoryFull(
       id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
       name: json['name']?.toString() ?? '',
@@ -66,10 +74,7 @@ class CategoryFull {
       image: json['image']?.toString() ?? '',
       pageOpen: json['page_open']?.toString() ?? '',
       categorySlugUrl: json['category_slug_url']?.toString(),
-      subs: (json['subs'] as List<dynamic>?)
-              ?.map((item) => SubCategoryFull.fromJson(item as Map<String, dynamic>))
-              .toList() ??
-          [],
+      subs: subs,
       displayOrder: displayOrder,
     );
   }
@@ -83,6 +88,7 @@ class SubCategoryFull {
   final String slug;
   final int status;
   final int categoryId;
+  final int displayOrder;
   final List<ChildCategoryFull> childs;
 
   SubCategoryFull({
@@ -92,10 +98,25 @@ class SubCategoryFull {
     required this.slug,
     required this.status,
     required this.categoryId,
+    required this.displayOrder,
     required this.childs,
   });
 
   factory SubCategoryFull.fromJson(Map<String, dynamic> json) {
+    final displayOrderRaw = json['display_order'] ?? json['displayOrder'];
+    final displayOrder = displayOrderRaw == null
+        ? 0
+        : (displayOrderRaw is int
+            ? displayOrderRaw
+            : int.tryParse(displayOrderRaw.toString()) ?? 0);
+
+    final childs = (json['childs'] as List<dynamic>?)
+            ?.map((item) => ChildCategoryFull.fromJson(item as Map<String, dynamic>))
+            .toList() ??
+        [];
+    // Sort childs by displayOrder
+    childs.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
     return SubCategoryFull(
       id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
       name: json['name']?.toString() ?? '',
@@ -103,10 +124,8 @@ class SubCategoryFull {
       slug: json['slug']?.toString() ?? '',
       status: json['status'] is int ? json['status'] : int.tryParse('${json['status']}') ?? 0,
       categoryId: json['category_id'] is int ? json['category_id'] : int.tryParse('${json['category_id']}') ?? 0,
-      childs: (json['childs'] as List<dynamic>?)
-              ?.map((item) => ChildCategoryFull.fromJson(item as Map<String, dynamic>))
-              .toList() ??
-          [],
+      displayOrder: displayOrder,
+      childs: childs,
     );
   }
 }
@@ -119,6 +138,7 @@ class ChildCategoryFull {
   final String slug;
   final int status;
   final int subcategoryId;
+  final int displayOrder;
   final List<ChildSubCategoryFull> childsubs;
 
   ChildCategoryFull({
@@ -128,10 +148,25 @@ class ChildCategoryFull {
     required this.slug,
     required this.status,
     required this.subcategoryId,
+    required this.displayOrder,
     required this.childsubs,
   });
 
   factory ChildCategoryFull.fromJson(Map<String, dynamic> json) {
+    final displayOrderRaw = json['display_order'] ?? json['displayOrder'];
+    final displayOrder = displayOrderRaw == null
+        ? 0
+        : (displayOrderRaw is int
+            ? displayOrderRaw
+            : int.tryParse(displayOrderRaw.toString()) ?? 0);
+
+    final childsubs = (json['childsubs'] as List<dynamic>?)
+            ?.map((item) => ChildSubCategoryFull.fromJson(item as Map<String, dynamic>))
+            .toList() ??
+        [];
+    // Sort childsubs by displayOrder
+    childsubs.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
     return ChildCategoryFull(
       id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
       name: json['name']?.toString() ?? '',
@@ -139,10 +174,8 @@ class ChildCategoryFull {
       slug: json['slug']?.toString() ?? '',
       status: json['status'] is int ? json['status'] : int.tryParse('${json['status']}') ?? 0,
       subcategoryId: json['subcategory_id'] is int ? json['subcategory_id'] : int.tryParse('${json['subcategory_id']}') ?? 0,
-      childsubs: (json['childsubs'] as List<dynamic>?)
-              ?.map((item) => ChildSubCategoryFull.fromJson(item as Map<String, dynamic>))
-              .toList() ??
-          [],
+      displayOrder: displayOrder,
+      childsubs: childsubs,
     );
   }
 }
@@ -155,6 +188,7 @@ class ChildSubCategoryFull {
   final String slug;
   final int status;
   final int childcategoryId;
+  final int displayOrder;
 
   ChildSubCategoryFull({
     required this.id,
@@ -163,9 +197,17 @@ class ChildSubCategoryFull {
     required this.slug,
     required this.status,
     required this.childcategoryId,
+    this.displayOrder = 0,
   });
 
   factory ChildSubCategoryFull.fromJson(Map<String, dynamic> json) {
+    final displayOrderRaw = json['display_order'] ?? json['displayOrder'];
+    final displayOrder = displayOrderRaw == null
+        ? 0
+        : (displayOrderRaw is int
+            ? displayOrderRaw
+            : int.tryParse(displayOrderRaw.toString()) ?? 0);
+
     return ChildSubCategoryFull(
       id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
       name: json['name']?.toString() ?? '',
@@ -173,6 +215,7 @@ class ChildSubCategoryFull {
       slug: json['slug']?.toString() ?? '',
       status: json['status'] is int ? json['status'] : int.tryParse('${json['status']}') ?? 0,
       childcategoryId: json['childcategory_id'] is int ? json['childcategory_id'] : int.tryParse('${json['childcategory_id']}') ?? 0,
+      displayOrder: displayOrder,
     );
   }
 }

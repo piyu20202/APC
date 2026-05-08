@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widget/listing_product_card.dart';
 import '../../../data/services/homepage_service.dart';
+import '../../../data/models/homepage_model.dart';
 import '../../../core/utils/logger.dart';
 import '../../../core/network/network_checker.dart';
 import '../widget/app_state_view.dart';
@@ -40,6 +41,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
   List<Map<String, dynamic>> products = [];
   List<Map<String, dynamic>> _originalProducts =
       []; // Store original for sorting
+  int _currentPage = 1;
+  int _lastPage = 1;
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
   String? _errorMessage;
   SortOption _selectedSort = SortOption.popular;
@@ -147,10 +151,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
       }
       return;
     }
-    await _loadProducts(sortParam: _mapSortToApiSort(_selectedSort));
+    _currentPage = 1;
+    await _loadProducts(sortParam: _mapSortToApiSort(_selectedSort), page: 1);
   }
 
-  Future<void> _loadProducts({String? sortParam}) async {
+  Future<void> _loadProducts({String? sortParam, int page = 1}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -163,10 +168,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
           'Fetching products - slug: ${widget.categorySlug}, type: ${widget.categoryType}',
         );
 
-        final apiProducts = await _homepageService.getProductsByCategory(
+        final result = await _homepageService.getProductsByCategory(
           categorySlug: widget.categorySlug,
           categoryType: widget.categoryType,
-          page: widget.page,
+          page: page,
           perPage: widget.perPage ?? 20,
           categoryId: widget.categoryId,
           subcategoryId: widget.subcategoryId,
@@ -175,8 +180,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
           sort: sortParam,
         );
 
+        final apiProducts = List<LatestProduct>.from(result['products']);
+        _currentPage = result['currentPage'];
+        _lastPage = result['lastPage'];
+
         // Convert API products to map format for ProductCard
-        products = apiProducts.map((p) {
+        products = apiProducts.map<Map<String, dynamic>>((p) {
           return {
             'id': p.id,
             'name': p.name,
@@ -196,7 +205,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           };
         }).toList();
 
-        Logger.info('Loaded ${products.length} products from API');
+        Logger.info('Loaded ${products.length} products from API. Page: $_currentPage/$_lastPage');
       } else if (widget.categoryId != null ||
           widget.subcategoryId != null ||
           widget.childcategoryId != null ||
@@ -205,15 +214,20 @@ class _ProductListScreenState extends State<ProductListScreen> {
           'Fetching products using ID fallback - categoryId: ${widget.categoryId}, subcategoryId: ${widget.subcategoryId}, childcategoryId: ${widget.childcategoryId}, subchildcategoryId: ${widget.subchildcategoryId}',
         );
 
-        final apiProducts = await _homepageService.getProductsByCategory(
+        final result = await _homepageService.getProductsByCategory(
           categoryId: widget.categoryId,
           subcategoryId: widget.subcategoryId,
           childcategoryId: widget.childcategoryId,
           subchildcategoryId: widget.subchildcategoryId,
           sort: sortParam,
+          page: page,
         );
 
-        products = apiProducts.map((p) {
+        final apiProducts = List<LatestProduct>.from(result['products']);
+        _currentPage = result['currentPage'];
+        _lastPage = result['lastPage'];
+
+        products = apiProducts.map<Map<String, dynamic>>((p) {
           return {
             'id': p.id,
             'name': p.name,
@@ -255,6 +269,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
       setState(() {
         _isLoading = false;
+        // Scroll to top when page changes
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       });
     } catch (e) {
       Logger.error('Failed to load products', e);
@@ -345,12 +367,71 @@ class _ProductListScreenState extends State<ProductListScreen> {
         onRefresh: _onRefresh,
         child: _buildBody(),
       ),
+      bottomNavigationBar: products.isNotEmpty ? _buildPagination() : null,
+    );
+  }
+
+  Widget _buildPagination() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Previous Button
+          TextButton.icon(
+            onPressed: _currentPage > 1
+                ? () => _loadProducts(
+                      sortParam: _mapSortToApiSort(_selectedSort),
+                      page: _currentPage - 1,
+                    )
+                : null,
+            icon: const Icon(Icons.chevron_left),
+            label: const Text('Prev'),
+            style: TextButton.styleFrom(
+              foregroundColor:
+                  _currentPage > 1 ? const Color(0xFF151D51) : Colors.grey,
+            ),
+          ),
+
+          // Page Info
+          Text(
+            'Page $_currentPage of $_lastPage',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+
+          // Next Button
+          TextButton(
+            onPressed: _currentPage < _lastPage
+                ? () => _loadProducts(
+                      sortParam: _mapSortToApiSort(_selectedSort),
+                      page: _currentPage + 1,
+                    )
+                : null,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Next'),
+                Icon(Icons.chevron_right),
+              ],
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor:
+                  _currentPage < _lastPage ? const Color(0xFF151D51) : Colors.grey,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildBody() {
     // Always return a scrollable so pull-to-refresh works on loading/error/empty.
     return CustomScrollView(
+      controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         // Sort By Section
@@ -432,6 +513,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     childCount: products.length,
                   ),
                 )),
+        // Bottom padding to ensure last item is visible above pagination bar
+        const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
   }
@@ -488,9 +571,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
             if (newValue != null && newValue != _selectedSort) {
               setState(() {
                 _selectedSort = newValue;
+                _currentPage = 1; // Reset to first page on sort change
               });
               // Re-fetch products from API with the selected sort option
-              _loadProducts(sortParam: _mapSortToApiSort(newValue));
+              _loadProducts(sortParam: _mapSortToApiSort(newValue), page: 1);
             }
           },
         ),

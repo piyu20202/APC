@@ -98,8 +98,10 @@ class _PaymentPageState extends State<PaymentPage> {
   PaymentConfiguration? _googlePayConfig;
   bool _isGooglePayAvailable = false;
   bool _isInitializingGooglePay = true;
+  bool _hasAttemptedCouponFetch = false;
   StreamSubscription? _paymentResultSubscription;
   bool _isPaymentProcessing = false;
+  bool _isWaitingForPaymentResult = false;
   bool _hasNavigatedAway = false;
 
   final _formKey = GlobalKey<FormState>();
@@ -129,41 +131,88 @@ class _PaymentPageState extends State<PaymentPage> {
   double _couponDiscount = 0.0;
   String? _couponOfferSubtitle;
   bool _isCouponApplied = false;
+  bool _isUpdatingCoupon = false;
+
+  // Stored for price refreshes
+  String? _postcode;
+  dynamic _oldCart;
 
   @override
   void initState() {
     super.initState();
-    _initializePayment();
+    // STOP Auto-Initialization: API calls are now deferred to 'PAY NOW' click.
+    // We only setup the UI from passed arguments for immediate display.
+    _setupInitialUI();
     _loadPayPalConfig();
     _initializeGooglePay();
+  }
+
+  /// Populate initial UI values from navigation arguments to avoid showing $0.00
+  /// without making any API calls until the user is ready to pay.
+  void _setupInitialUI() {
+    final args = widget.arguments;
+    final bool isMyOrdersFlow = args?['from_my_orders_payment'] == true;
+
+    if (args != null && args['summary_grand_total'] != null) {
+      setState(() {
+        _amount = _toDouble(args['summary_grand_total']) ?? 0.0;
+        _gstAmount = _toDouble(args['summary_tax']) ?? 0.0;
+        _shippingCost = _toDouble(args['summary_shipping']) ?? 0.0;
+        _discountAmount = _toDouble(args['summary_discount']) ?? 0.0;
+        _subtotalExclGst = _toDouble(args['summary_subtotal']) ?? 0.0;
+        
+        final argMethod = args['payment_method']?.toString();
+        if (_selectedPaymentMethod.isEmpty && argMethod != null && argMethod.isNotEmpty) {
+          _selectedPaymentMethod = argMethod;
+        }
+        
+        // Show UI immediately from args (non-blank display)
+        _isLoading = false;
+      });
+
+      // For My Orders / Pay Later flow: even though we have initial values from args,
+      // we MUST call _initializePayment() so it triggers _refreshPricing()
+      // which calls /user/cart/shipping to get fresh, accurate pricing from the API.
+      if (isMyOrdersFlow) {
+        debugPrint('SETUP_UI: My Orders flow detected - triggering _initializePayment for pricing refresh...');
+        _initializePayment();
+      }
+    } else {
+      // Fallback for direct navigation where summary args are missing.
+      // We must initialize to get the breakdown, otherwise the UI shows $0.00 and spins forever.
+      _initializePayment();
+    }
   }
 
   /// Load PayPal configuration from API (with asset fallback)
   Future<void> _loadPayPalConfig() async {
     try {
-      // 1. Try to load from cached API configuration
-      final config = await PaymentConfigService.getCachedConfig();
-      if (config != null && config.paypal != null) {
-        final pp = config.paypal!;
-        if (pp.clientKey != null && pp.secretKey != null) {
-          setState(() {
-            _paypalConfig = {
-              'mode': 'live', // API provided keys are production
-              'production_client_id': pp.clientKey,
-              'production_secret_key': pp.secretKey,
-            };
-          });
-          debugPrint('PayPal config loaded from API cache');
-          return;
+      // 1. Load baseline configuration from assets
+      final String jsonString = await rootBundle.loadString('assets/paypal_config.json');
+      final Map<String, dynamic> configMap = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      // 2. Try to get dynamic credentials from storage (Shared Preferences)
+      final dynamicConfig = await PaymentConfigService.getCachedConfig();
+      final pp = dynamicConfig?.paypal;
+
+      if (pp != null && pp.clientKey != null && pp.secretKey != null) {
+        final mode = (configMap['mode'] ?? 'sandbox').toString().toLowerCase();
+        
+        if (mode == 'production' || mode == 'live') {
+          debugPrint('Injecting dynamic PRODUCTION PayPal credentials');
+          configMap['production_client_id'] = pp.clientKey;
+          configMap['production_secret_key'] = pp.secretKey;
+        } else {
+          debugPrint('Injecting dynamic SANDBOX PayPal credentials');
+          configMap['sandbox_client_id'] = pp.clientKey;
+          configMap['sandbox_secret_key'] = pp.secretKey;
         }
       }
 
-      // 2. Fallback to assets
-      final String jsonString = await rootBundle.loadString(
-        'assets/paypal_config.json',
-      );
-      _paypalConfig = jsonDecode(jsonString) as Map<String, dynamic>;
-      debugPrint('PayPal config loaded from assets (fallback): ${_paypalConfig?['mode']}');
+      setState(() {
+        _paypalConfig = configMap;
+      });
+      debugPrint('PayPal config initialized with mode: ${_paypalConfig?['mode']}');
     } catch (e) {
       debugPrint('Error loading PayPal config: $e');
       _paypalConfig = null;
@@ -203,13 +252,6 @@ class _PaymentPageState extends State<PaymentPage> {
     debugPrint('=== END $label ===');
   }
 
-  Future<void> _clearCartOnPaymentExit() async {
-    try {
-      await StorageService.clearCartData();
-    } catch (e) {
-      debugPrint('Failed to clear cart data: $e');
-    }
-  }
 
   // ─── Google Pay ────────────────────────────────────────────────────────────
 
@@ -227,28 +269,33 @@ class _PaymentPageState extends State<PaymentPage> {
       );
       final Map<String, dynamic> configMap = jsonDecode(jsonString);
 
-      // 2. Try to override with dynamic config from API
+      // 2. Try to override with dynamic config from storage (Shared Preferences)
       final dynamicConfig = await PaymentConfigService.getCachedConfig();
-      if (dynamicConfig != null && dynamicConfig.googlepay != null) {
-        final gpay = dynamicConfig.googlepay!;
-        if (gpay.merchantId != null && gpay.merchantId!.isNotEmpty) {
-          debugPrint('Overriding Google Pay merchantId with: ${gpay.merchantId}');
-          
-          // Update merchantInfo
-          if (configMap['data'] != null && configMap['data']['merchantInfo'] != null) {
-            configMap['data']['merchantInfo']['merchantId'] = gpay.merchantId;
+      
+      // Get Merchant ID from storage OR use fallback
+      final String merchantId = dynamicConfig?.googlepay?.merchantId ?? "BCR2DN7TRDA73ZCT";
+      debugPrint('Initializing Google Pay with merchantId: $merchantId');
+
+      if (configMap['data'] != null) {
+        // A. Update Google Merchant ID
+        if (configMap['data']['merchantInfo'] != null) {
+          configMap['data']['merchantInfo']['merchantId'] = merchantId;
+        }
+
+        // B. Update Gateway Merchant ID (Cybersource)
+        // Use cybersource merchantId from config, or fallback to 'anzapcau' (default in asset)
+        final String gatewayMerchantId = dynamicConfig?.cybersource?.merchantId ?? "anzapcau";
+        final allowedMethods = configMap['data']['allowedPaymentMethods'] as List?;
+        if (allowedMethods != null && allowedMethods.isNotEmpty) {
+          final tokenSpec = allowedMethods[0]['tokenizationSpecification'];
+          if (tokenSpec != null && tokenSpec['parameters'] != null) {
+            tokenSpec['parameters']['gatewayMerchantId'] = gatewayMerchantId;
           }
-          
-          // Update gatewayMerchantId (CyberSource) if present
-          final allowedMethods = configMap['data']?['allowedPaymentMethods'] as List?;
-          if (allowedMethods != null && allowedMethods.isNotEmpty) {
-            final tokenSpec = allowedMethods[0]['tokenizationSpecification'];
-            if (tokenSpec != null && tokenSpec['parameters'] != null) {
-              // Note: gatewayMerchantId usually matches or is related to merchantId
-              // For now we override the main merchantId as per the API sample response
-              // configMap['data']['allowedPaymentMethods'][0]['tokenizationSpecification']['parameters']['gatewayMerchantId'] = gpay.merchantId;
-            }
-          }
+        }
+
+        // C. Update Transaction Info (Default to 0.00, will be updated on click)
+        if (configMap['data']['transactionInfo'] != null) {
+          configMap['data']['transactionInfo']['totalPrice'] = (_amount ?? 0.0).toStringAsFixed(2);
         }
       }
 
@@ -298,7 +345,10 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _handleGooglePayResult(
     Map<String, dynamic> paymentResult,
   ) async {
-    if (_isPaymentProcessing || _hasNavigatedAway || !mounted) return;
+    // SECURITY: Only process if the user actually clicked the 'PAY NOW' button
+    if (!_isWaitingForPaymentResult || _isPaymentProcessing || _hasNavigatedAway || !mounted) return;
+    
+    _isWaitingForPaymentResult = false;
 
     try {
       _isPaymentProcessing = true;
@@ -308,7 +358,7 @@ class _PaymentPageState extends State<PaymentPage> {
       final order = orderData?['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
       final amount =
-          _amount ?? (order?['pay_amount'] as num?)?.toDouble() ?? 0.0;
+          _amount ?? _toDouble(order?['pay_amount']) ?? 0.0;
 
       if (orderNumber == null) throw Exception('Order number not found');
 
@@ -322,9 +372,9 @@ class _PaymentPageState extends State<PaymentPage> {
         paymentResult: paymentResult,
       );
 
-      debugPrint('***********payment sesssion start******');
-      debugPrint(const JsonEncoder.withIndent('  ').convert(response));
-      debugPrint('***********payment sesssion end******');
+      //debugPrint('***********payment sesssion start******');
+      //debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+      //debugPrint('***********payment sesssion end******');
 
       final paymentToken = response['payment_token'] as String?;
       if (paymentToken != null && paymentToken.isNotEmpty) {
@@ -335,7 +385,12 @@ class _PaymentPageState extends State<PaymentPage> {
         );
       }
 
+      // FINAL CLEANUP: Clear everything on success
       await StorageService.clearCartData();
+      await StorageService.clearPaymentCartSnapshot();
+      await StorageService.clearOrderData();
+      await StorageService.clearCheckoutData();
+
       _paymentResultSubscription?.cancel();
       _paymentResultSubscription = null;
 
@@ -360,6 +415,7 @@ class _PaymentPageState extends State<PaymentPage> {
     } catch (e) {
       debugPrint('Google Pay error: $e');
       _isPaymentProcessing = false;
+      _isWaitingForPaymentResult = false;
       // Do NOT clear cart on failure - user can retry.
       if (mounted) {
         Fluttertoast.showToast(
@@ -370,7 +426,12 @@ class _PaymentPageState extends State<PaymentPage> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _isWaitingForPaymentResult = false;
+        });
+      }
     }
   }
 
@@ -384,9 +445,29 @@ class _PaymentPageState extends State<PaymentPage> {
       );
       return;
     }
-    if (_isPaymentProcessing || _hasNavigatedAway) return;
+    if (_isProcessing || _isPaymentProcessing || _hasNavigatedAway) return;
+
+    setState(() {
+      _isProcessing = true;
+      _isWaitingForPaymentResult = true;
+    });
 
     try {
+      // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
+      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        debugPrint('Google Pay clicked: Creating order via store-order API first...');
+        final created = await _createOrderForDirectPayment();
+        if (!created) {
+          return;
+        }
+        debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
+        
+        // 2. Step C: Trigger _initializePayment after successful order creation
+        await _initializePayment();
+      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        throw Exception('Order details not found. Please try again from the My Orders screen.');
+      }
+
       final paymentItems = [
         PaymentItem(
           label: 'Total',
@@ -408,18 +489,17 @@ class _PaymentPageState extends State<PaymentPage> {
         _handleGooglePayResult(result);
       }
     } catch (e) {
-      debugPrint('Google Pay error: $e');
-      _isPaymentProcessing = false;
-      // IMPORTANT: Do NOT clear cart on failure.
-      // User should be able to modify order and retry payment.
-      // Cart is only cleared on SUCCESSFUL payment.
+      debugPrint('Google Pay Launch Error: $e');
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Google Pay failed. Please try again.',
-          toastLength: Toast.LENGTH_LONG,
           backgroundColor: Colors.red,
           textColor: Colors.white,
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -445,9 +525,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
     double subtotalExclGst = parseOrZero(data['subtotal_excluding_gst']) > 0
         ? parseOrZero(data['subtotal_excluding_gst'])
-        : (parseOrZero(order?['pay_amount']) > 0
-              ? parseOrZero(order?['pay_amount'])
-              : parseOrZero(order?['subtotal']));
+        : (parseOrZero(data['totalPrice']) > 0
+            ? parseOrZero(data['totalPrice'])
+            : (parseOrZero(order?['pay_amount']) > 0
+                ? parseOrZero(order?['pay_amount'])
+                : parseOrZero(order?['subtotal'])));
 
     double gstAmount = parseOrZero(data['tax']) > 0
         ? parseOrZero(data['tax'])
@@ -549,7 +631,7 @@ class _PaymentPageState extends State<PaymentPage> {
     final freeShippingIcon = _toDouble(showFreeShippingIcon) ?? 0.0;
 
     final hasPendingFreightQuote =
-        normalizedOrderType == 'large' || requestFreightCost > 0;
+        normalizedOrderType == 'large' || requestFreightCost == 1;
     final showFreeShippingLabel =
         !hasPendingFreightQuote && freeShippingIcon == 1;
 
@@ -729,7 +811,7 @@ class _PaymentPageState extends State<PaymentPage> {
       // Prefer direct argument cart first (avoids storage roundtrip)
       final argCart = widget.arguments?['order_cart'];
       if (argCart is Map && argCart.isNotEmpty) {
-        debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (order_cart argument) - ${argCart.length} items');
+        //debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (order_cart argument) - ${argCart.length} items');
         return {'cart': Map<String, dynamic>.from(argCart as Map)};
       }
       // Fallback: read cart from the full order_data argument
@@ -737,31 +819,81 @@ class _PaymentPageState extends State<PaymentPage> {
       if (argOrderData is Map) {
         final cart = (argOrderData as Map)['cart'];
         if (cart is Map && cart.isNotEmpty) {
-          debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (order_data argument cart) - ${cart.length} items');
+          //debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (order_data argument cart) - ${cart.length} items');
           return {'cart': Map<String, dynamic>.from(cart as Map)};
         }
       }
-      debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (no cart available)');
+      //debugPrint('PAYMENT_CART_SOURCE: my_orders_flow (no cart available)');
       return null;
     }
 
     final snapshot = await StorageService.getPaymentCartSnapshot();
     if (snapshot != null && snapshot['cart'] is Map) {
       final cartItems = (snapshot['cart'] as Map).length;
-      debugPrint('PAYMENT_CART_SOURCE: payment_cart_snapshot - $cartItems items');
+      //debugPrint('PAYMENT_CART_SOURCE: payment_cart_snapshot - $cartItems items');
       return snapshot;
     }
 
-    debugPrint('PAYMENT_CART_SOURCE: snapshot null/empty, trying cart_data fallback');
+    //debugPrint('PAYMENT_CART_SOURCE: snapshot null/empty, trying cart_data fallback');
     final cartData = await StorageService.getCartData();
     if (cartData != null && cartData['cart'] is Map) {
       final cartItems = (cartData['cart'] as Map).length;
-      debugPrint('PAYMENT_CART_SOURCE: cart_data_fallback - $cartItems items');
+      //debugPrint('PAYMENT_CART_SOURCE: cart_data_fallback - $cartItems items');
       return cartData;
     }
 
-    debugPrint('PAYMENT_CART_SOURCE: all sources null/empty');
+    //debugPrint('PAYMENT_CART_SOURCE: all sources null/empty');
     return null;
+  }
+
+  /// Refresh all totals and breakdown from the centralized Shipping API
+  Future<void> _refreshPricing({
+    required String postcode,
+    required dynamic oldCart,
+  }) async {
+    try {
+      final shippingPayload = {
+        'postcode': postcode,
+        'old_cart': oldCart,
+        'code': _couponCode ?? "",
+      };
+      final shippingResponse =
+          await _cartService.calculateShipping(shippingPayload);
+
+      if (mounted) {
+        setState(() {
+          // Use API values directly — no recalculation.
+          // The /user/cart/shipping endpoint already returns the correct breakdown.
+          _shippingCost = _toDouble(shippingResponse['shipping']) ?? 0.0;
+          _gstAmount = _toDouble(shippingResponse['tax']) ?? 0.0;
+          _discountAmount = _toDouble(shippingResponse['discount']) ?? 0.0;
+          _subtotalExclGst =
+              _toDouble(shippingResponse['total_without_gst']) ?? 0.0;
+
+          final shippingTotalWithGst =
+              _toDouble(shippingResponse['total_with_gst']);
+          if (shippingTotalWithGst != null && shippingTotalWithGst > 0) {
+            _amount = shippingTotalWithGst;
+          }
+
+          // Only use freight rule to determine UI flag state (pending quote / free label),
+          // NOT to override _shippingCost (API already returns the correct value).
+          final orderType = _extractOrderType(data: shippingResponse);
+          final freightRule = _resolveFreightRule(
+            rawShippingCost: _shippingCost!,
+            orderType: orderType,
+            showRequestFreightCost: shippingResponse['show_freight_cost_icon'],
+            showFreeShippingIcon: shippingResponse['show_free_shipping_icon'],
+          );
+          _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
+          _showFreeShippingLabel = freightRule.showFreeShippingLabel;
+          // NOTE: We intentionally do NOT use freightRule.shippingCost here
+          // because _shippingCost is already set from the API response above.
+        });
+      }
+    } catch (e) {
+      debugPrint('Error refreshing pricing: $e');
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -771,7 +903,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Future<void> _initializePayment() async {
     try {
-      debugPrint('=== PAYMENT PAGE INITIALIZATION ===');
+      //debugPrint('=== PAYMENT PAGE INITIALIZATION ===');
 
       // For PayLater flow, prefer the full response passed directly as argument
       // so we have the cart (product_sizeType etc.) without a storage roundtrip.
@@ -781,59 +913,40 @@ class _PaymentPageState extends State<PaymentPage> {
 
       debugPrint('Order data: ${orderData != null ? "Found (from: ${widget.arguments?['order_data'] != null ? 'argument' : 'storage'})" : "Not found"}');
 
-      if (orderData == null) {
-        final bool fromMyOrdersPayment =
-            widget.arguments?['from_my_orders_payment'] == true;
-
-        // Direct normal checkout may land here without a pre-seeded order.
-        if (!fromMyOrdersPayment) {
-          final created = await _createOrderForDirectPayment();
-          if (!created) {
-            if (mounted) setState(() => _isLoading = false);
-            return;
-          }
-          orderData = await StorageService.getOrderData();
-        }
-
-        if (orderData == null) {
-          debugPrint('ERROR: Order data is null');
-          if (mounted) {
-            Fluttertoast.showToast(
-              msg: 'Order data not found. Please try again.',
-              toastLength: Toast.LENGTH_LONG,
-            );
-            setState(() => _isLoading = false);
-          }
-          return;
-        }
-      }
-
+      // DEFERRED: For direct normal checkout, we no longer call _createOrderForDirectPayment
+      // during initialization. Instead, we call it when the user clicks 'PAY NOW'.
+      // This allows the user to see the breakdown and apply coupons before the order is created on the server.
+      
       final resolvedOrderData = orderData;
 
       setState(() {
         _orderData = resolvedOrderData;
-        final statusRoot = (resolvedOrderData['order_status'] ?? '')
-            .toString()
-            .toLowerCase()
-            .trim();
-        final statusOrder = (resolvedOrderData['order']?['order_status'] ?? '')
-            .toString()
-            .toLowerCase()
-            .trim();
-        _isAwaitingFreight =
-            statusRoot.contains('awaiting') || statusOrder.contains('awaiting');
-        debugPrint(
-          'Freight Status Detected: $_isAwaitingFreight (Root: $statusRoot, Order: $statusOrder)',
-        );
+        if (resolvedOrderData != null) {
+          final statusRoot = (resolvedOrderData['order_status'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
+          final statusOrder = (resolvedOrderData['order']?['order_status'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
+          _isAwaitingFreight =
+              statusRoot.contains('awaiting') || statusOrder.contains('awaiting');
+          debugPrint(
+            'Freight Status Detected: $_isAwaitingFreight (Root: $statusRoot, Order: $statusOrder)',
+          );
+        } else {
+          _isAwaitingFreight = false;
+        }
       });
 
-      final order = resolvedOrderData['order'] as Map<String, dynamic>?;
+      final order = resolvedOrderData?['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
       final orderId = _toInt(order?['id']);
 
       // Initialize status-based flags
       _manualOrderByAdmin =
-          (order?['manual_order_by_admin'] as num?)?.toInt() ?? 0;
+          _toInt(order?['manual_order_by_admin']) ?? 0;
       _orderPaymentStatus = (order?['payment_status'] ?? '')
           .toString()
           .toLowerCase();
@@ -842,26 +955,18 @@ class _PaymentPageState extends State<PaymentPage> {
       final UserModel? currentUser = await StorageService.getUserData();
       _isTradeUser = currentUser?.isTradeUser ?? 0;
 
-      debugPrint(
-        '╔══════ PAYMENT OPTIONS VISIBILITY FLAGS ══════╗\n'
-        '║ manual_order_by_admin : $_manualOrderByAdmin\n'
-        '║ is_trade_user         : $_isTradeUser  (user: ${currentUser?.name ?? "null"})\n'
-        '║ payment_status        : $_orderPaymentStatus\n'
-        '║ canShowByStatus       : ${_orderPaymentStatus == "partial" || _orderPaymentStatus == "unpaid"}\n'
-        '║ canShowAltMethods     : ${_manualOrderByAdmin == 0 && _isTradeUser == 0}\n'
-        '╚══════════════════════════════════════════════╝',
-      );
+     
 
       final payAmount = _toDouble(order?['pay_amount']);
       final totalAmount = _toDouble(order?['total']);
       double amount = payAmount ?? totalAmount ?? 0.0;
 
-      if (orderNumber == null || orderId == null) {
-        if (mounted) {
-          Fluttertoast.showToast(msg: 'Invalid order data.');
-          setState(() => _isLoading = false);
-        }
-        return;
+      // If orderData is null (normal checkout), these will be null initially.
+      // This is acceptable as they will be populated when 'PAY NOW' is clicked.
+      if (orderNumber != null && orderId != null) {
+        debugPrint('Pre-existing order found: $orderNumber (ID: $orderId)');
+      } else {
+        debugPrint('No pre-existing order. store-order API will be called on payment click.');
       }
 
       double? subtotalExclGst;
@@ -877,93 +982,36 @@ class _PaymentPageState extends State<PaymentPage> {
         final bool fromMyOrdersPayment =
             widget.arguments?['from_my_orders_payment'] == true;
 
-        if (!fromMyOrdersPayment && postcode.isNotEmpty && oldCart != null) {
-          final shippingResponse = await _cartService.calculateShipping({
-            'postcode': postcode,
-            'old_cart': oldCart,
-          });
+        String activePostcode = postcode;
+        if (fromMyOrdersPayment && resolvedOrderData != null) {
+          final orderObj = resolvedOrderData['order'] as Map<String, dynamic>?;
+          activePostcode = (orderObj?['shipping_zip']?.toString().trim()) ?? 
+                           (orderObj?['zip']?.toString().trim()) ?? 
+                           postcode;
+        }
 
-          final shippingOrderType = _extractOrderType(data: shippingResponse);
-          final snapshotOrderType = _extractOrderType(data: cartResponse);
-          final cartItemOrderType = _extractOrderTypeFromCartContainer(
-            cartResponse,
-          );
-          final orderType = shippingOrderType.isNotEmpty
-              ? shippingOrderType
-              : (snapshotOrderType.isNotEmpty
-                    ? snapshotOrderType
-                    : cartItemOrderType);
+        //debugPrint('DEBUG_PAYMENT_INIT: fromMyOrdersPayment=$fromMyOrdersPayment, postcode="$activePostcode", hasOldCart=${oldCart != null}');
 
-          final effectiveShowRequestFreightCost =
-              (shippingResponse['show_request_freight_cost'] != null)
-              ? shippingResponse['show_request_freight_cost']
-              : (cartResponse?['show_request_freight_cost'] ??
-                 _extractFreightCostFlagFromCartItems(cartResponse));
-          final effectiveShowFreeShippingIcon =
-              (shippingResponse['show_free_shipping_icon'] != null)
-              ? shippingResponse['show_free_shipping_icon']
-              : (cartResponse?['show_free_shipping_icon'] ??
-                 _extractFreeShippingIconFromCartItems(cartResponse));
-
-          // Map shipping cost using prioritized keys from API
-          final rawShippingCost =
-              _toDouble(shippingResponse['shipping']) ??
-              _toDouble(shippingResponse['normal_shipping_cost']) ??
-              _toDouble(shippingResponse['shipping_cost']) ??
-              0.0;
-
-          final freightRule = _resolveFreightRule(
-            rawShippingCost: rawShippingCost,
-            orderType: orderType,
-            showRequestFreightCost: effectiveShowRequestFreightCost,
-            showFreeShippingIcon: effectiveShowFreeShippingIcon,
-          );
-
-          shippingCost = freightRule.shippingCost;
-
-          gstAmount = _toDouble(shippingResponse['tax']);
-          
-          // Use total_with_gst from shipping API ONLY as a fallback when
-          // order amount is 0 or unavailable. The stored order amount is the
-          // source of truth — overriding it with a shipping API response that
-          // may have used a stale/wrong cart causes wrong totals on retry.
-          final shippingTotalWithGst = _toDouble(shippingResponse['total_with_gst']);
-          if (amount <= 0 && shippingTotalWithGst != null && shippingTotalWithGst > 0) {
-            amount = shippingTotalWithGst;
-            debugPrint(
-              'PAYMENT_TOTAL_DEBUG[init]: order amount was 0, using API total_with_gst=$shippingTotalWithGst',
-            );
-          } else {
-            debugPrint(
-              'PAYMENT_TOTAL_DEBUG[init]: keeping order amount=$amount (API total_with_gst=$shippingTotalWithGst)',
-            );
-          }
-
-          // Back-calculate subtotal to ensure mathematical consistency in UI
-          // Subtotal (Items) = Grand Total - GST - Shipping
-          subtotalExclGst = amount - (gstAmount ?? 0.0) - (shippingCost ?? 0.0);
-
-          final discount = _toDouble(cartResponse?['discount']);
-          final couponDiscount = _toDouble(cartResponse?['coupon_discount']);
-          discountAmount = discount ?? couponDiscount;
-
-            // Pending freight affects UI messaging; Pay Later UI mode is controlled
-            // only by route arguments from My Orders flow.
-            _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
-            _showFreeShippingLabel = freightRule.showFreeShippingLabel;
+        if (activePostcode.isNotEmpty && oldCart != null) {
+          _postcode = activePostcode;
+          _oldCart = oldCart;
+          await _refreshPricing(postcode: activePostcode, oldCart: oldCart);
         } else {
-          final snap = _breakdownFromStoredOrder(orderData);
-          subtotalExclGst = snap.subtotalExclGst;
-          shippingCost = snap.shippingCost;
-          gstAmount = snap.gstAmount;
-          discountAmount = snap.discountAmount;
-          amount = snap.amount;
-          _hasPendingFreightQuote = snap.hasPendingFreightQuote;
-          _showFreeShippingLabel = snap.showFreeShippingLabel;
+          // Fallback for missing data
+          final snap = _breakdownFromStoredOrder(resolvedOrderData ?? {});
+          setState(() {
+            _subtotalExclGst = snap.subtotalExclGst;
+            _shippingCost = snap.shippingCost;
+            _gstAmount = snap.gstAmount;
+            _discountAmount = snap.discountAmount;
+            _amount = snap.amount;
+            _hasPendingFreightQuote = snap.hasPendingFreightQuote;
+            _showFreeShippingLabel = snap.showFreeShippingLabel;
+          });
         }
       } catch (e) {
         debugPrint('Error preparing payment breakdown: $e');
-        final snap = _breakdownFromStoredOrder(orderData);
+        final snap = _breakdownFromStoredOrder(orderData ?? {});
         subtotalExclGst = snap.subtotalExclGst;
         shippingCost = snap.shippingCost;
         gstAmount = snap.gstAmount;
@@ -983,12 +1031,21 @@ class _PaymentPageState extends State<PaymentPage> {
       setState(() {
         _orderNumber = orderNumber;
         _orderId = orderId;
-        _amount = amount > 0 ? amount : 0.0;
         _currency = 'AUD';
 
-        _shippingCost = shippingCost ?? 0.0;
-        _gstAmount = gstAmount ?? 0.0;
-        _discountAmount = discountAmount ?? 0.0;
+        // ONLY set these from local variables if they haven't been set by _refreshPricing already
+        if (_amount == null || _amount == 0) {
+          _amount = amount > 0 ? amount : 0.0;
+        }
+        if (_shippingCost == null || _shippingCost == 0) {
+          _shippingCost = shippingCost ?? 0.0;
+        }
+        if (_gstAmount == null || _gstAmount == 0) {
+          _gstAmount = gstAmount ?? 0.0;
+        }
+        if (_discountAmount == null || _discountAmount == 0) {
+          _discountAmount = discountAmount ?? 0.0;
+        }
 
         _orderSource =
             (_orderData?['order_source'] ?? order?['order_source'] ?? '')
@@ -1008,17 +1065,19 @@ class _PaymentPageState extends State<PaymentPage> {
           _specialDiscount = 0.0;
         }
 
-        // Mathematically consistent Subtotal (Total - GST - Shipping + Special Discount)
-        // This ensures the breakdown always matches the final total exactly.
-        _subtotalExclGst =
-            (_amount! -
-            _gstAmount! -
-            _shippingCost! +
-            (_specialDiscount ?? 0.0));
+        // Mathematically consistent Subtotal fallback
+        if (_subtotalExclGst == null || _subtotalExclGst == 0) {
+          _subtotalExclGst =
+              (_amount! -
+              _gstAmount! -
+              _shippingCost! +
+              (_specialDiscount ?? 0.0));
+        }
 
         // ABSOLUTE OVERRIDE: If we have explicit values from Order Details, use them exactly.
-        // This prevents different roundings or back-calculations from creating discrepancies.
-        if (widget.arguments?['summary_grand_total'] != null) {
+        // BUT: For My Orders flow, we ignore these arguments because we just refreshed 
+        // with the fresh /user/cart/shipping API which is the new source of truth.
+        if (!_isFromMyOrdersPayment && widget.arguments?['summary_grand_total'] != null) {
           _amount = _toDouble(widget.arguments?['summary_grand_total']) ?? _amount;
           _gstAmount = _toDouble(widget.arguments?['summary_tax']) ?? _gstAmount;
           _shippingCost = _toDouble(widget.arguments?['summary_shipping']) ?? _shippingCost;
@@ -1057,15 +1116,12 @@ class _PaymentPageState extends State<PaymentPage> {
                 _couponCode != null && _couponCode!.isNotEmpty;
           });
         }
+        
+        // We no longer clear anything here.
+        // Main cart was cleared in _createOrderForDirectPayment.
+        // Snapshot will be cleared in SUCCESS handlers.
       }
 
-      try {
-        await _paymentService.createPaymentIntent(
-          orderNumber: orderNumber,
-          amount: amount > 0 ? amount : 0.0,
-          currency: 'AUD',
-        );
-      } catch (_) {}
     } catch (e) {
       debugPrint('Error initializing payment: $e');
       if (mounted) setState(() => _isLoading = false);
@@ -1101,10 +1157,6 @@ class _PaymentPageState extends State<PaymentPage> {
           widget.arguments?['payment_method'] ?? 'Credit Card';
 
       final response = await _orderService.storeOrder(payload);
-      
-      debugPrint('******************Order response start*************');
-      debugPrint(const JsonEncoder.withIndent('  ').convert(response));
-      debugPrint('******************order response end *************');
 
       final order = response['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
@@ -1114,11 +1166,28 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       await StorageService.saveOrderData(response);
+      
+      // SAVE SNAPSHOT before clearing: This allows us to re-calculate shipping 
+      // if the user navigates back and forth, even though the main cart is cleared.
+      if (cartResponse != null) {
+        await StorageService.savePaymentCartSnapshot(cartResponse);
+      }
+
+      // Update state with new order data
+      if (mounted) {
+        setState(() {
+          _orderData = response;
+          _orderNumber = orderNumber;
+          _orderId = _toInt(order?['id']);
+        });
+      }
+
+      // DEFERRED: We no longer clear the main cart data here. 
+      // The cart should ONLY be cleared when the payment is actually SUCCESSFUL 
+      // in the final gateway handlers (Google Pay, PayPal, etc.).
+      
       return true;
-    } on ApiException catch (e) {
-      debugPrint('******************Order response start*************');
-      debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
-      debugPrint('******************order response end *************');
+    } on ApiException catch (_) {
       return false;
     } catch (e) {
       debugPrint('Error creating order for direct payment: $e');
@@ -1211,6 +1280,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
   /// Handle payment submission (Native direct API integration)
   Future<void> _handlePayment() async {
+    // 0. Validation and Multiple Click Prevention
     if (!_formKey.currentState!.validate() || _isProcessing) {
       if (!_formKey.currentState!.validate()) {
         Fluttertoast.showToast(msg: 'Please fill all card details correctly.');
@@ -1219,10 +1289,26 @@ class _PaymentPageState extends State<PaymentPage> {
     }
 
     setState(() => _isProcessing = true);
-
     debugPrint('=== _handlePayment (Direct API) START ===');
+
     try {
-      // 1. Process expiry - MM/YY format to MM and YYYY
+      // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
+      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        debugPrint('Payment clicked: Creating order via store-order API first...');
+        final created = await _createOrderForDirectPayment();
+        if (!created) {
+          // Toast already shown in _createOrderForDirectPayment
+          return;
+        }
+        debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
+        
+        // 2. Step C: Trigger _initializePayment after successful order creation
+        await _initializePayment();
+      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        throw Exception('Order details not found. Please try again from the My Orders screen.');
+      }
+
+      // 3. Process expiry - MM/YY format to MM and YYYY
       final expiryValue = _expiryController.text.trim();
       final expiryParts = expiryValue.split('/');
       if (expiryParts.length != 2) throw Exception('Invalid expiry format');
@@ -1233,7 +1319,7 @@ class _PaymentPageState extends State<PaymentPage> {
         year = '20$year'; // Convert YY to YYYY
       }
 
-      // 2. Call direct API
+      // 4. Call direct API for Payment Processing
       final response = await _paymentService.processCardPaymentRaw(
         orderId: _orderId!,
         orderNumber: _orderNumber!,
@@ -1246,9 +1332,9 @@ class _PaymentPageState extends State<PaymentPage> {
         cardholderName: _cardholderNameController.text.trim(),
       );
 
-      debugPrint('***********payment sesssion start******');
-      debugPrint(const JsonEncoder.withIndent('  ').convert(response));
-      debugPrint('***********payment sesssion end******');
+      //debugPrint('***********payment sesssion start******');
+      //debugPrint(const JsonEncoder.withIndent('  ').convert(response));
+      //debugPrint('***********payment sesssion end******');
 
       // 3. Handle successful payment
       // Response format: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
@@ -1285,9 +1371,9 @@ class _PaymentPageState extends State<PaymentPage> {
         );
       }
     } on ApiException catch (e) {
-      debugPrint('***********payment sesssion start******');
-      debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
-      debugPrint('***********payment sesssion end******');
+      //debugPrint('***********payment sesssion start******');
+      //debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
+     // debugPrint('***********payment sesssion end******');
       if (mounted) setState(() => _isProcessing = false);
       Fluttertoast.showToast(msg: e.message);
     } catch (e) {
@@ -1323,103 +1409,139 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _handlePayPalPayment() async {
     if (_isProcessing) return;
 
-    if (_paypalConfig == null) {
-      Fluttertoast.showToast(msg: 'PayPal configuration not loaded.');
-      return;
-    }
+    setState(() => _isProcessing = true);
 
-    final isSandbox = _paypalConfig!['mode'] == 'sandbox';
-    final clientId = isSandbox
-        ? _paypalConfig!['sandbox_client_id']
-        : _paypalConfig!['production_client_id'];
-    final secretKey = isSandbox
-        ? _paypalConfig!['sandbox_secret_key']
-        : _paypalConfig!['production_secret_key'];
+    try {
+      // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
+      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        debugPrint('PayPal clicked: Creating order via store-order API first...');
+        final created = await _createOrderForDirectPayment();
+        if (!created) {
+          return;
+        }
+        debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
+        
+        // 2. Step C: Trigger _initializePayment after successful order creation
+        await _initializePayment();
+      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        throw Exception('Order details not found. Please try again from the My Orders screen.');
+      }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (BuildContext context) => UsePaypal(
-          sandboxMode: isSandbox,
-          clientId: clientId,
-          secretKey: secretKey,
-          returnURL: "https://www.apc.com.au/payment/success",
-          cancelURL: "https://www.apc.com.au/payment/cancel",
-          transactions: [
-            {
-              "amount": {
-                "total": _amount!.toStringAsFixed(2),
-                "currency": _currency ?? 'AUD',
-                "details": {
-                  "subtotal": _subtotalExclGst!.toStringAsFixed(2),
-                  "shipping": _shippingCost!.toStringAsFixed(2),
-                  "tax": _gstAmount!.toStringAsFixed(2),
-                  "shipping_discount": _discountAmount!.toStringAsFixed(2)
+      if (_paypalConfig == null) {
+        throw Exception('PayPal configuration not loaded.');
+      }
+
+      final isSandbox = _paypalConfig!['mode'] == 'sandbox';
+      final clientId = isSandbox
+          ? _paypalConfig!['sandbox_client_id']
+          : _paypalConfig!['production_client_id'];
+      final secretKey = isSandbox
+          ? _paypalConfig!['sandbox_secret_key']
+          : _paypalConfig!['production_secret_key'];
+
+      if (clientId == null || secretKey == null) {
+        throw Exception('PayPal keys are missing for the selected environment.');
+      }
+
+      if (mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (BuildContext context) => UsePaypal(
+              sandboxMode: isSandbox,
+              clientId: clientId,
+              secretKey: secretKey,
+              returnURL: "https://www.apc.com.au/payment/success",
+              cancelURL: "https://www.apc.com.au/payment/cancel",
+              transactions: [
+                {
+                  "amount": {
+                    "total": _amount!.toStringAsFixed(2),
+                    "currency": _currency ?? 'AUD',
+                    "details": {
+                      "subtotal": _subtotalExclGst!.toStringAsFixed(2),
+                      "shipping": _shippingCost!.toStringAsFixed(2),
+                      "tax": _gstAmount!.toStringAsFixed(2),
+                      "shipping_discount": _discountAmount!.toStringAsFixed(2)
+                    }
+                  },
+                  "description": "Order #$_orderNumber",
+                  "item_list": {
+                    "items": [
+                      {
+                        "name": "Order #$_orderNumber Payment",
+                        "quantity": 1,
+                        "price": _subtotalExclGst!.toStringAsFixed(2),
+                        "currency": _currency ?? 'AUD'
+                      }
+                    ],
+                  }
+                }
+              ],
+              note: "Contact us for any questions on your order.",
+              onSuccess: (Map params) async {
+                debugPrint('PayPal success: $params');
+                if (mounted) setState(() => _isProcessing = true);
+                try {
+                  // Final backend update
+                  await _paymentService.processPayPal(
+                    orderNumber: _orderNumber!,
+                    orderId: _orderId!,
+                    amount: _amount!,
+                    currency: _currency ?? 'AUD',
+                    paymentResult: Map<String, dynamic>.from(params),
+                  );
+
+                  await StorageService.clearCartData();
+                  await StorageService.clearPaymentCartSnapshot();
+                  await StorageService.clearOrderData();
+                  await StorageService.clearCheckoutData();
+                  
+                  if (mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/order-placed',
+                      (route) => false,
+                      arguments: {
+                        'payment_method': 'PayPal',
+                        'payment_token': params['orderID'] ?? params['paymentID'],
+                      },
+                    );
+                  }
+                } catch (e) {
+                  debugPrint('Error finalizing PayPal on backend: $e');
+                  if (mounted) {
+                    Fluttertoast.showToast(msg: 'Payment success but failed to update order.');
+                  }
+                } finally {
+                  if (mounted) setState(() => _isProcessing = false);
                 }
               },
-              "description": "Order #$_orderNumber",
-              "item_list": {
-                "items": [
-                  {
-                    "name": "Order #$_orderNumber Payment",
-                    "quantity": 1,
-                    "price": _subtotalExclGst!.toStringAsFixed(2),
-                    "currency": _currency ?? 'AUD'
-                  }
-                ],
-              }
-            }
-          ],
-          note: "Contact us for any questions on your order.",
-          onSuccess: (Map params) async {
-            Logger.info('PayPal success: $params');
-            setState(() => _isProcessing = true);
-            try {
-              // Call backend to fix order status
-              final response = await _paymentService.processPayPal(
-                orderNumber: _orderNumber!,
-                orderId: _orderId!,
-                amount: _amount!,
-                currency: _currency ?? 'AUD',
-                paymentResult: Map<String, dynamic>.from(params),
-              );
-
-              debugPrint('***********payment sesssion start******');
-              debugPrint(const JsonEncoder.withIndent('  ').convert(response));
-              debugPrint('***********payment sesssion end******');
-
-              await StorageService.clearCartData();
-              if (mounted) {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/order-placed',
-                  (route) => false,
-                  arguments: {
-                    'payment_method': 'PayPal',
-                    'payment_token': params['orderID'] ?? params['paymentID'],
-                  },
-                );
-              }
-            } catch (e) {
-              Logger.error('Error processing PayPal on backend', e);
-              if (mounted) {
-                Fluttertoast.showToast(msg: 'Payment success but failed to update order.');
-              }
-            } finally {
-              if (mounted) setState(() => _isProcessing = false);
-            }
-          },
-          onError: (error) {
-            Logger.error('PayPal error', error);
-            // Do NOT clear cart on failure - user can retry.
-            Fluttertoast.showToast(msg: 'PayPal Error: ${error.toString()}');
-          },
-          onCancel: (params) {
-            Logger.info('PayPal cancelled: $params');
-            Fluttertoast.showToast(msg: 'PayPal payment cancelled.');
-          },
-        ),
-      ),
-    );
+              onError: (error) {
+                debugPrint('PayPal onError: $error');
+                Fluttertoast.showToast(msg: "PayPal Error: ${error.toString()}");
+              },
+              onCancel: (params) {
+                debugPrint('PayPal onCancel: $params');
+                Fluttertoast.showToast(msg: "PayPal payment cancelled.");
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('PayPal Error: $e');
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: e.toString().replaceAll('Exception: ', ''),
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1438,18 +1560,14 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    if (_isProcessing) return;
-    setState(() => _isProcessing = true);
+    if (_isProcessing || _isUpdatingCoupon) return;
+    setState(() {
+      _isProcessing = true;
+      _isUpdatingCoupon = true;
+    });
 
     try {
-      debugPrint('╔════════════════════════════════════════════════════════════╗');
-      debugPrint('║          VALUE BEFORE APPLY COUPON                         ║');
-      debugPrint('╠════════════════════════════════════════════════════════════╣');
-      debugPrint('║ Total Amount: $_amount');
-      debugPrint('║ Coupon Code: $_couponCode');
-      debugPrint('║ Coupon Applied: $_isCouponApplied');
-      debugPrint('╚════════════════════════════════════════════════════════════╝');
-
+    
       final cartContainer = await _getPaymentCartContainer();
       final cartForCoupon = cartContainer?['cart'] as Map<String, dynamic>?;
 
@@ -1475,10 +1593,6 @@ class _PaymentPageState extends State<PaymentPage> {
         return;
       }
 
-      // Calculate breakdown using helper
-      final breakdown = await _calculateBreakdownFromResponse(response, cartContainer);
-      _applyBreakdownToState(breakdown, breakdown.amount);
-
       // Extract and apply coupon details
       final couponDetails = _extractCouponDetails(response);
       if (mounted) {
@@ -1490,25 +1604,13 @@ class _PaymentPageState extends State<PaymentPage> {
         });
       }
 
-      // Update payment intent
-      try {
-        if (_orderNumber != null) {
-          await _paymentService.createPaymentIntent(
-            orderNumber: _orderNumber!,
-            amount: _amount ?? 0.0,
-            currency: _currency ?? 'AUD',
-          );
-        }
-      } catch (_) {}
+      // Refresh pricing from central API
+      if (_postcode != null && _oldCart != null) {
+        await _refreshPricing(postcode: _postcode!, oldCart: _oldCart!);
+      }
 
-      debugPrint('╔════════════════════════════════════════════════════════════╗');
-      debugPrint('║          VALUE AFTER APPLY COUPON                          ║');
-      debugPrint('╠════════════════════════════════════════════════════════════╣');
-      debugPrint('║ Total Amount: $_amount');
-      debugPrint('║ Coupon Code: $_couponCode');
-      debugPrint('║ Coupon Applied: $_isCouponApplied');
-      debugPrint('╚════════════════════════════════════════════════════════════╝');
 
+      
       final successMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
           ? response['message'].toString().trim()
           : 'Promo code applied';
@@ -1517,30 +1619,47 @@ class _PaymentPageState extends State<PaymentPage> {
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
+    } on ApiException catch (e) {
+      // Removed redundant logs as they are handled by ApiClient
+
+      Fluttertoast.showToast(
+        msg: e.message,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
     } catch (e) {
+      debugPrint('Unexpected error applying promo code: $e');
       Fluttertoast.showToast(
         msg: 'Failed to apply promo code.',
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _isUpdatingCoupon = false;
+        });
+      }
     }
   }
 
   Future<void> _fetchAvailableCoupons({VoidCallback? onUpdate}) async {
     if (_isLoadingCoupons) return;
-    if (_availableCoupons.isNotEmpty) return;
+    if (_hasAttemptedCouponFetch) return;
 
     if (mounted) setState(() => _isLoadingCoupons = true);
     if (onUpdate != null) onUpdate();
 
     try {
-      final coupons = await _cartService.getAvailableCoupons();
+      final cartSnap = await _getPaymentCartContainer();
+      final oldCart = cartSnap?['cart'] as Map<String, dynamic>? ?? {};
+      final coupons = await _cartService.getAvailableCoupons(oldCart);
       if (mounted) {
         setState(() {
           _availableCoupons = coupons;
           _isLoadingCoupons = false;
+          _hasAttemptedCouponFetch = true;
         });
       }
       if (onUpdate != null) onUpdate();
@@ -1658,19 +1777,15 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _removeCoupon() async {
-    if (_isProcessing) return;
+    if (_isProcessing || _isUpdatingCoupon) return;
 
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _isUpdatingCoupon = true;
+    });
 
     try {
-      debugPrint('╔════════════════════════════════════════════════════════════╗');
-      debugPrint('║          VALUE BEFORE REMOVE COUPON                        ║');
-      debugPrint('╠════════════════════════════════════════════════════════════╣');
-      debugPrint('║ Total Amount: $_amount');
-      debugPrint('║ Coupon Code: $_couponCode');
-      debugPrint('║ Coupon Applied: $_isCouponApplied');
-      debugPrint('╚════════════════════════════════════════════════════════════╝');
-
+     
       final cartContainer = await _getPaymentCartContainer();
       final oldCart = cartContainer?['cart'] as Map<String, dynamic>?;
 
@@ -1688,13 +1803,6 @@ class _PaymentPageState extends State<PaymentPage> {
         sanitizedResponse['discount'] = 0;
         sanitizedResponse['coupon_discount'] = 0;
 
-        // Calculate breakdown using helper
-        final breakdown = await _calculateBreakdownFromResponse(
-          sanitizedResponse,
-          cartContainer,
-        );
-        _applyBreakdownToState(breakdown, breakdown.amount);
-
         // Clear UI coupon state
         if (mounted) {
           setState(() {
@@ -1706,26 +1814,13 @@ class _PaymentPageState extends State<PaymentPage> {
           });
         }
 
-        // Update payment intent
-        try {
-          if (_orderNumber != null) {
-            await _paymentService.createPaymentIntent(
-              orderNumber: _orderNumber!,
-              amount: _amount ?? 0.0,
-              currency: _currency ?? 'AUD',
-            );
-          }
-        } catch (_) {}
+        // Refresh pricing from central API
+        if (_postcode != null && _oldCart != null) {
+          await _refreshPricing(postcode: _postcode!, oldCart: _oldCart!);
+        }
 
-        debugPrint('╔════════════════════════════════════════════════════════════╗');
-        debugPrint('║          VALUE AFTER REMOVE COUPON                         ║');
-        debugPrint('╠════════════════════════════════════════════════════════════╣');
-        debugPrint('║ Total Amount: $_amount');
-        debugPrint('║ Coupon Code: $_couponCode');
-        debugPrint('║ Coupon Applied: $_isCouponApplied');
-        debugPrint('╚════════════════════════════════════════════════════════════╝');
 
-        final removedMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
+         final removedMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
             ? response['message'].toString().trim()
             : 'Promo code removed';
         Fluttertoast.showToast(
@@ -1747,7 +1842,12 @@ class _PaymentPageState extends State<PaymentPage> {
         textColor: Colors.white,
       );
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _isUpdatingCoupon = false;
+        });
+      }
     }
   }
 
@@ -1755,19 +1855,38 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _handleCompleteOrder() async {
     if (_isProcessing) return;
 
-    // Log current order data for verification
-    final order = _orderData?['order'] as Map?;
-    final apiPrice = order?['pay_amount'] ?? order?['total'];
-    debugPrint('###############Start COMPLETE ORDER####################');
-    debugPrint('API ORDER PRICE: $apiPrice');
-    debugPrint('UI TOTAL PAYABLE: $_amount');
-    debugPrint('###############End COMPLETE ORDER#######################');
-
     setState(() => _isProcessing = true);
 
     try {
+      // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
+      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        debugPrint('Complete Order clicked: Creating order via store-order API first...');
+        final created = await _createOrderForDirectPayment();
+        if (!created) {
+          return;
+        }
+        debugPrint('Order created successfully: $_orderNumber. Initializing details...');
+        
+        // 2. Step C: Trigger _initializePayment after successful order creation
+        await _initializePayment();
+      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+        throw Exception('Order details not found. Please try again from the My Orders screen.');
+      }
+
+      // Log current order data for verification
+      final order = _orderData?['order'] as Map?;
+      final apiPrice = order?['pay_amount'] ?? order?['total'];
+      debugPrint('###############Start COMPLETE ORDER####################');
+      debugPrint('API ORDER PRICE: $apiPrice');
+      debugPrint('UI TOTAL PAYABLE: $_amount');
+      debugPrint('###############End COMPLETE ORDER#######################');
+
       // Since it's Pay Later, we bypass payment gateways
       await StorageService.clearCartData();
+      await StorageService.clearPaymentCartSnapshot();
+      await StorageService.clearOrderData();
+      await StorageService.clearCheckoutData();
+
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -1777,6 +1896,7 @@ class _PaymentPageState extends State<PaymentPage> {
         );
       }
     } catch (e) {
+      debugPrint('Complete Order Error: $e');
       if (mounted) {
         Fluttertoast.showToast(msg: 'Failed to complete order.');
       }
@@ -1796,94 +1916,6 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
-  /// Calculate shipping breakdown from response data with freight rules
-  Future<_ShippingBreakdown> _calculateBreakdownFromResponse(
-    Map<String, dynamic> response,
-    Map<String, dynamic>? cartResponse,
-  ) async {
-    final shippingCost = _extractShippingCostFromResponse(response);
-    final orderType = _resolveOrderType(
-      data: response,
-      cartResponse: cartResponse,
-    );
-
-    final effectiveShowRequestFreightCost =
-        response['show_request_freight_cost'] ??
-        _extractFreightCostFlagFromCartItems(response);
-    final effectiveShowFreeShippingIcon =
-        response['show_free_shipping_icon'] ??
-        _extractFreeShippingIconFromCartItems(response);
-
-    final freightRule = _resolveFreightRule(
-      rawShippingCost: shippingCost,
-      orderType: orderType,
-      showRequestFreightCost: effectiveShowRequestFreightCost,
-      showFreeShippingIcon: effectiveShowFreeShippingIcon,
-    );
-
-    final gst = _toDouble(response['tax']) ?? 0.0;
-    final totalWithGstFromResponse = _toDouble(response['total_with_gst']) ?? 0.0;
-    final discountFromResponse = _toDouble(response['discount']) ?? 0.0;
-
-    double subtotal = totalWithGstFromResponse - freightRule.shippingCost - gst;
-    if (subtotal <= 0) {
-      subtotal = _subtotalFromCartResponse(response);
-    }
-
-    final totalWithGst = totalWithGstFromResponse > 0
-        ? totalWithGstFromResponse
-        : (subtotal + freightRule.shippingCost + gst);
-
-    return _ShippingBreakdown(
-      subtotalExclGst: subtotal,
-      shippingCost: freightRule.shippingCost,
-      gstAmount: gst,
-      discountAmount: discountFromResponse,
-      amount: totalWithGst,
-      specialDiscount: 0.0,
-      hasPendingFreightQuote: freightRule.hasPendingFreightQuote,
-      isPayLater: false,
-      showFreeShippingLabel: freightRule.showFreeShippingLabel,
-    );
-  }
-
-  /// Helper to extract and format special discount from order data
-  double _extractSpecialDiscount(
-    String orderSource,
-    Map<String, dynamic>? order,
-    Map<String, dynamic>? orderData,
-  ) {
-    if (orderSource != 'mobile') return 0.0;
-
-    final dynamic rawDisc =
-        orderData?['special_discount'] ?? order?['special_discount'];
-    if (rawDisc == null) return 0.0;
-
-    final String cleanPrice = rawDisc
-        .toString()
-        .replaceAll(',', '')
-        .replaceAll('\$', '')
-        .trim();
-    return double.tryParse(cleanPrice) ?? 0.0;
-  }
-
-  /// Apply breakdown values to state and update UI
-  void _applyBreakdownToState(
-    _ShippingBreakdown breakdown,
-    double? overrideAmount,
-  ) {
-    if (mounted) {
-      setState(() {
-        _shippingCost = breakdown.shippingCost;
-        _gstAmount = breakdown.gstAmount;
-        _amount = overrideAmount ?? breakdown.amount;
-        _subtotalExclGst = breakdown.subtotalExclGst;
-        _discountAmount = breakdown.discountAmount;
-        _hasPendingFreightQuote = breakdown.hasPendingFreightQuote;
-        _showFreeShippingLabel = breakdown.showFreeShippingLabel;
-      });
-    }
-  }
 
   /// Extract coupon details from API response
   Map<String, dynamic> _extractCouponDetails(Map<String, dynamic> response) {
@@ -1924,7 +1956,7 @@ class _PaymentPageState extends State<PaymentPage> {
   // ─────────────────────────────────────────────────────────────────────────
 
   bool get _canShowPaymentOptionsByStatus =>
-      _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
+      _orderData == null || _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
 
   bool get _canShowAlternativePaymentMethods =>
       _manualOrderByAdmin == 0 && _isTradeUser == 0;
@@ -1952,15 +1984,33 @@ class _PaymentPageState extends State<PaymentPage> {
     final bool isPayLaterFlow = widget.arguments?['is_pay_later'] == true;
     final bool fromMyOrdersPayment =
         widget.arguments?['from_my_orders_payment'] == true;
-    // Back from My Orders payment → Profile (avoid popping to Order Details)
-    // EXCEPT for Pay Later flow where we explicitly want to go back to Order Details.
+    final bool isDirectCheckout = !fromMyOrdersPayment;
+
+    // REDIRECTION LOGIC:
+    // 1. Normal Flow (Direct Checkout):
+    //    - If order NOT processed: Standard pop (back to Shipping/Address).
+    //    - If order PROCESSED: Redirect to Home (Tab 0) + Reset Stack.
+    final bool shouldRedirectToHome = !fromMyOrdersPayment && _orderId != null;
+
+    // 2. Pay Later Flow / From My Orders:
+    //    - If it's a standard 'From My Orders' payment (but NOT the specific Pay Later flow),
+    //      redirect back to Profile Tab 5 to avoid landing back on the Order Details sub-page.
     final bool useProfileBack = fromMyOrdersPayment && !isPayLaterFlow;
+
     final effectivePaymentMethod = _effectiveSelectedPaymentMethod;
     return PopScope(
-      canPop: !useProfileBack,
+      canPop: false, // Force all pops through onPopInvokedWithResult for safety
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && useProfileBack) {
+        if (didPop) return;
+        
+        if (useProfileBack) {
           _navigateToProfile();
+        } else if (shouldRedirectToHome) {
+          debugPrint('BACK_DEBUG: Order processed. Redirecting to Home.');
+          Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false, arguments: {'tabIndex': 0});
+        } else {
+          // Standard pop (back to Address/Shipping or previous screen)
+          Navigator.of(context).pop();
         }
       },
       child: Scaffold(
@@ -1969,12 +2019,20 @@ class _PaymentPageState extends State<PaymentPage> {
           backgroundColor: const Color(0xFFF8F8F8),
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.black),
-          leading: useProfileBack
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: _navigateToProfile,
-                )
-              : null,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              debugPrint('BACK_DEBUG: AppBar leading pressed');
+              if (useProfileBack) {
+                _navigateToProfile();
+              } else if (shouldRedirectToHome) {
+                debugPrint('BACK_DEBUG: AppBar Redirecting to Home (Order Processed)');
+                Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false, arguments: {'tabIndex': 0});
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
           title: Text(
             'Payment',
             style: const TextStyle(
@@ -2016,38 +2074,86 @@ class _PaymentPageState extends State<PaymentPage> {
                 )
               : null,
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      _buildOrderSummaryCard(),
-                      const SizedBox(height: 24),
-
-                      if (_isPayLater) ...[
-                        _buildSubmitButton(),
-                      ] else if (_canShowPaymentOptionsByStatus) ...[
-                        _buildPaymentMethodSection(),
-                        const SizedBox(height: 24),
-
-                        if (effectivePaymentMethod == 'Credit Card') ...[
-                          const SizedBox(height: 12),
-                          _buildCardInputFields(),
-                          const SizedBox(height: 12),
-                          _buildSubmitButton(),
-                        ] else if (effectivePaymentMethod == 'PayPal') ...[
-                          _buildPayPalButton(),
-                        ] else if (effectivePaymentMethod == 'Google Pay') ...[
-                          _buildGooglePayButton(),
-                        ] else if (effectivePaymentMethod.isNotEmpty) ...[
-                          _buildSubmitButton(),
-                        ],
+        body: Stack(
+          children: [
+            _isLoading
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Securing your order...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Preparing payment details',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
                       ],
-                    ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          _buildOrderSummaryCard(),
+                          const SizedBox(height: 24),
+
+                          if (!_isPayLater && _canShowPaymentOptionsByStatus) ...[
+                            _buildPaymentMethodSection(),
+                            const SizedBox(height: 24),
+
+                            if (effectivePaymentMethod == 'Credit Card') ...[
+                              const SizedBox(height: 12),
+                              _buildCardInputFields(),
+                              const SizedBox(height: 24),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
+            if (_isUpdatingCoupon)
+              Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        bottomNavigationBar: _isLoading
+            ? null
+            : SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: _isPayLater
+                      ? _buildSubmitButton()
+                      : (_canShowPaymentOptionsByStatus
+                          ? (effectivePaymentMethod == 'PayPal'
+                              ? _buildPayPalButton()
+                              : (effectivePaymentMethod == 'Google Pay'
+                                  ? _buildGooglePayButton()
+                                  : (effectivePaymentMethod.isNotEmpty
+                                      ? _buildSubmitButton()
+                                      : const SizedBox.shrink())))
+                          : const SizedBox.shrink()),
                 ),
               ),
       ),
@@ -2250,80 +2356,69 @@ class _PaymentPageState extends State<PaymentPage> {
 
             // Item Total
             _summaryRow(
-              'Total Of Items (excl. GST)',
+              'Total Item Amount(Excl GST)',
               formatPrice(_subtotalExclGst),
             ),
-            if (hasAppliedCoupon) ...[
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _couponOfferSubtitle != null && _couponOfferSubtitle!.isNotEmpty
-                        ? '$_couponCode $_couponOfferSubtitle'
-                        : '$_couponCode',
-                    style: TextStyle(
-                      color: Colors.green[700],
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (_couponDiscount > 0)
-                    Text(
-                      '-${formatPrice(_couponDiscount)}',
-                      style: TextStyle(
-                        color: Colors.green[700],
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-            // Special Discount (Red) - Mobile Only
-            if (_orderSource == 'mobile' && (_specialDiscount ?? 0) > 0) ...[
-              _summaryRow(
-                'Special Discount',
-                '-$currencySign${_specialDiscount!.toStringAsFixed(2)}',
-                valueColor: Colors.red,
-                labelColor: Colors.red,
-              ),
-              const SizedBox(height: 8),
-            ],
-
-            // Shipping Cost (Red)
+            // Shipping Cost
             _summaryRow(
-              '*Shipping Cost (excl. GST)',
+              'Shipping cost(Excl GST)',
               formatPrice(_shippingCost),
               valueColor: const Color(0xFFF44336),
               labelColor: const Color(0xFFF44336),
             ),
+            if (_hasPendingFreightQuote) ...[
+              const SizedBox(height: 4),
+              const Padding(
+                padding: EdgeInsets.only(left: 0),
+                child: Text(
+                  'Pending freight cost',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+            if (!_hasPendingFreightQuote && _showFreeShippingLabel) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Eligible for free delivery',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             const Divider(height: 1, thickness: 0.8),
             const SizedBox(height: 12),
-
-            // Total without GST
-            _summaryRow(
-              'Total without GST',
-              formatPrice(
-                (_subtotalExclGst ?? 0.0) +
-                    (_shippingCost ?? 0.0) -
-                    (_specialDiscount ?? 0.0),
-              ),
-            ),
-            const SizedBox(height: 8),
 
             // GST Row
             _summaryRow('GST', formatPrice(_gstAmount)),
             const SizedBox(height: 12),
+
+            // Discount Row - ONLY visible if discount > 0
+            if (_discountAmount != null && _discountAmount! > 0) ...[
+              _summaryRow(
+                'Discount',
+                '-${formatPrice(_discountAmount)}',
+                valueColor: Colors.red[700],
+                labelColor: Colors.red[700],
+              ),
+              const SizedBox(height: 12),
+            ],
+
             const Divider(height: 1, thickness: 0.8),
             const SizedBox(height: 12),
 
-            // Total (incl. GST)
+
+            // Total(incl GST)
             _summaryRow(
-              'Total (incl. GST)',
+              'Total(Incl GST)',
               formatPrice(total),
               isBoldLabel: true,
             ),
@@ -2380,10 +2475,24 @@ class _PaymentPageState extends State<PaymentPage> {
                     minimumSize: const Size(90, 44),
                     elevation: 0,
                   ),
-                  child: Text(
-                    hasAppliedCoupon ? 'Remove' : 'Apply',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
+                  child: _isUpdatingCoupon
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          hasAppliedCoupon ? 'Remove' : 'Apply',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -2446,7 +2555,7 @@ class _PaymentPageState extends State<PaymentPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  '*Total Payable Amount :',
+                  'Payable Amount',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -2527,8 +2636,9 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
+    return Container(
+      height: 60,
+      alignment: Alignment.center,
       child: ElevatedButton(
         onPressed: _isProcessing
             ? null
@@ -2536,41 +2646,67 @@ class _PaymentPageState extends State<PaymentPage> {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
+          shape: const StadiumBorder(),
+          elevation: 2,
         ),
         child: _isProcessing
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Text(
-                _isPayLater ? 'COMPLETE ORDER' : 'PAY NOW',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Text(
+                'PAY NOW',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
               ),
       ),
     );
   }
 
   Widget _buildPayPalButton() {
-    return SizedBox(
-      width: double.infinity,
+    return Container(
+      height: 60,
+      alignment: Alignment.center,
       child: ElevatedButton(
         onPressed: _isProcessing ? null : _handlePayPalPayment,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
+          shape: const StadiumBorder(),
+          elevation: 2,
         ),
         child: _isProcessing
-            ? const CircularProgressIndicator(color: Colors.white)
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
             : const Text(
                 'PAY NOW',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
               ),
       ),
     );
   }
 
   Widget _buildGooglePayButton() {
-    return SizedBox(
-      width: double.infinity,
+    return Container(
+      height: 60,
+      alignment: Alignment.center,
       child: ElevatedButton(
         onPressed: (_isProcessing || _isPaymentProcessing)
             ? null
@@ -2578,13 +2714,25 @@ class _PaymentPageState extends State<PaymentPage> {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
+          shape: const StadiumBorder(),
+          elevation: 2,
         ),
         child: _isProcessing
-            ? const CircularProgressIndicator(color: Colors.white)
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
             : const Text(
                 'PAY NOW',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
               ),
       ),
     );
