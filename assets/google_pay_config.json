@@ -8,8 +8,17 @@
       {
         "type": "CARD",
         "parameters": {
-          "allowedAuthMethods": ["PAN_ONLY", "CRYPTOGRAM_3DS"],
-          "allowedCardNetworks": ["AMEX", "DISCOVER", "JCB", "MASTERCARD", "VISA"]
+          "allowedAuthMethods": [
+            "PAN_ONLY",
+            "CRYPTOGRAM_3DS"
+          ],
+          "allowedCardNetworks": [
+            "AMEX",
+            "DISCOVER",
+            "JCB",
+            "MASTERCARD",
+            "VISA"
+          ]
         },
         "tokenizationSpecification": {
           "type": "PAYMENT_GATEWAY",
@@ -26,7 +35,6 @@
     },
     "transactionInfo": {
       "totalPriceStatus": "FINAL",
-      "totalPrice": "0.00",
       "currencyCode": "AUD",
       "countryCode": "AU"
     }

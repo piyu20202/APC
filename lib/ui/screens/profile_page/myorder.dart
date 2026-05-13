@@ -57,6 +57,13 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
           };
         }).toList();
 
+        // Sort orders by order_number descending (latest first)
+        mappedOrders.sort((a, b) {
+          final aNum = a['rawData']['order_number']?.toString() ?? '';
+          final bNum = b['rawData']['order_number']?.toString() ?? '';
+          return bNum.compareTo(aNum);
+        });
+
         setState(() {
           _allOrders = mappedOrders;
           _filteredOrders = List.from(mappedOrders); // Initialize filtered list

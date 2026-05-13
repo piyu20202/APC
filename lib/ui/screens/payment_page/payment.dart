@@ -18,6 +18,8 @@ import 'package:flutter_paypal/flutter_paypal.dart';
 import 'package:apcproject/data/services/payment_config_service.dart';
 import 'package:apcproject/data/models/payment_config_model.dart';
 import 'package:apcproject/core/exceptions/api_exception.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:apcproject/ui/screens/payment_page/payment_failure.dart';
 
 class _ShippingBreakdown {
   const _ShippingBreakdown({
@@ -160,6 +162,9 @@ class _PaymentPageState extends State<PaymentPage> {
         _shippingCost = _toDouble(args['summary_shipping']) ?? 0.0;
         _discountAmount = _toDouble(args['summary_discount']) ?? 0.0;
         _subtotalExclGst = _toDouble(args['summary_subtotal']) ?? 0.0;
+        
+        // Initialize _isPayLater from flow indicator
+        _isPayLater = isMyOrdersFlow;
         
         final argMethod = args['payment_method']?.toString();
         if (_selectedPaymentMethod.isEmpty && argMethod != null && argMethod.isNotEmpty) {
@@ -328,14 +333,11 @@ class _PaymentPageState extends State<PaymentPage> {
           onError: (error) {
             debugPrint('Google Pay result error: $error');
             if (mounted) {
-              // Do NOT clear cart on failure - user can retry.
-              setState(() => _isProcessing = false);
-              Fluttertoast.showToast(
-                msg: 'Google Pay failed. Please try again.',
-                toastLength: Toast.LENGTH_LONG,
-                backgroundColor: Colors.red,
-                textColor: Colors.white,
-              );
+              setState(() {
+                _isProcessing = false;
+                _isWaitingForPaymentResult = false;
+              });
+              _navigateToPaymentFailure();
             }
           },
         );
@@ -385,31 +387,19 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       // FINAL CLEANUP: Clear everything on success
-      await StorageService.clearCartData();
-      await StorageService.clearPaymentCartSnapshot();
-      await StorageService.clearOrderData();
-      await StorageService.clearCheckoutData();
-
       _paymentResultSubscription?.cancel();
       _paymentResultSubscription = null;
 
+      if (!_isPayLater) {
+        await StorageService.clearCartData();
+        await StorageService.clearPaymentCartSnapshot();
+      }
+      await StorageService.clearOrderData();
+      await StorageService.clearCheckoutData();
+
       if (mounted) {
-        Fluttertoast.showToast(
-          msg: 'Payment successful!',
-          toastLength: Toast.LENGTH_LONG,
-          backgroundColor: Colors.green,
-          textColor: Colors.white,
-        );
         _hasNavigatedAway = true;
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/order-placed',
-          (route) => false,
-          arguments: {
-            'payment_token': paymentToken,
-            'payment_method': 'Google Pay',
-          },
-        );
+        _navigateToOrderSuccess(response, 'Google Pay');
       }
     } catch (e) {
       debugPrint('Google Pay error: $e');
@@ -417,12 +407,7 @@ class _PaymentPageState extends State<PaymentPage> {
       _isWaitingForPaymentResult = false;
       // Do NOT clear cart on failure - user can retry.
       if (mounted) {
-        Fluttertoast.showToast(
-          msg: 'Something went wrong. Please try again.',
-          toastLength: Toast.LENGTH_LONG,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-        );
+        _navigateToPaymentFailure();
       }
     } finally {
       if (mounted) {
@@ -453,12 +438,25 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
-      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+      if (!_isPayLater && !_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         debugPrint('Google Pay clicked: Creating order via store-order API first...');
-        final created = await _createOrderForDirectPayment();
-        if (!created) {
+        final response = await _createOrderForDirectPayment();
+        if (response == null) {
+          if (mounted) {
+            setState(() {
+              _isProcessing = false;
+              _isWaitingForPaymentResult = false;
+            });
+          }
           return;
         }
+
+        // CONDITIONAL FLOW: check process_payment
+        if (response['process_payment'] == 0 && response['show_order_success'] == 1) {
+          _navigateToOrderSuccess(response, 'Google Pay');
+          return;
+        }
+
         debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
         
         // 2. Step C: Trigger _initializePayment after successful order creation
@@ -466,6 +464,10 @@ class _PaymentPageState extends State<PaymentPage> {
       } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         throw Exception('Order details not found. Please try again from the My Orders screen.');
       }
+
+      // Re-initialize Google Pay configuration with the LATEST amount to ensure
+      // the gateway total matches the UI total (especially if coupons were applied).
+      await _initializeGooglePay();
 
       final paymentItems = [
         PaymentItem(
@@ -851,11 +853,37 @@ class _PaymentPageState extends State<PaymentPage> {
     required dynamic oldCart,
   }) async {
     try {
-      final shippingPayload = {
-        'postcode': postcode,
-        'old_cart': oldCart,
-        'code': _couponCode ?? "",
-      };
+      final bool isMyOrders = _isFromMyOrdersPayment;
+      final Map<String, dynamic> shippingPayload;
+
+      if (isMyOrders) {
+        // 1. PayLater Case (My Orders Payment Flow)
+        shippingPayload = {
+          'order_id': _orderId.toString(), // Pass as String to match Postman
+          'postcode': "",
+          'code': "",
+          'shipping_type_method': "",
+          'old_cart': "",
+        };
+        debugPrint('REFRESH_PRICING: PayLater Case Payload: ${jsonEncode(shippingPayload)}');
+      } else {
+        // 2. Normal Flow Case (Standard Checkout)
+        final checkoutData = await StorageService.getCheckoutData();
+        final shippingMethod =
+            checkoutData?['shipping_method'] as String? ?? 'Ship to Address';
+        final shippingTypeMethod =
+            shippingMethod == 'Pickup' ? 'pickup' : 'shipto';
+
+        shippingPayload = {
+          'order_id': "", // Empty or null for normal flow
+          'postcode': postcode,
+          'old_cart': oldCart,
+          'code': _couponCode ?? "",
+          'shipping_type_method': shippingTypeMethod,
+        };
+        debugPrint('REFRESH_PRICING: Normal Flow Payload: ${jsonEncode(shippingPayload)}');
+      }
+
       final shippingResponse =
           await _cartService.calculateShipping(shippingPayload);
 
@@ -871,8 +899,14 @@ class _PaymentPageState extends State<PaymentPage> {
 
           final shippingTotalWithGst =
               _toDouble(shippingResponse['total_with_gst']);
+          
+          // If API returns 0.00 for total_with_gst (seen in some paylater cases), 
+          // calculate it: subtotal + tax + shipping - discount
           if (shippingTotalWithGst != null && shippingTotalWithGst > 0) {
             _amount = shippingTotalWithGst;
+          } else {
+            _amount = _subtotalExclGst! + _gstAmount! + _shippingCost! - _discountAmount!;
+            debugPrint('REFRESH_PRICING: total_with_gst was 0 or null, calculated local total: $_amount');
           }
 
           // Only use freight rule to determine UI flag state (pending quote / free label),
@@ -886,6 +920,11 @@ class _PaymentPageState extends State<PaymentPage> {
           );
           _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
           _showFreeShippingLabel = freightRule.showFreeShippingLabel;
+          
+          // Set _isPayLater based on the API response flag
+          _isPayLater = shippingResponse['paylater']?.toString() == '1';
+          debugPrint('REFRESH_PRICING: _isPayLater set to $_isPayLater (raw: ${shippingResponse['paylater']})');
+          
           // NOTE: We intentionally do NOT use freightRule.shippingCost here
           // because _shippingCost is already set from the API response above.
         });
@@ -952,7 +991,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
       // Retrieve trade user status from StorageService
       final UserModel? currentUser = await StorageService.getUserData();
-      _isTradeUser = currentUser?.isTradeUser ?? 0;
+      final int tradeUserFlag = currentUser?.isTradeUser ?? 0;
 
      
 
@@ -1021,15 +1060,20 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       // When user comes from My Orders → Pay Now, we usually show payment UI.
-      // BUT Pay Later UI mode is controlled ONLY by `is_pay_later` argument.
+      // BUT Pay Later UI mode is controlled by both argument AND API flag.
       final bool argIsPayLater = widget.arguments?['is_pay_later'] == true;
       final bool isCheckoutFreightPayment =
           widget.arguments?['checkout_freight_payment'] == true;
-      _isPayLater = argIsPayLater && !isCheckoutFreightPayment;
+      
+      // If already true from API (_refreshPricing), keep it. Otherwise check arguments.
+      if (!_isPayLater) {
+        _isPayLater = argIsPayLater && !isCheckoutFreightPayment;
+      }
 
       setState(() {
         _orderNumber = orderNumber;
         _orderId = orderId;
+        _isTradeUser = tradeUserFlag;
         _currency = 'AUD';
 
         // ONLY set these from local variables if they haven't been set by _refreshPricing already
@@ -1115,10 +1159,6 @@ class _PaymentPageState extends State<PaymentPage> {
                 _couponCode != null && _couponCode!.isNotEmpty;
           });
         }
-        
-        // We no longer clear anything here.
-        // Main cart was cleared in _createOrderForDirectPayment.
-        // Snapshot will be cleared in SUCCESS handlers.
       }
 
     } catch (e) {
@@ -1127,24 +1167,31 @@ class _PaymentPageState extends State<PaymentPage> {
     }
   }
 
-  Future<bool> _createOrderForDirectPayment() async {
+  Future<Map<String, dynamic>?> _createOrderForDirectPayment() async {
+    // Guard: If an order has already been created for this session, reuse it.
+    // This prevents duplicate orders if the user switches payment methods after a failure.
+    if (_orderId != null && _orderNumber != null) {
+      debugPrint('Order already exists: $_orderNumber (ID: $_orderId). Skipping creation.');
+      return _orderData;
+    }
+
     try {
       final userData = await StorageService.getUserData();
       if (userData == null) {
         Fluttertoast.showToast(msg: 'Please login to continue');
-        return false;
+        return null;
       }
 
       final cartResponse = await _getPaymentCartContainer();
       if (cartResponse == null || cartResponse['cart'] == null) {
         Fluttertoast.showToast(msg: 'Cart is empty');
-        return false;
+        return null;
       }
 
       final checkoutData = await StorageService.getCheckoutData();
       if (checkoutData == null) {
         Fluttertoast.showToast(msg: 'Please complete checkout form');
-        return false;
+        return null;
       }
 
       final payload = _buildOrderPayload(
@@ -1161,7 +1208,7 @@ class _PaymentPageState extends State<PaymentPage> {
       final orderNumber = order?['order_number'] as String?;
       if (orderNumber == null || orderNumber.isEmpty) {
         Fluttertoast.showToast(msg: 'Failed to place order. Please try again.');
-        return false;
+        return null;
       }
 
       await StorageService.saveOrderData(response);
@@ -1181,17 +1228,18 @@ class _PaymentPageState extends State<PaymentPage> {
         });
       }
 
-      // DEFERRED: We no longer clear the main cart data here. 
-      // The cart should ONLY be cleared when the payment is actually SUCCESSFUL 
-      // in the final gateway handlers (Google Pay, PayPal, etc.).
+      // Clear the main cart data now that the order is successfully placed on the server.
+      // This prevents the items from remaining in the cart if the user navigates back
+      // after a payment failure, which would lead to duplicate orders.
+      await StorageService.clearCartData();
       
-      return true;
+      return response;
     } on ApiException catch (_) {
-      return false;
+      return null;
     } catch (e) {
       debugPrint('Error creating order for direct payment: $e');
       Fluttertoast.showToast(msg: 'Failed to place order. Please try again.');
-      return false;
+      return null;
     }
   }
 
@@ -1272,6 +1320,36 @@ class _PaymentPageState extends State<PaymentPage> {
     };
   }
 
+  void _navigateToOrderSuccess(Map<String, dynamic> response, String method) {
+    if (!mounted) return;
+
+    Fluttertoast.showToast(
+      msg: 'Order placed successfully!',
+      backgroundColor: Colors.green,
+      textColor: Colors.white,
+    );
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/order-placed',
+      (route) => false,
+      arguments: {
+        'payment_token': response['transaction_id'] ??
+            response['order']?['order_number'] ??
+            _orderNumber,
+        'payment_method': method,
+      },
+    );
+  }
+
+  void _navigateToPaymentFailure() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (context) => PaymentFailureScreen(isPayLater: _isPayLater)),
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // PAYMENT PROCESSING
   // Handles direct card, PayPal, Google Pay, and Pay Later flows
@@ -1292,16 +1370,21 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
-      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+      if (!_isPayLater && !_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         debugPrint('Payment clicked: Creating order via store-order API first...');
-        final created = await _createOrderForDirectPayment();
-        if (!created) {
-          // Toast already shown in _createOrderForDirectPayment
+        final response = await _createOrderForDirectPayment();
+        if (response == null) {
+          if (mounted) setState(() => _isProcessing = false);
           return;
         }
+
+        // CONDITIONAL FLOW: check process_payment
+        if (response['process_payment'] == 0 && response['show_order_success'] == 1) {
+          _navigateToOrderSuccess(response, 'Credit Card');
+          return;
+        }
+
         debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
-        
-        // 2. Step C: Trigger _initializePayment after successful order creation
         await _initializePayment();
       } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         throw Exception('Order details not found. Please try again from the My Orders screen.');
@@ -1341,28 +1424,16 @@ class _PaymentPageState extends State<PaymentPage> {
           response['payment_status'] == 'completed' ||
           response['order_status'] == 'paid' ||
           response['success'] == true) {
-        // Clear cart as payment was successful
-        await StorageService.clearCartData();
+        // Clear cart as payment was successful (Normal Flow only)
+        if (!_isPayLater) {
+          await StorageService.clearCartData();
+          await StorageService.clearPaymentCartSnapshot();
+        }
+        await StorageService.clearOrderData();
+        await StorageService.clearCheckoutData();
 
         if (mounted) {
-          Fluttertoast.showToast(
-            msg: 'Payment successful!',
-            backgroundColor: Colors.green,
-            textColor: Colors.white,
-          );
-
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/order-placed',
-            (route) => false,
-            arguments: {
-              'payment_token':
-                  response['transaction_id'] ??
-                  response['order']?['order_number'] ??
-                  _orderNumber,
-              'payment_method': 'Credit Card',
-            },
-          );
+          _navigateToOrderSuccess(response, 'Credit Card');
         }
       } else {
         throw Exception(
@@ -1374,6 +1445,7 @@ class _PaymentPageState extends State<PaymentPage> {
       //debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
      // debugPrint('***********payment sesssion end******');
       if (mounted) setState(() => _isProcessing = false);
+      _navigateToPaymentFailure();
       Fluttertoast.showToast(msg: e.message);
     } catch (e) {
       debugPrint('Direct API payment error: $e');
@@ -1391,6 +1463,8 @@ class _PaymentPageState extends State<PaymentPage> {
         } else if (e is Exception) {
           errMsg = e.toString().replaceAll('Exception: ', '');
         }
+        
+        _navigateToPaymentFailure();
         Fluttertoast.showToast(
           msg: errMsg,
           backgroundColor: Colors.red,
@@ -1412,12 +1486,20 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
-      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
+      if (!_isPayLater && !_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         debugPrint('PayPal clicked: Creating order via store-order API first...');
-        final created = await _createOrderForDirectPayment();
-        if (!created) {
+        final response = await _createOrderForDirectPayment();
+        if (response == null) {
+          if (mounted) setState(() => _isProcessing = false);
           return;
         }
+
+        // CONDITIONAL FLOW: check process_payment
+        if (response['process_payment'] == 0 && response['show_order_success'] == 1) {
+          _navigateToOrderSuccess(response, 'PayPal');
+          return;
+        }
+
         debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
         
         // 2. Step C: Trigger _initializePayment after successful order creation
@@ -1490,21 +1572,16 @@ class _PaymentPageState extends State<PaymentPage> {
                     paymentResult: Map<String, dynamic>.from(params),
                   );
 
-                  await StorageService.clearCartData();
-                  await StorageService.clearPaymentCartSnapshot();
+                  // Clear cart as payment was successful (Normal Flow only)
+                  if (!_isPayLater) {
+                    await StorageService.clearCartData();
+                    await StorageService.clearPaymentCartSnapshot();
+                  }
                   await StorageService.clearOrderData();
                   await StorageService.clearCheckoutData();
                   
                   if (mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/order-placed',
-                      (route) => false,
-                      arguments: {
-                        'payment_method': 'PayPal',
-                        'payment_token': params['orderID'] ?? params['paymentID'],
-                      },
-                    );
+                    _navigateToOrderSuccess(Map<String, dynamic>.from(params), 'PayPal');
                   }
                 } catch (e) {
                   debugPrint('Error finalizing PayPal on backend: $e');
@@ -1517,11 +1594,11 @@ class _PaymentPageState extends State<PaymentPage> {
               },
               onError: (error) {
                 debugPrint('PayPal onError: $error');
-                Fluttertoast.showToast(msg: "PayPal Error: ${error.toString()}");
+                _navigateToPaymentFailure();
               },
               onCancel: (params) {
                 debugPrint('PayPal onCancel: $params');
-                Fluttertoast.showToast(msg: "PayPal payment cancelled.");
+                _navigateToPaymentFailure();
               },
             ),
           ),
@@ -1860,8 +1937,9 @@ class _PaymentPageState extends State<PaymentPage> {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
       if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         debugPrint('Complete Order clicked: Creating order via store-order API first...');
-        final created = await _createOrderForDirectPayment();
-        if (!created) {
+        final response = await _createOrderForDirectPayment();
+        if (response == null) {
+          if (mounted) setState(() => _isProcessing = false);
           return;
         }
         debugPrint('Order created successfully: $_orderNumber. Initializing details...');
@@ -1881,18 +1959,15 @@ class _PaymentPageState extends State<PaymentPage> {
       debugPrint('###############End COMPLETE ORDER#######################');
 
       // Since it's Pay Later, we bypass payment gateways
-      await StorageService.clearCartData();
-      await StorageService.clearPaymentCartSnapshot();
+      if (!_isPayLater) {
+        await StorageService.clearCartData();
+        await StorageService.clearPaymentCartSnapshot();
+      }
       await StorageService.clearOrderData();
       await StorageService.clearCheckoutData();
 
       if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/order-placed',
-          (route) => false,
-          arguments: {'payment_method': 'Manual / Freight Quote'},
-        );
+        _navigateToOrderSuccess(_orderData ?? {}, 'Manual / Freight Quote');
       }
     } catch (e) {
       debugPrint('Complete Order Error: $e');
@@ -1955,10 +2030,10 @@ class _PaymentPageState extends State<PaymentPage> {
   // ─────────────────────────────────────────────────────────────────────────
 
   bool get _canShowPaymentOptionsByStatus =>
-      _orderData == null || _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
+      _isPayLater || _orderData == null || _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
 
   bool get _canShowAlternativePaymentMethods =>
-      _manualOrderByAdmin == 0;
+      _isPayLater || (_manualOrderByAdmin == 0 && _isTradeUser == 0);
 
   String get _effectiveSelectedPaymentMethod {
     final method = _selectedPaymentMethod.trim();
@@ -2112,7 +2187,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           _buildOrderSummaryCard(),
                           const SizedBox(height: 24),
 
-                          if (!_isPayLater && _canShowPaymentOptionsByStatus) ...[
+                          if (_canShowPaymentOptionsByStatus) ...[
                             _buildPaymentMethodSection(),
                             const SizedBox(height: 24),
 
@@ -2208,7 +2283,9 @@ class _PaymentPageState extends State<PaymentPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This order was created by admin. Only Credit Card payment is available.',
+                        _manualOrderByAdmin != 0 
+                          ? 'This order was created by admin. Only Credit Card payment is available.'
+                          : 'Only Credit Card payment is available for trade accounts.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF5D4037),
@@ -2228,8 +2305,9 @@ class _PaymentPageState extends State<PaymentPage> {
                 onTap: () => setState(() => _selectedPaymentMethod = 'PayPal'),
                 child: _paymentOptionRow(
                   'PayPal',
-                  Icons.payment,
+                  'assets/images/paypal.png',
                   effectivePaymentMethod == 'PayPal',
+                  fallbackAsset: 'assets/images/paypal.png',
                 ),
               ),
               if (!kIsWeb) ...[
@@ -2239,9 +2317,10 @@ class _PaymentPageState extends State<PaymentPage> {
                       setState(() => _selectedPaymentMethod = 'Google Pay'),
                   child: _paymentOptionRow(
                     'Google Pay',
-                    Icons.account_balance_wallet,
+                    'assets/images/gpayicon.png',
                     effectivePaymentMethod == 'Google Pay',
                     isEnabled: true,
+                    fallbackAsset: 'assets/images/gpayicon.png',
                     trailing: _isInitializingGooglePay
                         ? const SizedBox(
                             height: 18,
@@ -2272,10 +2351,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Widget _paymentOptionRow(
     String title,
-    IconData icon,
+    dynamic iconOrImage,
     bool isSelected, {
     bool isEnabled = true,
     Widget? trailing,
+    String? fallbackAsset,
   }) {
     return Opacity(
       opacity: isEnabled ? 1.0 : 0.5,
@@ -2293,10 +2373,45 @@ class _PaymentPageState extends State<PaymentPage> {
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF002e5b) : Colors.grey[600],
-            ),
+            if (iconOrImage is IconData)
+              Icon(
+                iconOrImage,
+                color: isSelected ? const Color(0xFF002e5b) : Colors.grey[600],
+              )
+            else if (iconOrImage is String)
+              iconOrImage.startsWith('http') 
+              ? CachedNetworkImage(
+                imageUrl: iconOrImage,
+                height: 24,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => const SizedBox(width: 24, height: 20),
+                errorWidget: (context, url, error) => fallbackAsset != null
+                    ? Image.asset(
+                        fallbackAsset,
+                        height: 24,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.payment,
+                          color: isSelected
+                              ? const Color(0xFF002e5b)
+                              : Colors.grey[600],
+                        ),
+                      )
+                    : Icon(
+                        Icons.payment,
+                        color: isSelected
+                            ? const Color(0xFF002e5b)
+                            : Colors.grey[600],
+                      ),
+              ) : Image.asset(
+                iconOrImage,
+                height: 24,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.payment,
+                  color: isSelected ? const Color(0xFF002e5b) : Colors.grey[600],
+                ),
+              ),
             const SizedBox(width: 12),
             Text(
               title,
@@ -2326,6 +2441,8 @@ class _PaymentPageState extends State<PaymentPage> {
 
     String formatPrice(double? v) =>
         v != null ? '$currencySign${v.toStringAsFixed(2)}' : '-';
+
+    debugPrint('BUILD_SUMMARY_CARD: _isPayLater = $_isPayLater');
 
     return Card(
       color: Colors.white,
@@ -2361,24 +2478,13 @@ class _PaymentPageState extends State<PaymentPage> {
             // Shipping Cost
             _summaryRow(
               'Shipping cost(Excl GST)',
-              formatPrice(_shippingCost),
-              valueColor: const Color(0xFFF44336),
-              labelColor: const Color(0xFFF44336),
+              _hasPendingFreightQuote 
+                  ? 'Pending Quote' 
+                  : (_showFreeShippingLabel ? '${currencySign}0.00' : formatPrice(_shippingCost)),
+              valueColor: _hasPendingFreightQuote ? Colors.red : (_showFreeShippingLabel ? Colors.green : const Color(0xFFF44336)),
+              labelColor: _hasPendingFreightQuote ? Colors.red : (_showFreeShippingLabel ? Colors.green : const Color(0xFFF44336)),
             ),
-            if (_hasPendingFreightQuote) ...[
-              const SizedBox(height: 4),
-              const Padding(
-                padding: EdgeInsets.only(left: 0),
-                child: Text(
-                  'Pending freight cost',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
+
 
             const SizedBox(height: 12),
             const Divider(height: 1, thickness: 0.8),
@@ -2399,141 +2505,132 @@ class _PaymentPageState extends State<PaymentPage> {
               const SizedBox(height: 12),
             ],
 
-            const Divider(height: 1, thickness: 0.8),
-            const SizedBox(height: 12),
-
-
-            // Total(incl GST)
-            _summaryRow(
-              'Total(Incl GST)',
-              formatPrice(total),
-              isBoldLabel: true,
-            ),
-            const SizedBox(height: 16),
-
-            // Promo Code Section
-            const Divider(height: 1, thickness: 0.5),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _showCouponsModal,
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: AbsorbPointer(
-                        absorbing: true,
-                        child: TextField(
-                          controller: _couponController,
-                          decoration: InputDecoration(
-                            hintText: 'Enter promo code',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                            ),
-                            border: InputBorder.none,
-                          ),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _isProcessing
-                      ? null
-                      : (hasAppliedCoupon ? _removeCoupon : _applyPromoCode),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: hasAppliedCoupon
-                        ? Colors.orange
-                        : const Color(0xFF151D51),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: const Size(90, 44),
-                    elevation: 0,
-                  ),
-                  child: _isUpdatingCoupon
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : Text(
-                          hasAppliedCoupon ? 'Remove' : 'Apply',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: (_isLoadingCoupons || _isProcessing) ? null : _showCouponsModal,
-                icon: _isLoadingCoupons
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
-                        ),
-                      )
-                    : const Icon(Icons.local_offer_outlined, size: 16),
-                label: Text(
-                  _isLoadingCoupons ? 'Loading Offers...' : 'View Available Offers',
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF151D51),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            // Show applied promo code message
-            if (hasAppliedCoupon) ...[
-              const SizedBox(height: 8),
+            // Promo Code Section (Hide if PayLater)
+            if (!_isPayLater) ...[
+              const Divider(height: 1, thickness: 0.5),
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(Icons.check_circle, size: 16, color: Colors.green[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    _couponOfferSubtitle != null &&
-                            _couponOfferSubtitle!.isNotEmpty
-                        ? '$_couponCode $_couponOfferSubtitle'
-                        : '$_couponCode',
-                    style: TextStyle(
-                      color: Colors.green[700],
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _showCouponsModal,
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: AbsorbPointer(
+                          absorbing: true,
+                          child: TextField(
+                            controller: _couponController,
+                            decoration: InputDecoration(
+                              hintText: 'Enter promo code',
+                              hintStyle: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 14,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _isProcessing
+                        ? null
+                        : (hasAppliedCoupon ? _removeCoupon : _applyPromoCode),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: hasAppliedCoupon
+                          ? Colors.orange
+                          : const Color(0xFF151D51),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      minimumSize: const Size(90, 44),
+                      elevation: 0,
+                    ),
+                    child: _isUpdatingCoupon
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            hasAppliedCoupon ? 'Remove' : 'Apply',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: (_isLoadingCoupons || _isProcessing) ? null : _showCouponsModal,
+                  icon: _isLoadingCoupons
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
+                          ),
+                        )
+                      : const Icon(Icons.local_offer_outlined, size: 16),
+                  label: Text(
+                    _isLoadingCoupons ? 'Loading Offers...' : 'View Available Offers',
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF151D51),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    textStyle: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
+                ),
               ),
+              // Show applied promo code message
+              if (hasAppliedCoupon) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, size: 16, color: Colors.green[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      _couponOfferSubtitle != null &&
+                              _couponOfferSubtitle!.isNotEmpty
+                          ? '$_couponCode $_couponOfferSubtitle'
+                          : '$_couponCode',
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
             ],
-            const SizedBox(height: 16),
+
             const Divider(height: 1, thickness: 0.8),
             const SizedBox(height: 16),
 
@@ -2629,7 +2726,7 @@ class _PaymentPageState extends State<PaymentPage> {
       child: ElevatedButton(
         onPressed: _isProcessing
             ? null
-            : (_isPayLater ? _handleCompleteOrder : _handlePayment),
+            : _handlePayment,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,

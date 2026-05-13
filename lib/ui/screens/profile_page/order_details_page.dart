@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -232,6 +233,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     _buildPaymentInfoCard(),
                     const SizedBox(height: 16),
 
+                    // Discount Description Card (Mobile Orders Only)
+                    _buildDiscountDescriptionCard(),
+                    const SizedBox(height: 16),
+
                     // Order Summary Card
                     _buildOrderSummaryCard(),
                     const SizedBox(height: 24),
@@ -384,12 +389,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             if (order['order_note'] != null &&
                 order['order_note'].toString().trim().isNotEmpty)
               _buildInfoRow('Order Note', order['order_note']),
-            if (orderSource == 'mobile' &&
-                specialDiscountDescription.isNotEmpty)
-              _buildInfoRow(
-                'Special Discount Note',
-                specialDiscountDescription,
-              ),
           ] else if (isQuotation) ...[
             _buildInfoRow(
               'Quotation Date',
@@ -845,6 +844,56 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     );
   }
 
+  Widget _buildDiscountDescriptionCard() {
+    final order = _orderData!;
+    final orderSource = order['order_source']?.toString().toLowerCase() ?? '';
+    final description = order['special_discount_description']?.toString() ?? '';
+
+    // Only show for mobile orders with a valid description
+    if (orderSource != 'mobile' || description.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Special Discount Applied',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A365D),
+            ),
+          ),
+          const Divider(height: 24),
+          Text(
+            description,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOrderSummaryCard() {
     // FORCE FIX: Prioritize recalculated values, otherwise use local force calculation
     // because backend data for these orders is consistently missing the GST layer.
@@ -992,12 +1041,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
-              color: Colors.black87,
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: isTotal ? 16 : 14,
+                fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
+                color: Colors.black87,
+              ),
             ),
           ),
           Text(
@@ -1098,63 +1149,83 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       return;
     }
 
-    // Always open the shared normal Payment UI from My Orders -> Pay Now.
+    try {
+      if (mounted) setState(() => _isLoading = true);
 
-    // Seed the same storage keys that the normal checkout flow populates
-    await StorageService.saveOrderData(_responseData!);
+      // PayLater Case: (My Orders Payment Flow)
+      final shippingPayload = {
+        'order_id': widget.orderId.toString(), // Pass as String to match Postman
+        'postcode': "",
+        'code': "",
+        'shipping_type_method': "",
+        'old_cart': "",
+      };
 
-    final order = _orderData!;
-    final zip = (order['shipping_zip'] ?? order['customer_zip'] ?? '')
-        .toString()
-        .trim();
-    if (zip.isNotEmpty) {
-      await StorageService.saveCheckoutData({'post_code': zip});
+      debugPrint('PAY_NOW: Calling shipping endpoint. Payload: ${jsonEncode(shippingPayload)}');
+      // Use GET with JSON content type so body is sent as JSON (not form-encoded).
+      // Laravel's foreach() fails if body is form-encoded or null.
+      final shippingResponse = await ApiClient.get(
+        endpoint: ApiEndpoints.calculateShipping,
+        body: shippingPayload,
+        contentType: 'application/json',
+        requireAuth: true,
+      );
+      debugPrint('PAY_NOW: Shipping API Success');
+
+      if (mounted) setState(() => _isLoading = false);
+
+      // Seed the same storage keys that the normal checkout flow populates
+      await StorageService.saveOrderData(_responseData!);
+
+      final order = _orderData!;
+      final zip = (order['shipping_zip'] ?? order['customer_zip'] ?? '')
+          .toString()
+          .trim();
+      if (zip.isNotEmpty) {
+        await StorageService.saveCheckoutData({'post_code': zip});
+      }
+
+      // Use the refreshed values from the shipping API for navigation arguments
+      final grandTotal = _safeParseAmount(shippingResponse['total_with_gst']);
+      final double tax = _safeParseAmount(shippingResponse['tax']);
+      final double discount = _safeParseAmount(shippingResponse['discount']);
+      final double shipping = _safeParseAmount(shippingResponse['shipping']);
+      // Use total_without_gst directly from API — do NOT calculate manually
+      final double subtotal = _safeParseAmount(shippingResponse['total_without_gst']);
+      
+      final orderSource =
+          _orderData?['order_source']?.toString().toLowerCase() ?? '';
+      final specialDiscount = (orderSource == 'mobile')
+          ? _safeParseAmount(_orderData?['special_discount'])
+          : 0.0;
+
+      if (!mounted) return;
+
+      Navigator.pushNamed(
+        context,
+        '/payment',
+        arguments: {
+          'from_my_orders_payment': true,
+          'order_data': _responseData,
+          'order_cart': _cartData,
+          'summary_grand_total': grandTotal,
+          'summary_tax': tax,
+          'summary_shipping': shipping,
+          'summary_discount': discount,
+          'summary_special_discount': specialDiscount,
+          'summary_subtotal': subtotal,
+        },
+      ).then((_) {
+        if (mounted) _fetchOrderDetails();
+      });
+    } catch (e) {
+      debugPrint('Error in _handlePayNow: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to prepare payment: $e')),
+        );
+      }
     }
-
-    // NOTE: Do NOT save order cart to SharedPreferences cart_data key.
-    // That would overwrite the user's actual shopping cart.
-    // Instead, pass the order cart via navigation argument 'order_cart'
-    // so the payment page can use it for coupon operations without touching the real cart.
-
-    final grandTotal = _safeParseAmount(
-      _responseData?['grand_total'] ??
-          _orderData?['pay_amount'] ??
-          _orderData?['total'],
-    );
-    final double tax = _safeParseAmount(_responseData?['tax']);
-    final discount = _safeParseAmount(_responseData?['discount']);
-    final shipping = _safeParseAmount(
-      _responseData?['shipping_cost_including_gst'],
-    );
-    final orderSource =
-        _orderData?['order_source']?.toString().toLowerCase() ?? '';
-    final specialDiscount = (orderSource == 'mobile')
-        ? _safeParseAmount(_orderData?['special_discount'])
-        : 0.0;
-    final subtotal = (grandTotal - tax - shipping + specialDiscount);
-
-    Navigator.pushNamed(
-      context,
-      '/payment',
-      arguments: {
-        // Always set so back from payment goes to Profile, not Order Details
-        'from_my_orders_payment': true,
-        // Full response passed directly so payment page can use cart data
-        // (product_sizeType, show_free_shipping_icon etc.) without storage roundtrip
-        'order_data': _responseData,
-        // Pass order cart directly so payment page can use it for coupon operations
-        // WITHOUT touching the user's real shopping cart in SharedPreferences
-        'order_cart': _cartData,
-        // PASSED EXACT VALUES TO ENSURE UI PARITY AND AVOID RECALCULATION ERRORS
-        'summary_grand_total': grandTotal,
-        'summary_tax': tax,
-        'summary_shipping': shipping,
-        'summary_discount': discount,
-        'summary_special_discount': specialDiscount,
-        'summary_subtotal': subtotal,
-      },
-    ).then((_) {
-      if (mounted) _fetchOrderDetails();
-    });
   }
 }
