@@ -187,32 +187,31 @@ class _PaymentPageState extends State<PaymentPage> {
   /// Load PayPal configuration from API (with asset fallback)
   Future<void> _loadPayPalConfig() async {
     try {
-      // 1. Load baseline configuration from assets
+      // 1. Load baseline configuration from assets (for mode and other settings)
       final String jsonString = await rootBundle.loadString('assets/paypal_config.json');
       final Map<String, dynamic> configMap = jsonDecode(jsonString) as Map<String, dynamic>;
 
-      // 2. Try to get dynamic credentials from storage (Shared Preferences)
-      final dynamicConfig = await PaymentConfigService.getCachedConfig();
-      final pp = dynamicConfig?.paypal;
+      // 2. Try to get dynamic credentials from storage
+      var dynamicConfig = await PaymentConfigService.getCachedConfig();
 
-      if (pp != null && pp.clientKey != null && pp.secretKey != null) {
-        final mode = (configMap['mode'] ?? 'sandbox').toString().toLowerCase();
-        
-        if (mode == 'production' || mode == 'live') {
-          debugPrint('Injecting dynamic PRODUCTION PayPal credentials');
-          configMap['production_client_id'] = pp.clientKey;
-          configMap['production_secret_key'] = pp.secretKey;
-        } else {
-          debugPrint('Injecting dynamic SANDBOX PayPal credentials');
-          configMap['sandbox_client_id'] = pp.clientKey;
-          configMap['sandbox_secret_key'] = pp.secretKey;
-        }
+      if (dynamicConfig == null) {
+        debugPrint('PayPal: Cache empty, fetching dynamic config from API...');
+        dynamicConfig = await PaymentConfigService.fetchAndSaveConfig();
       }
+
+      final pp = dynamicConfig?.paypal;
 
       setState(() {
         _paypalConfig = configMap;
+        if (pp != null && pp.clientKey != null && pp.secretKey != null) {
+          debugPrint('Using dynamic PayPal credentials from API');
+          // We'll store these in the configMap for convenience, 
+          // or just use the model values directly in handlePayPal.
+          configMap['client_key'] = pp.clientKey;
+          configMap['secret_key'] = pp.secretKey;
+        }
       });
-      debugPrint('PayPal config initialized with mode: ${_paypalConfig?['mode']}');
+      debugPrint('PayPal config initialized. Mode: ${_paypalConfig?['mode']}');
     } catch (e) {
       debugPrint('Error loading PayPal config: $e');
       _paypalConfig = null;
@@ -256,7 +255,7 @@ class _PaymentPageState extends State<PaymentPage> {
   // ─── Google Pay ────────────────────────────────────────────────────────────
 
   Future<void> _initializeGooglePay() async {
-    if (kIsWeb || !Platform.isAndroid) {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
       if (mounted) setState(() => _isInitializingGooglePay = false);
       return;
     }
@@ -1427,20 +1426,20 @@ class _PaymentPageState extends State<PaymentPage> {
         throw Exception('Order details not found. Please try again from the My Orders screen.');
       }
 
-      if (_paypalConfig == null) {
-        throw Exception('PayPal configuration not loaded.');
+      if (_paypalConfig == null || 
+          _paypalConfig!['client_key'] == null || 
+          _paypalConfig!['secret_key'] == null) {
+        debugPrint('PayPal keys missing, attempting refresh...');
+        await _loadPayPalConfig();
       }
 
-      final isSandbox = _paypalConfig!['mode'] == 'sandbox';
-      final clientId = isSandbox
-          ? _paypalConfig!['sandbox_client_id']
-          : _paypalConfig!['production_client_id'];
-      final secretKey = isSandbox
-          ? _paypalConfig!['sandbox_secret_key']
-          : _paypalConfig!['production_secret_key'];
+      final String? clientId = _paypalConfig?['client_key']?.toString();
+      final String? secretKey = _paypalConfig?['secret_key']?.toString();
+      final bool isSandbox = _paypalConfig?['mode'] == 'sandbox';
 
       if (clientId == null || secretKey == null) {
-        throw Exception('PayPal keys are missing for the selected environment.');
+        throw Exception(
+            'PayPal configuration could not be loaded. Please check your internet connection.');
       }
 
       if (mounted) {
@@ -1448,8 +1447,8 @@ class _PaymentPageState extends State<PaymentPage> {
           MaterialPageRoute(
             builder: (BuildContext context) => UsePaypal(
               sandboxMode: isSandbox,
-              clientId: clientId,
-              secretKey: secretKey,
+              clientId: clientId!,
+              secretKey: secretKey!,
               returnURL: "https://www.apc.com.au/payment/success",
               cancelURL: "https://www.apc.com.au/payment/cancel",
               transactions: [
@@ -1959,7 +1958,7 @@ class _PaymentPageState extends State<PaymentPage> {
       _orderData == null || _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
 
   bool get _canShowAlternativePaymentMethods =>
-      _manualOrderByAdmin == 0 && _isTradeUser == 0;
+      _manualOrderByAdmin == 0;
 
   String get _effectiveSelectedPaymentMethod {
     final method = _selectedPaymentMethod.trim();
@@ -2209,9 +2208,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _manualOrderByAdmin == 1
-                            ? 'This order was created by admin. Only Credit Card payment is available.'
-                            : 'Trade account orders can only be paid via Credit Card.',
+                        'This order was created by admin. Only Credit Card payment is available.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF5D4037),
@@ -2235,7 +2232,7 @@ class _PaymentPageState extends State<PaymentPage> {
                   effectivePaymentMethod == 'PayPal',
                 ),
               ),
-              if (!kIsWeb && !isIOS) ...[
+              if (!kIsWeb) ...[
                 const SizedBox(height: 12),
                 GestureDetector(
                   onTap: () =>
@@ -2382,17 +2379,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
               ),
             ],
-            if (!_hasPendingFreightQuote && _showFreeShippingLabel) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Eligible for free delivery',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.green.shade700,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+
             const SizedBox(height: 12),
             const Divider(height: 1, thickness: 0.8),
             const SizedBox(height: 12),
