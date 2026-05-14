@@ -8,7 +8,7 @@ class OrderService {
   /// Call /user/store/order to place an order
   Future<Map<String, dynamic>> storeOrder(Map<String, dynamic> payload) async {
     try {
-      Logger.info('Calling store-order API');
+      Logger.info('Calling store-order API with payload: ${jsonEncode(payload)}');
       final response = await ApiClient.post(
         endpoint: ApiEndpoints.storeOrder,
         body: payload,

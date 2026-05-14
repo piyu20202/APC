@@ -50,71 +50,88 @@ class _PaymentFailureScreenState extends State<PaymentFailureScreen> {
     );
   }
 
+  void _navigateToHome() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MainNavigationScreen(initialTabIndex: 0),
+      ),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Error Icon
-              const Icon(
-                Icons.error_outline,
-                color: Colors.red,
-                size: 100,
-              ),
-              const SizedBox(height: 32),
-
-              // Title
-              const Text(
-                'Transaction Cancelled/Failed',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A365D),
+      body: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _navigateToHome();
+        },
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Error Icon
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 100,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 32),
 
-              // Subtitle
-              Text(
-                'Your payment could not be completed. Please try again.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
-
-              // Action Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _navigateToMyOrders,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A365D),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 2,
+                // Title
+                const Text(
+                  'Transaction Cancelled/Failed',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A365D),
                   ),
-                  child: const Text(
-                    'Go to My Orders',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+
+                // Subtitle
+                Text(
+                  'Your payment could not be completed. Please try again.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 48),
+
+                // Action Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _navigateToMyOrders,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A365D),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 2,
+                    ),
+                    child: const Text(
+                      'Go to My Orders',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

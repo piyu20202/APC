@@ -401,6 +401,7 @@ class PaymentService {
   /// Supports both mock mode (for testing) and real CyberSource backend integration
   Future<Map<String, dynamic>> processGooglePay({
     required String orderNumber,
+    required int orderId,
     required double amount,
     required Map<String, dynamic> paymentResult,
   }) async {
@@ -498,7 +499,7 @@ class PaymentService {
           endpoint: ApiEndpoints.googlePayToken,
           body: {
             'token': tokenBase64,
-            'orderid': orderNumber, // using order_number as orderid
+            'orderid': orderId, // Send integer order ID
             'email': email,
             'user_id': userId,
             if (gpay?.merchantId != null) 'merchant_id': gpay!.merchantId,
@@ -565,6 +566,7 @@ class PaymentService {
   /// Supports both mock mode (for testing) and real CyberSource backend integration
   Future<Map<String, dynamic>> processApplePay({
     required String orderNumber,
+    required int orderId,
     required double amount,
     required Map<String, dynamic> paymentResult,
   }) async {
@@ -645,7 +647,7 @@ class PaymentService {
         endpoint: ApiEndpoints.applePayToken,
         body: {
           'token': tokenBase64,
-          'orderid': orderNumber,
+          'orderid': orderId,
           'email': email,
           'user_id': userId,
         },

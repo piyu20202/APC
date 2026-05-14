@@ -94,6 +94,7 @@ class _PaymentPageState extends State<PaymentPage> {
   String _orderPaymentStatus = '';
   double? _specialDiscount;
   String _orderSource = '';
+  String? _shippingTag;
 
   // Google Pay
   Pay? _payClient;
@@ -173,6 +174,14 @@ class _PaymentPageState extends State<PaymentPage> {
         
         // Show UI immediately from args (non-blank display)
         _isLoading = false;
+
+        // Extract order ID/Number immediately so they are available for _refreshPricing
+        final order = args['order_data']?['order'] as Map?;
+        if (order != null) {
+          _orderId = _toInt(order['id']);
+          _orderNumber = order['order_number']?.toString();
+          debugPrint('SETUP_UI: Extracted Order ID: $_orderId, Number: $_orderNumber');
+        }
       });
 
       // For My Orders / Pay Later flow: even though we have initial values from args,
@@ -358,17 +367,20 @@ class _PaymentPageState extends State<PaymentPage> {
       Map<String, dynamic>? orderData = await StorageService.getOrderData();
       final order = orderData?['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
+      final orderId = _toInt(order?['id']);
       final amount =
           _amount ?? _toDouble(order?['pay_amount']) ?? 0.0;
 
       if (orderNumber == null) throw Exception('Order number not found');
+      if (orderId == null) throw Exception('Order ID not found');
 
       debugPrint(
-        'Processing Google Pay for order: $orderNumber, amount: $amount',
+        'Processing Google Pay for order: $orderNumber (ID: $orderId), amount: $amount',
       );
 
       final response = await _paymentService.processGooglePay(
         orderNumber: orderNumber,
+        orderId: orderId,
         amount: amount,
         paymentResult: paymentResult,
       );
@@ -632,7 +644,7 @@ class _PaymentPageState extends State<PaymentPage> {
     final freeShippingIcon = _toDouble(showFreeShippingIcon) ?? 0.0;
 
     final hasPendingFreightQuote =
-        normalizedOrderType == 'large' || requestFreightCost == 1;
+        normalizedOrderType == 'large' || requestFreightCost >= 1;
     final showFreeShippingLabel =
         !hasPendingFreightQuote && freeShippingIcon == 1;
 
@@ -919,7 +931,9 @@ class _PaymentPageState extends State<PaymentPage> {
             showFreeShippingIcon: shippingResponse['show_free_shipping_icon'],
           );
           _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
+          debugPrint('REFRESH_PRICING: show_freight_icon=${shippingResponse['show_freight_cost_icon']}, hasPendingFreightQuote=$_hasPendingFreightQuote');
           _showFreeShippingLabel = freightRule.showFreeShippingLabel;
+          _shippingTag = shippingResponse['shipping_tag']?.toString();
           
           // Set _isPayLater based on the API response flag
           _isPayLater = shippingResponse['paylater']?.toString() == '1';
@@ -982,6 +996,11 @@ class _PaymentPageState extends State<PaymentPage> {
       final orderNumber = order?['order_number'] as String?;
       final orderId = _toInt(order?['id']);
 
+      setState(() {
+        if (orderNumber != null) _orderNumber = orderNumber;
+        if (orderId != null) _orderId = orderId;
+      });
+
       // Initialize status-based flags
       _manualOrderByAdmin =
           _toInt(order?['manual_order_by_admin']) ?? 0;
@@ -1033,6 +1052,10 @@ class _PaymentPageState extends State<PaymentPage> {
         if (activePostcode.isNotEmpty && oldCart != null) {
           _postcode = activePostcode;
           _oldCart = oldCart;
+          // Ensure we have an order ID for PayLater flow before refreshing
+          if (fromMyOrdersPayment && _orderId == null && orderId != null) {
+            _orderId = orderId;
+          }
           await _refreshPricing(postcode: activePostcode, oldCart: oldCart);
         } else {
           // Fallback for missing data
@@ -1043,8 +1066,9 @@ class _PaymentPageState extends State<PaymentPage> {
             _gstAmount = snap.gstAmount;
             _discountAmount = snap.discountAmount;
             _amount = snap.amount;
-            _hasPendingFreightQuote = snap.hasPendingFreightQuote;
+             _hasPendingFreightQuote = snap.hasPendingFreightQuote;
             _showFreeShippingLabel = snap.showFreeShippingLabel;
+            _shippingTag = (resolvedOrderData?['shipping_tag'] ?? resolvedOrderData?['order']?['shipping_tag'])?.toString();
           });
         }
       } catch (e) {
@@ -1483,6 +1507,7 @@ class _PaymentPageState extends State<PaymentPage> {
     if (_isProcessing) return;
 
     setState(() => _isProcessing = true);
+    bool isCallbackTriggered = false;
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
@@ -1524,6 +1549,14 @@ class _PaymentPageState extends State<PaymentPage> {
             'PayPal configuration could not be loaded. Please check your internet connection.');
       }
 
+      // MATHEMATICAL FIX: PayPal requires (subtotal + shipping + tax - discount) == total
+      // We calculate subtotal dynamically to ensure consistency even if API breakdown has rounding/inclusion issues.
+      final double paypalTotal = _amount!;
+      final double paypalTax = _gstAmount!;
+      final double paypalShipping = _shippingCost!;
+      final double paypalDiscount = _discountAmount!;
+      final double paypalSubtotal = paypalTotal - paypalTax - paypalShipping + paypalDiscount;
+
       if (mounted) {
         await Navigator.of(context).push(
           MaterialPageRoute(
@@ -1536,13 +1569,13 @@ class _PaymentPageState extends State<PaymentPage> {
               transactions: [
                 {
                   "amount": {
-                    "total": _amount!.toStringAsFixed(2),
+                    "total": paypalTotal.toStringAsFixed(2),
                     "currency": _currency ?? 'AUD',
                     "details": {
-                      "subtotal": _subtotalExclGst!.toStringAsFixed(2),
-                      "shipping": _shippingCost!.toStringAsFixed(2),
-                      "tax": _gstAmount!.toStringAsFixed(2),
-                      "shipping_discount": _discountAmount!.toStringAsFixed(2)
+                      "subtotal": paypalSubtotal.toStringAsFixed(2),
+                      "shipping": paypalShipping.toStringAsFixed(2),
+                      "tax": paypalTax.toStringAsFixed(2),
+                      "shipping_discount": paypalDiscount.toStringAsFixed(2)
                     }
                   },
                   "description": "Order #$_orderNumber",
@@ -1551,7 +1584,7 @@ class _PaymentPageState extends State<PaymentPage> {
                       {
                         "name": "Order #$_orderNumber Payment",
                         "quantity": 1,
-                        "price": _subtotalExclGst!.toStringAsFixed(2),
+                        "price": paypalSubtotal.toStringAsFixed(2),
                         "currency": _currency ?? 'AUD'
                       }
                     ],
@@ -1560,6 +1593,7 @@ class _PaymentPageState extends State<PaymentPage> {
               ],
               note: "Contact us for any questions on your order.",
               onSuccess: (Map params) async {
+                isCallbackTriggered = true;
                 debugPrint('PayPal success: $params');
                 if (mounted) setState(() => _isProcessing = true);
                 try {
@@ -1593,16 +1627,25 @@ class _PaymentPageState extends State<PaymentPage> {
                 }
               },
               onError: (error) {
+                isCallbackTriggered = true;
                 debugPrint('PayPal onError: $error');
                 _navigateToPaymentFailure();
               },
               onCancel: (params) {
+                isCallbackTriggered = true;
                 debugPrint('PayPal onCancel: $params');
                 _navigateToPaymentFailure();
               },
             ),
           ),
         );
+
+        // After the PayPal browser/webview is closed, check if any callback was triggered
+        // If not, it means the user pressed the manual back button.
+        if (!isCallbackTriggered && mounted) {
+          debugPrint('PayPal: User manually returned via back button without completing flow.');
+          _navigateToPaymentFailure();
+        }
       }
     } catch (e) {
       debugPrint('PayPal Error: $e');
@@ -2217,17 +2260,13 @@ class _PaymentPageState extends State<PaymentPage> {
             : SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _isPayLater
-                      ? _buildSubmitButton()
-                      : (_canShowPaymentOptionsByStatus
-                          ? (effectivePaymentMethod == 'PayPal'
-                              ? _buildPayPalButton()
-                              : (effectivePaymentMethod == 'Google Pay'
-                                  ? _buildGooglePayButton()
-                                  : (effectivePaymentMethod.isNotEmpty
-                                      ? _buildSubmitButton()
-                                      : const SizedBox.shrink())))
-                          : const SizedBox.shrink()),
+                  child: _canShowPaymentOptionsByStatus
+                      ? (effectivePaymentMethod == 'PayPal'
+                          ? _buildPayPalButton()
+                          : (effectivePaymentMethod == 'Google Pay'
+                              ? _buildGooglePayButton()
+                              : _buildSubmitButton()))
+                      : _buildSubmitButton(),
                 ),
               ),
       ),
@@ -2478,9 +2517,7 @@ class _PaymentPageState extends State<PaymentPage> {
             // Shipping Cost
             _summaryRow(
               'Shipping cost(Excl GST)',
-              _hasPendingFreightQuote 
-                  ? 'Pending Quote' 
-                  : (_showFreeShippingLabel ? '${currencySign}0.00' : formatPrice(_shippingCost)),
+              _showFreeShippingLabel ? '${currencySign}0.00' : formatPrice(_shippingCost),
               valueColor: _hasPendingFreightQuote ? Colors.red : (_showFreeShippingLabel ? Colors.green : const Color(0xFFF44336)),
               labelColor: _hasPendingFreightQuote ? Colors.red : (_showFreeShippingLabel ? Colors.green : const Color(0xFFF44336)),
             ),
@@ -2657,12 +2694,14 @@ class _PaymentPageState extends State<PaymentPage> {
               ],
             ),
 
-            // Pending Freight Quote
+            // Pending Freight Quote (Shows when show_freight_cost_icon is 1)
             if (_hasPendingFreightQuote) ...[
               const SizedBox(height: 8),
-              const Text(
-                'Pending Freight Quote',
-                style: TextStyle(
+              Text(
+                (_shippingTag != null && _shippingTag!.isNotEmpty) 
+                    ? _shippingTag! 
+                    : 'Pending Freight Cost',
+                style: const TextStyle(
                   fontSize: 14,
                   color: Colors.red,
                   fontWeight: FontWeight.bold,
@@ -2790,38 +2829,35 @@ class _PaymentPageState extends State<PaymentPage> {
   Widget _buildGooglePayButton() {
     return Container(
       height: 60,
+      width: double.infinity,
       alignment: Alignment.center,
-      child: ElevatedButton(
-        onPressed: (_isProcessing || _isPaymentProcessing)
-            ? null
-            : _handleGooglePayClick,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF002e5b),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
-          shape: const StadiumBorder(),
-          elevation: 2,
-        ),
-        child: _isProcessing
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Text(
-                'PAY NOW',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+      child: (_isProcessing || _isPaymentProcessing)
+          ? const SizedBox(
+              height: 24,
+              width: 24,
+              child: CircularProgressIndicator(
+                color: Color(0xFF002e5b),
+                strokeWidth: 2,
               ),
-      ),
+            )
+          : ElevatedButton(
+              onPressed: _handleGooglePayClick,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 80),
+                shape: const StadiumBorder(),
+                side: BorderSide(color: Colors.grey[300]!, width: 1),
+                elevation: 2,
+              ),
+              child: Image.asset(
+                'assets/images/gpay.png',
+                height: 40, // Increased logo size
+                fit: BoxFit.contain,
+              ),
+            ),
     );
   }
-
   Widget _buildCardInputFields() {
     return Container(
       padding: const EdgeInsets.all(16),
