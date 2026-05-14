@@ -5,7 +5,11 @@
     "displayName": "Automotion Plus",
     "countryCode": "AU",
     "currencyCode": "AUD",
-    "supportedNetworks": ["visa", "masterCard", "amex", "discover"]
+    "supportedNetworks": [
+      "visa",
+      "masterCard",
+      "amex",
+      "discover"
+    ]
   }
 }
-
