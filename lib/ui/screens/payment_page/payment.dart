@@ -2985,7 +2985,8 @@ class _PaymentPageState extends State<PaymentPage> {
           ),
         ],
       ),
-    ), // GestureDetector
+      ),
+    );
   }
 
   Widget _buildTextField({
@@ -3024,6 +3025,9 @@ class _PaymentPageState extends State<PaymentPage> {
           textCapitalization: textCapitalization,
           validator: validator,
           textInputAction: textInputAction,
+          cursorColor: const Color(0xFF002e5b),
+          showCursor: true,
+          cursorWidth: 2.0,
           onFieldSubmitted: (_) {
             if (onSubmitted != null) {
               onSubmitted();

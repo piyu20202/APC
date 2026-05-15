@@ -23,11 +23,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController _landlineController = TextEditingController();
   final TextEditingController _unitController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipController = TextEditingController();
 
   String _selectedAreaCode = '02';
   String _selectedState = 'ACT';
-  String _selectedCity = '';
   String _selectedCountry = 'AU';
 
   // Australia States and Cities mapping
@@ -145,16 +145,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _zipController.text = userData.zip ?? '';
           _selectedAreaCode = userData.areaCode ?? '02';
           _selectedState = userData.state ?? 'ACT';
-          _selectedCity = userData.city ?? '';
+          _cityController.text = userData.city ?? '';
           _selectedCountry = userData.country ?? 'AU';
-
-          // Update city list based on state
-          if (_australiaStatesCities.containsKey(_selectedState)) {
-            final cities = _australiaStatesCities[_selectedState]!;
-            if (!cities.contains(_selectedCity) && cities.isNotEmpty) {
-              _selectedCity = cities.first;
-            }
-          }
         });
       }
     } catch (e) {
@@ -189,7 +181,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ),
       body: _isLoadingData
           ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
+          : GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              behavior: HitTestBehavior.opaque,
+              child: SafeArea(
               child: Form(
                 key: _formKey,
                 child: SingleChildScrollView(
@@ -236,8 +231,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       _buildStateDropdown(),
                       const SizedBox(height: 16),
 
-                      // City dropdown
-                      _buildCityDropdown(),
+                      // City field
+                      _buildFormField(
+                        label: 'City',
+                        controller: _cityController,
+                        isRequired: true,
+                        hintText: 'Enter City',
+                      ),
                       const SizedBox(height: 16),
 
                       // Postcode field
@@ -285,11 +285,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 ),
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
+          ),
+        ),
     );
   }
 
@@ -299,6 +300,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     bool isRequired = false,
     TextInputType? keyboardType,
     int maxLines = 1,
+    String? hintText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,7 +318,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          cursorColor: const Color(0xFF1A365D),
+          showCursor: true,
+          cursorWidth: 2.0,
           decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
             border: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.grey[300]!),
               borderRadius: BorderRadius.circular(8),
@@ -458,9 +465,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             onChanged: (String? newValue) {
               setState(() {
                 _selectedState = newValue!;
-                // Reset city when state changes
-                final cities = _australiaStatesCities[_selectedState]!;
-                _selectedCity = cities.isNotEmpty ? cities.first : '';
               });
             },
             validator: (value) {
@@ -475,61 +479,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildCityDropdown() {
-    final cities = _australiaStatesCities[_selectedState] ?? [];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'City*',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: Color(0xFF1A365D),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
-          ),
-          child: DropdownButtonFormField<String>(
-            value: _selectedCity.isNotEmpty && cities.contains(_selectedCity)
-                ? _selectedCity
-                : cities.isNotEmpty
-                ? cities.first
-                : null,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 12),
-            ),
-            style: const TextStyle(fontSize: 14, color: Colors.black87),
-            dropdownColor: Colors.white,
-            items: cities.map((String city) {
-              return DropdownMenuItem<String>(value: city, child: Text(city));
-            }).toList(),
-            onChanged: cities.isNotEmpty
-                ? (String? newValue) {
-                    setState(() {
-                      _selectedCity = newValue!;
-                    });
-                  }
-                : null,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please select a city';
-              }
-              return null;
-            },
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildCountryField() {
     return Column(
@@ -588,7 +537,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'area_code': _selectedAreaCode,
         'unit_apartmentno': _unitController.text.trim(),
         'address': _addressController.text.trim(),
-        'city': _selectedCity,
+        'city': _cityController.text.trim(),
         'state': _selectedState,
         'country': _selectedCountry,
         'zip': _zipController.text.trim(),
@@ -684,6 +633,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _landlineController.dispose();
     _unitController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
     _zipController.dispose();
     super.dispose();
   }
