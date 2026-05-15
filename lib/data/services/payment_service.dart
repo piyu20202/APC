@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/exceptions/api_exception.dart';
@@ -165,24 +166,38 @@ class PaymentService {
       final cybersource = config?.cybersource;
 
       Logger.info('Processing card payment (raw) for order ID: $orderId, order number: $orderNumber');
+      final requestBody = {
+        'number': cardNumber,
+        'expirationMonth': expiryMonth,
+        'expirationYear': expiryYear,
+        'securityCode': cvv,
+        'cardholderName': cardholderName,
+        'orderid': orderId, // Send integer order ID, not order number string
+        'email': email,
+        'user_id': userId, // Add user_id
+        if (cybersource?.merchantId != null) 'merchant_id': cybersource!.merchantId,
+        if (cybersource?.accessKey != null) 'access_key': cybersource!.accessKey,
+        if (cybersource?.secretKey != null) 'secret_key': cybersource!.secretKey,
+      };
+
+      // Logging Request
+      debugPrint('**************************************************');
+      debugPrint('CYBERSOURCE_CARD_PAYMENT_REQUEST:');
+      debugPrint(jsonEncode(requestBody));
+      debugPrint('**************************************************');
+
       final response = await ApiClient.post(
         endpoint: ApiEndpoints.cybersourceCardPayment,
-        body: {
-          'number': cardNumber,
-          'expirationMonth': expiryMonth,
-          'expirationYear': expiryYear,
-          'securityCode': cvv,
-          'cardholderName': cardholderName,
-          'orderid': orderId, // Send integer order ID, not order number string
-          'email': email,
-          'user_id': userId, // Add user_id
-          if (cybersource?.merchantId != null) 'merchant_id': cybersource!.merchantId,
-          if (cybersource?.accessKey != null) 'access_key': cybersource!.accessKey,
-          if (cybersource?.secretKey != null) 'secret_key': cybersource!.secretKey,
-        },
+        body: requestBody,
         contentType: 'application/json',
         requireAuth: true,
       );
+
+      // Logging Response
+      debugPrint('**************************************************');
+      debugPrint('CYBERSOURCE_CARD_PAYMENT_RESPONSE:');
+      debugPrint(jsonEncode(response));
+      debugPrint('**************************************************');
 
       // Validate response format for success case
       // Expected: { 'order': {...}, 'process_payment': 0, 'show_order_success': 1 }
@@ -495,15 +510,23 @@ class PaymentService {
         final config = await StorageService.getPaymentConfig();
         final gpay = config?.googlepay;
 
+        final requestBody = {
+          'token': tokenBase64,
+          'orderid': orderId, // Send integer order ID
+          'email': email,
+          'user_id': userId,
+          if (gpay?.merchantId != null) 'merchant_id': gpay!.merchantId,
+        };
+
+        // Logging Request
+        debugPrint('**************************************************');
+        debugPrint('GOOGLE_PAY_TOKEN_REQUEST:');
+        debugPrint(jsonEncode(requestBody));
+        debugPrint('**************************************************');
+
         response = await ApiClient.post(
           endpoint: ApiEndpoints.googlePayToken,
-          body: {
-            'token': tokenBase64,
-            'orderid': orderId, // Send integer order ID
-            'email': email,
-            'user_id': userId,
-            if (gpay?.merchantId != null) 'merchant_id': gpay!.merchantId,
-          },
+          body: requestBody,
           contentType: 'application/json',
           requireAuth: true,
         );
@@ -513,15 +536,23 @@ class PaymentService {
         final config = await StorageService.getPaymentConfig();
         final gpay = config?.googlepay;
 
+        final requestBody = {
+          'order_number': orderNumber,
+          'amount': amount,
+          'payment_token': token,
+          'payment_method': 'google_pay',
+          if (gpay?.merchantId != null) 'merchant_id': gpay!.merchantId,
+        };
+
+        // Logging Request
+        debugPrint('**************************************************');
+        debugPrint('GOOGLE_PAY_PROCESS_REQUEST:');
+        debugPrint(jsonEncode(requestBody));
+        debugPrint('**************************************************');
+
         response = await ApiClient.post(
           endpoint: ApiEndpoints.processGooglePay,
-          body: {
-            'order_number': orderNumber,
-            'amount': amount,
-            'payment_token': token,
-            'payment_method': 'google_pay',
-            if (gpay?.merchantId != null) 'merchant_id': gpay!.merchantId,
-          },
+          body: requestBody,
           contentType: 'application/json',
           requireAuth: true,
         );
@@ -551,6 +582,12 @@ class PaymentService {
         await StorageService.saveOrderData(response);
         Logger.info('Order data updated after Google Pay payment');
       }
+
+      // Logging Response
+      debugPrint('**************************************************');
+      debugPrint('GOOGLE_PAY_PAYMENT_RESPONSE:');
+      debugPrint(jsonEncode(response));
+      debugPrint('**************************************************');
 
       Logger.info('Google Pay process response: ${jsonEncode(response)}');
       // UI expects 'payment_token' key (used by checkout flow); keep it available.
@@ -710,7 +747,8 @@ class PaymentService {
         
         // Method 2: PayPal payment ID
         if (token == null || token.isEmpty) {
-          token = paymentResult['paymentID'] as String?;
+          token = paymentResult['paymentID'] as String? ?? 
+                  paymentResult['paymentId'] as String?;
         }
         
         // Method 3: Direct token in paymentResult
@@ -722,7 +760,9 @@ class PaymentService {
         if (token == null || token.isEmpty) {
           final details = paymentResult['details'] as Map<String, dynamic>?;
           if (details != null) {
-            token = details['orderID'] as String? ?? details['paymentID'] as String?;
+            token = details['orderID'] as String? ?? 
+                    details['paymentID'] as String? ?? 
+                    details['paymentId'] as String?;
           }
         }
       }
@@ -773,22 +813,29 @@ class PaymentService {
       final config = await StorageService.getPaymentConfig();
       final paypal = config?.paypal;
 
-      // Prepare request body
+      // Prepare request body (Updated per backend requirements)
       final requestBody = {
-        'orderid': orderId,
-        'order_number': orderNumber,
-        'amount': amount,
-        'currency': currency,
+        'order_id': orderId.toString(),
+        'transaction_id': token ?? '',
+        'amount': amount.toStringAsFixed(2),
+        'user_id': userId.toString(),
         'email': email,
-        'user_id': userId,
-        if (paypal?.clientKey != null) 'client_key': paypal!.clientKey,
-        if (paypal?.secretKey != null) 'secret_key': paypal!.secretKey,
+        'paypal_res': paymentResult,
       };
 
-      // Add payment token - REQUIRED for PayPal (like Google Pay)
-      if (token != null && token.isNotEmpty) {
-        requestBody['payment_token'] = token;
-      } else {
+      // Print request body for debugging with clear separators
+      debugPrint('==================================================');
+      debugPrint('!!! PAYPAL PROCESS REQUEST BODY START !!!');
+      debugPrint(jsonEncode(requestBody));
+      debugPrint('!!! PAYPAL PROCESS REQUEST BODY END !!!');
+      debugPrint('==================================================');
+
+      // Add dynamic keys if available (keeping for compatibility)
+      if (paypal?.clientKey != null) requestBody['client_key'] = paypal!.clientKey;
+      if (paypal?.secretKey != null) requestBody['secret_key'] = paypal!.secretKey;
+
+      // Validation
+      if (token == null || token.isEmpty) {
         // Token is required for PayPal payment processing
         throw ApiException(
           message: 'Invalid payment token from PayPal',
@@ -832,11 +879,146 @@ class PaymentService {
       // In production mode token is guaranteed non-null (we throw above if invalid).
       // In mock mode, token may be null, so provide empty string fallback.
       final String safeToken = token ?? '';
-      Logger.info('PayPal process response: ${jsonEncode(response)}');
+      debugPrint('==================================================');
+      debugPrint('!!! PAYPAL PROCESS RESPONSE START !!!');
+      debugPrint(jsonEncode(response));
+      debugPrint('!!! PAYPAL PROCESS RESPONSE END !!!');
+      debugPrint('==================================================');
       return {...response, 'payment_token': safeToken};
     } catch (e, stackTrace) {
       Logger.error('Failed to process PayPal payment', e);
       Logger.error('Stack trace', null, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Get PayPal OAuth access token directly from PayPal REST API
+  Future<String?> getPaypalAccessToken({
+    required String clientId,
+    required String secretKey,
+    required bool isSandbox,
+  }) async {
+    try {
+      final baseUrl = isSandbox
+          ? 'https://api.sandbox.paypal.com'
+          : 'https://api.paypal.com';
+
+      final credentials = base64Encode(utf8.encode('$clientId:$secretKey'));
+      debugPrint('PayPal: Fetching access token from $baseUrl...');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/v1/oauth2/token'),
+        headers: {
+          'Authorization': 'Basic $credentials',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final token = data['access_token'] as String?;
+      debugPrint('PayPal: Access token ${token != null ? "obtained" : "FAILED"}');
+      return token;
+    } catch (e) {
+      Logger.error('Failed to get PayPal access token', e);
+      return null;
+    }
+  }
+
+  /// Create a PayPal payment and return the approval URL + paymentId
+  Future<Map<String, dynamic>> createPaypalPayment({
+    required String accessToken,
+    required bool isSandbox,
+    required double total,
+    required double subtotal,
+    required double tax,
+    required double shipping,
+    required double discount,
+    required String currency,
+    required String orderNumber,
+    required String returnUrl,
+    required String cancelUrl,
+  }) async {
+    try {
+      final baseUrl = isSandbox
+          ? 'https://api.sandbox.paypal.com'
+          : 'https://api.paypal.com';
+
+      final payload = {
+        'intent': 'sale',
+        'redirect_urls': {
+          'return_url': returnUrl,
+          'cancel_url': cancelUrl,
+        },
+        'payer': {'payment_method': 'paypal'},
+        'transactions': [
+          {
+            'amount': {
+              'total': total.toStringAsFixed(2),
+              'currency': currency,
+              'details': {
+                'subtotal': subtotal.toStringAsFixed(2),
+                'tax': tax.toStringAsFixed(2),
+                'shipping': shipping.toStringAsFixed(2),
+                'shipping_discount': discount.toStringAsFixed(2),
+              },
+            },
+            'description': 'Order #$orderNumber',
+            'item_list': {
+              'items': [
+                {
+                  'name': 'Order #$orderNumber Payment',
+                  'quantity': '1',
+                  'price': subtotal.toStringAsFixed(2),
+                  'currency': currency,
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      debugPrint('PayPal: Creating payment for Order #$orderNumber...');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/v1/payments/payment'),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(payload),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode != 201) {
+        debugPrint('PayPal create payment error: ${response.body}');
+        throw ApiException(
+          message: 'PayPal payment creation failed: ${data['message'] ?? response.statusCode}',
+          statusCode: response.statusCode,
+        );
+      }
+
+      final paymentId = data['id'] as String?;
+      String? approvalUrl;
+
+      final links = data['links'] as List<dynamic>?;
+      if (links != null) {
+        for (final link in links) {
+          if (link['rel'] == 'approval_url') {
+            approvalUrl = link['href'] as String?;
+            break;
+          }
+        }
+      }
+
+      debugPrint('PayPal: Payment created. ID=$paymentId, approvalUrl=$approvalUrl');
+      return {
+        'paymentId': paymentId,
+        'approvalUrl': approvalUrl,
+      };
+    } catch (e) {
+      Logger.error('Failed to create PayPal payment', e);
       rethrow;
     }
   }

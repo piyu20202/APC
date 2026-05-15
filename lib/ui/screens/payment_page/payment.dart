@@ -15,6 +15,7 @@ import 'package:apcproject/data/models/user_model.dart';
 import 'package:apcproject/core/utils/logger.dart';
 import 'package:apcproject/core/utils/coupon_cart_display.dart';
 import 'package:flutter_paypal/flutter_paypal.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:apcproject/data/services/payment_config_service.dart';
 import 'package:apcproject/data/models/payment_config_model.dart';
 import 'package:apcproject/core/exceptions/api_exception.dart';
@@ -468,16 +469,12 @@ class _PaymentPageState extends State<PaymentPage> {
           _navigateToOrderSuccess(response, 'Google Pay');
           return;
         }
-
-        debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
-        
-        // 2. Step C: Trigger _initializePayment after successful order creation
-        await _initializePayment();
+        debugPrint('Order created successfully: $_orderNumber. Proceeding to Google Pay flow...');
       } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         throw Exception('Order details not found. Please try again from the My Orders screen.');
       }
 
-      // Re-initialize Google Pay configuration with the LATEST amount to ensure
+      // 2. Re-initialize Google Pay configuration with the LATEST amount to ensure
       // the gateway total matches the UI total (especially if coupons were applied).
       await _initializeGooglePay();
 
@@ -1249,6 +1246,14 @@ class _PaymentPageState extends State<PaymentPage> {
           _orderData = response;
           _orderNumber = orderNumber;
           _orderId = _toInt(order?['id']);
+
+          // Set additional flags to avoid redundant _initializePayment() calls
+          final statusRoot = (response['order_status'] ?? '').toString().toLowerCase().trim();
+          final statusOrder = (order?['order_status'] ?? '').toString().toLowerCase().trim();
+          _isAwaitingFreight = statusRoot.contains('awaiting') || statusOrder.contains('awaiting');
+          
+          _manualOrderByAdmin = _toInt(order?['manual_order_by_admin']) ?? 0;
+          _orderPaymentStatus = (order?['payment_status'] ?? '').toString().toLowerCase().trim();
         });
       }
 
@@ -1359,6 +1364,8 @@ class _PaymentPageState extends State<PaymentPage> {
       (route) => false,
       arguments: {
         'payment_token': response['transaction_id'] ??
+            response['paymentId'] ??
+            response['paymentID'] ??
             response['order']?['order_number'] ??
             _orderNumber,
         'payment_method': method,
@@ -1366,11 +1373,15 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
-  void _navigateToPaymentFailure() {
+  void _navigateToPaymentFailure({String? orderNumber, String? paymentId}) {
     Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (context) => PaymentFailureScreen(isPayLater: _isPayLater)),
+          builder: (context) => PaymentFailureScreen(
+                isPayLater: _isPayLater,
+                orderNumber: orderNumber,
+                paymentId: paymentId,
+              )),
     );
   }
 
@@ -1408,8 +1419,7 @@ class _PaymentPageState extends State<PaymentPage> {
           return;
         }
 
-        debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
-        await _initializePayment();
+        debugPrint('Order created successfully: $_orderNumber. Proceeding to payment...');
       } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         throw Exception('Order details not found. Please try again from the My Orders screen.');
       }
@@ -1507,7 +1517,6 @@ class _PaymentPageState extends State<PaymentPage> {
     if (_isProcessing) return;
 
     setState(() => _isProcessing = true);
-    bool isCallbackTriggered = false;
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
@@ -1525,10 +1534,7 @@ class _PaymentPageState extends State<PaymentPage> {
           return;
         }
 
-        debugPrint('Order created successfully: $_orderNumber. Initializing payment details...');
-        
-        // 2. Step C: Trigger _initializePayment after successful order creation
-        await _initializePayment();
+        debugPrint('Order created successfully: $_orderNumber. Proceeding to PayPal flow...');
       } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         throw Exception('Order details not found. Please try again from the My Orders screen.');
       }
@@ -1550,101 +1556,113 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       // MATHEMATICAL FIX: PayPal requires (subtotal + shipping + tax - discount) == total
-      // We calculate subtotal dynamically to ensure consistency even if API breakdown has rounding/inclusion issues.
       final double paypalTotal = _amount!;
       final double paypalTax = _gstAmount!;
       final double paypalShipping = _shippingCost!;
       final double paypalDiscount = _discountAmount!;
       final double paypalSubtotal = paypalTotal - paypalTax - paypalShipping + paypalDiscount;
 
+      debugPrint('Launching PayPal Webview for Order #$_orderNumber (Amount: $_amount)');
       if (mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (BuildContext context) => UsePaypal(
-              sandboxMode: isSandbox,
-              clientId: clientId!,
-              secretKey: secretKey!,
-              returnURL: "https://www.apc.com.au/payment/success",
-              cancelURL: "https://www.apc.com.au/payment/cancel",
-              transactions: [
-                {
-                  "amount": {
-                    "total": paypalTotal.toStringAsFixed(2),
-                    "currency": _currency ?? 'AUD',
-                    "details": {
-                      "subtotal": paypalSubtotal.toStringAsFixed(2),
-                      "shipping": paypalShipping.toStringAsFixed(2),
-                      "tax": paypalTax.toStringAsFixed(2),
-                      "shipping_discount": paypalDiscount.toStringAsFixed(2)
-                    }
-                  },
-                  "description": "Order #$_orderNumber",
-                  "item_list": {
-                    "items": [
-                      {
-                        "name": "Order #$_orderNumber Payment",
-                        "quantity": 1,
-                        "price": paypalSubtotal.toStringAsFixed(2),
-                        "currency": _currency ?? 'AUD'
-                      }
-                    ],
-                  }
-                }
-              ],
-              note: "Contact us for any questions on your order.",
-              onSuccess: (Map params) async {
-                isCallbackTriggered = true;
-                debugPrint('PayPal success: $params');
-                if (mounted) setState(() => _isProcessing = true);
-                try {
-                  // Final backend update
-                  await _paymentService.processPayPal(
-                    orderNumber: _orderNumber!,
-                    orderId: _orderId!,
-                    amount: _amount!,
-                    currency: _currency ?? 'AUD',
-                    paymentResult: Map<String, dynamic>.from(params),
-                  );
+        // Get access token first
+        final accessToken = await _paymentService.getPaypalAccessToken(
+          clientId: clientId!,
+          secretKey: secretKey!,
+          isSandbox: isSandbox,
+        );
 
-                  // Clear cart as payment was successful (Normal Flow only)
-                  if (!_isPayLater) {
-                    await StorageService.clearCartData();
-                    await StorageService.clearPaymentCartSnapshot();
-                  }
-                  await StorageService.clearOrderData();
-                  await StorageService.clearCheckoutData();
-                  
-                  if (mounted) {
-                    _navigateToOrderSuccess(Map<String, dynamic>.from(params), 'PayPal');
-                  }
-                } catch (e) {
-                  debugPrint('Error finalizing PayPal on backend: $e');
-                  if (mounted) {
-                    Fluttertoast.showToast(msg: 'Payment success but failed to update order.');
-                  }
-                } finally {
-                  if (mounted) setState(() => _isProcessing = false);
-                }
-              },
-              onError: (error) {
-                isCallbackTriggered = true;
-                debugPrint('PayPal onError: $error');
-                _navigateToPaymentFailure();
-              },
-              onCancel: (params) {
-                isCallbackTriggered = true;
-                debugPrint('PayPal onCancel: $params');
-                _navigateToPaymentFailure();
-              },
+        if (accessToken == null) {
+          throw Exception('Failed to get PayPal access token.');
+        }
+
+        // Create PayPal payment and get approval URL
+        final paypalPaymentData = await _paymentService.createPaypalPayment(
+          accessToken: accessToken,
+          isSandbox: isSandbox,
+          total: paypalTotal,
+          subtotal: paypalSubtotal,
+          tax: paypalTax,
+          shipping: paypalShipping,
+          discount: paypalDiscount,
+          currency: _currency ?? 'AUD',
+          orderNumber: _orderNumber!,
+          returnUrl: 'https://www.apc.com.au/payment/success',
+          cancelUrl: 'https://www.apc.com.au/payment/cancel',
+        );
+
+        final approvalUrl = paypalPaymentData['approvalUrl'] as String?;
+        final paymentId = paypalPaymentData['paymentId'] as String?;
+        
+        if (approvalUrl == null) throw Exception('No PayPal approval URL received.');
+        debugPrint('PayPal approval URL: $approvalUrl');
+
+        final result = await Navigator.of(context).push<Map<String, String?>>(
+          MaterialPageRoute(
+            builder: (_) => _PayPalWebViewScreen(
+              approvalUrl: approvalUrl,
+              returnUrl: 'https://www.apc.com.au/payment/success',
+              cancelUrl: 'https://www.apc.com.au/payment/cancel',
             ),
           ),
         );
 
-        // After the PayPal browser/webview is closed, check if any callback was triggered
-        // If not, it means the user pressed the manual back button.
-        if (!isCallbackTriggered && mounted) {
-          debugPrint('PayPal: User manually returned via back button without completing flow.');
+        debugPrint('PayPal WebView result: $result');
+
+        if (result == null || result['status'] == 'cancelled') {
+          debugPrint('PayPal: Cancelled or no result.');
           _navigateToPaymentFailure();
+          return;
+        }
+
+        if (result['status'] == 'success') {
+          final returnedPaymentId = result['paymentId'] ?? paymentId ?? '';
+          final payerId = result['payerId'] ?? '';
+          final token = result['token'] ?? '';
+
+          debugPrint('PayPal success: paymentId=$returnedPaymentId, payerId=$payerId');
+
+          if (mounted) setState(() => _isProcessing = true);
+          try {
+            debugPrint('Finalizing PayPal on server for order: #$_orderNumber (ID: $_orderId)');
+            final paypalResult = {
+              'status': 'success',
+              'paymentId': returnedPaymentId,
+              'paymentID': returnedPaymentId,
+              'payerID': payerId,
+              'token': token,
+            };
+            final serverResponse = await _paymentService.processPayPal(
+              orderNumber: _orderNumber!,
+              orderId: _orderId!,
+              amount: _amount!,
+              currency: _currency ?? 'AUD',
+              paymentResult: paypalResult,
+            );
+
+            if (!_isPayLater) {
+              await StorageService.clearCartData();
+              await StorageService.clearPaymentCartSnapshot();
+            }
+            await StorageService.clearOrderData();
+            await StorageService.clearCheckoutData();
+
+            if (mounted) {
+              _navigateToOrderSuccess({...paypalResult, ...serverResponse}, 'PayPal');
+            }
+          } catch (e) {
+            debugPrint('Error finalizing PayPal on backend: $e');
+            if (mounted) {
+              Fluttertoast.showToast(
+                msg: 'Verification failed. Order: #$_orderNumber. Please contact support.',
+                backgroundColor: Colors.red,
+                textColor: Colors.white,
+                toastLength: Toast.LENGTH_LONG,
+              );
+              _navigateToPaymentFailure(orderNumber: _orderNumber);
+            }
+          } finally {
+            if (mounted) setState(() => _isProcessing = false);
+          }
         }
       }
     } catch (e) {
@@ -1985,10 +2003,7 @@ class _PaymentPageState extends State<PaymentPage> {
           if (mounted) setState(() => _isProcessing = false);
           return;
         }
-        debugPrint('Order created successfully: $_orderNumber. Initializing details...');
-        
-        // 2. Step C: Trigger _initializePayment after successful order creation
-        await _initializePayment();
+        debugPrint('Order created successfully: $_orderNumber. Proceeding to order completion...');
       } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
         throw Exception('Order details not found. Please try again from the My Orders screen.');
       }
@@ -2859,7 +2874,10 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
   Widget _buildCardInputFields() {
-    return Container(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2886,6 +2904,8 @@ class _PaymentPageState extends State<PaymentPage> {
             focusNode: _cardholderNameFocus,
             hint: 'E.g. JOHN DOE',
             textCapitalization: TextCapitalization.characters,
+            textInputAction: TextInputAction.next,
+            onSubmitted: () => FocusScope.of(context).requestFocus(_cardNumberFocus),
             validator: (v) =>
                 v == null || v.isEmpty ? 'Enter cardholder name' : null,
           ),
@@ -2903,6 +2923,8 @@ class _PaymentPageState extends State<PaymentPage> {
               FilteringTextInputFormatter.digitsOnly,
               _CardNumberFormatter(),
             ],
+            textInputAction: TextInputAction.next,
+            onSubmitted: () => FocusScope.of(context).requestFocus(_expiryFocus),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Enter card number';
               final clean = v.replaceAll(' ', '');
@@ -2929,6 +2951,8 @@ class _PaymentPageState extends State<PaymentPage> {
                     FilteringTextInputFormatter.digitsOnly,
                     _ExpiryDateFormatter(),
                   ],
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: () => FocusScope.of(context).requestFocus(_cvvFocus),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Required';
                     if (v.length < 5) return 'Invalid';
@@ -2948,6 +2972,8 @@ class _PaymentPageState extends State<PaymentPage> {
                   keyboardType: TextInputType.number,
                   maxLength: 4,
                   obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: () => FocusScope.of(context).unfocus(),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Required';
                     if (v.length < 3) return 'Invalid';
@@ -2959,7 +2985,7 @@ class _PaymentPageState extends State<PaymentPage> {
           ),
         ],
       ),
-    );
+    ), // GestureDetector
   }
 
   Widget _buildTextField({
@@ -2973,6 +2999,8 @@ class _PaymentPageState extends State<PaymentPage> {
     bool obscureText = false,
     TextCapitalization textCapitalization = TextCapitalization.none,
     String? Function(String?)? validator,
+    TextInputAction textInputAction = TextInputAction.next,
+    VoidCallback? onSubmitted,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2995,6 +3023,14 @@ class _PaymentPageState extends State<PaymentPage> {
           obscureText: obscureText,
           textCapitalization: textCapitalization,
           validator: validator,
+          textInputAction: textInputAction,
+          onFieldSubmitted: (_) {
+            if (onSubmitted != null) {
+              onSubmitted();
+            } else {
+              FocusScope.of(context).nextFocus();
+            }
+          },
           decoration: InputDecoration(
             hintText: hint,
             counterText: '',
@@ -3072,6 +3108,133 @@ class _ExpiryDateFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: formattedText,
       selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom PayPal WebView Screen
+// Intercepts the returnURL to extract payment details from query parameters
+// instead of relying on flutter_paypal's buggy onSuccess callback.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PayPalWebViewScreen extends StatefulWidget {
+  final String approvalUrl;
+  final String returnUrl;
+  final String cancelUrl;
+
+  const _PayPalWebViewScreen({
+    required this.approvalUrl,
+    required this.returnUrl,
+    required this.cancelUrl,
+  });
+
+  @override
+  State<_PayPalWebViewScreen> createState() => _PayPalWebViewScreenState();
+}
+
+class _PayPalWebViewScreenState extends State<_PayPalWebViewScreen> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+  bool _hasPopped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            debugPrint('PayPalWebView: Loading $url');
+            if (mounted) setState(() => _isLoading = true);
+            _checkUrl(url);
+          },
+          onPageFinished: (url) {
+            debugPrint('PayPalWebView: Finished loading $url');
+            if (mounted) setState(() => _isLoading = false);
+          },
+          onNavigationRequest: (request) {
+            debugPrint('PayPalWebView: Navigation request to ${request.url}');
+            _checkUrl(request.url);
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.approvalUrl));
+  }
+
+  void _checkUrl(String url) {
+    if (_hasPopped) return;
+
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+
+    final returnUri = Uri.tryParse(widget.returnUrl);
+    final cancelUri = Uri.tryParse(widget.cancelUrl);
+
+    // Check for success returnURL
+    if (returnUri != null &&
+        uri.host == returnUri.host &&
+        uri.path == returnUri.path) {
+      _hasPopped = true;
+      final paymentId = uri.queryParameters['paymentId'];
+      final payerId = uri.queryParameters['PayerID'];
+      final token = uri.queryParameters['token'];
+      debugPrint('PayPalWebView: SUCCESS! paymentId=$paymentId, payerId=$payerId, token=$token');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pop({
+            'status': 'success',
+            'paymentId': paymentId,
+            'payerId': payerId,
+            'token': token,
+          });
+        }
+      });
+      return;
+    }
+
+    // Check for cancel cancelURL
+    if (cancelUri != null &&
+        uri.host == cancelUri.host &&
+        uri.path == cancelUri.path) {
+      _hasPopped = true;
+      debugPrint('PayPalWebView: CANCELLED by user.');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pop({'status': 'cancelled'});
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('PayPal Payment'),
+        backgroundColor: const Color(0xFF003087),
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (!_hasPopped) {
+              _hasPopped = true;
+              Navigator.of(context).pop({'status': 'cancelled'});
+            }
+          },
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(color: Color(0xFF003087)),
+            ),
+        ],
+      ),
     );
   }
 }

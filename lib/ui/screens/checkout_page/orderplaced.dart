@@ -72,21 +72,36 @@ class OrderPlacedPage extends StatelessWidget {
                 future: StorageService.getOrderData(),
                 builder: (context, snapshot) {
                   String invoiceNumber = '';
-                  String orderId = '';
                   if (snapshot.hasData && snapshot.data != null) {
                     final order = snapshot.data!['order'] as Map<String, dynamic>?;
                     invoiceNumber = order?['order_number'] as String? ?? '';
-                    orderId = order?['id']?.toString() ?? '';
                   }
                   
-                  if (invoiceNumber.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
+                  final paymentToken = args?['payment_token']?.toString() ?? '';
+                  final showTransactionId = paymentToken.isNotEmpty && paymentToken != invoiceNumber;
 
-                  return Text(
-                    'Invoice Number: #$invoiceNumber',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    textAlign: TextAlign.center,
+                  return Column(
+                    children: [
+                      if (invoiceNumber.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            'Invoice Number: #$invoiceNumber',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF151D51),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      if (showTransactionId)
+                        Text(
+                          'Transaction ID: $paymentToken',
+                          style: const TextStyle(fontSize: 13, color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
                   );
                 },
               ),

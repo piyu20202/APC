@@ -1,5 +1,5 @@
 {
-  "mode": "production",
+  "mode": "sandbox",
   "currency": "AUD",
   "country": "AU",
   "business_name": "Automotion Plus",

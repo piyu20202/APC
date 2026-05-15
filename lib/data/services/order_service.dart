@@ -15,6 +15,13 @@ class OrderService {
         contentType: 'application/json',
         requireAuth: true, // User must be logged in
       );
+      
+      // Logging Response for Store Order
+      print('**************************************************');
+      print('STORE_ORDER_RESPONSE:');
+      print(jsonEncode(response));
+      print('**************************************************');
+
       Logger.info('Store-order response: ${jsonEncode(response)}');
       return response;
     } on ApiException {
