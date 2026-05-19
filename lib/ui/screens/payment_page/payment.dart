@@ -79,8 +79,11 @@ class _PaymentPageState extends State<PaymentPage> {
   double? _amount;
   String? _currency;
 
-  // Order breakdown (from cart, for display before payment)
-  double? _subtotalExclGst;
+  // Order breakdown (from cart / shipping API, for display before payment)
+  double? _totalCostExclGst; // total_cost_excl_gst — items only
+  double? _totalWithoutGst; // total_without_gst
+  double? _totalWithGst; // total_with_gst
+  double? _subtotalExclGst; // legacy / coupon % base (synced from items total)
   double? _shippingCost;
   double? _gstAmount;
   double? _discountAmount; // stored for future display use
@@ -88,6 +91,8 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _hasPendingFreightQuote = false;
   bool _isPayLater = false;
   bool _showFreeShippingLabel = false;
+  /// From API `shipping_type`: `shipto` or `pickup`. Pickup hides free-delivery promo.
+  String _shippingType = 'shipto';
   bool _isAwaitingFreight = false;
   String _selectedPaymentMethod = '';
   int _manualOrderByAdmin = 0;
@@ -163,16 +168,27 @@ class _PaymentPageState extends State<PaymentPage> {
         _gstAmount = _toDouble(args['summary_tax']) ?? 0.0;
         _shippingCost = _toDouble(args['summary_shipping']) ?? 0.0;
         _discountAmount = _toDouble(args['summary_discount']) ?? 0.0;
-        _subtotalExclGst = _toDouble(args['summary_subtotal']) ?? 0.0;
-        
+        _totalCostExclGst =
+            _toDouble(args['summary_total_cost_excl_gst']) ??
+            _toDouble(args['summary_subtotal']);
+        _totalWithoutGst =
+            _toDouble(args['summary_total_without_gst']) ??
+            _toDouble(args['summary_subtotal']);
+        _totalWithGst =
+            _toDouble(args['summary_total_with_gst']) ??
+            _toDouble(args['summary_grand_total']);
+        _subtotalExclGst = _totalCostExclGst;
+
         // Initialize _isPayLater from flow indicator
         _isPayLater = isMyOrdersFlow;
-        
+
         final argMethod = args['payment_method']?.toString();
-        if (_selectedPaymentMethod.isEmpty && argMethod != null && argMethod.isNotEmpty) {
+        if (_selectedPaymentMethod.isEmpty &&
+            argMethod != null &&
+            argMethod.isNotEmpty) {
           _selectedPaymentMethod = argMethod;
         }
-        
+
         // Show UI immediately from args (non-blank display)
         _isLoading = false;
 
@@ -181,7 +197,9 @@ class _PaymentPageState extends State<PaymentPage> {
         if (order != null) {
           _orderId = _toInt(order['id']);
           _orderNumber = order['order_number']?.toString();
-          debugPrint('SETUP_UI: Extracted Order ID: $_orderId, Number: $_orderNumber');
+          debugPrint(
+            'SETUP_UI: Extracted Order ID: $_orderId, Number: $_orderNumber',
+          );
         }
       });
 
@@ -189,7 +207,9 @@ class _PaymentPageState extends State<PaymentPage> {
       // we MUST call _initializePayment() so it triggers _refreshPricing()
       // which calls /user/cart/shipping to get fresh, accurate pricing from the API.
       if (isMyOrdersFlow) {
-        debugPrint('SETUP_UI: My Orders flow detected - triggering _initializePayment for pricing refresh...');
+        debugPrint(
+          'SETUP_UI: My Orders flow detected - triggering _initializePayment for pricing refresh...',
+        );
         _initializePayment();
       }
     } else {
@@ -203,8 +223,11 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _loadPayPalConfig() async {
     try {
       // 1. Load baseline configuration from assets (for mode and other settings)
-      final String jsonString = await rootBundle.loadString('assets/paypal_config.json');
-      final Map<String, dynamic> configMap = jsonDecode(jsonString) as Map<String, dynamic>;
+      final String jsonString = await rootBundle.loadString(
+        'assets/paypal_config.json',
+      );
+      final Map<String, dynamic> configMap =
+          jsonDecode(jsonString) as Map<String, dynamic>;
 
       // 2. Try to get dynamic credentials from storage
       var dynamicConfig = await PaymentConfigService.getCachedConfig();
@@ -220,7 +243,7 @@ class _PaymentPageState extends State<PaymentPage> {
         _paypalConfig = configMap;
         if (pp != null && pp.clientKey != null && pp.secretKey != null) {
           debugPrint('Using dynamic PayPal credentials from API');
-          // We'll store these in the configMap for convenience, 
+          // We'll store these in the configMap for convenience,
           // or just use the model values directly in handlePayPal.
           configMap['client_key'] = pp.clientKey;
           configMap['secret_key'] = pp.secretKey;
@@ -266,7 +289,6 @@ class _PaymentPageState extends State<PaymentPage> {
     debugPrint('=== END $label ===');
   }
 
-
   // ─── Google Pay ────────────────────────────────────────────────────────────
 
   Future<void> _initializeGooglePay() async {
@@ -285,9 +307,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
       // 2. Try to override with dynamic config from storage (Shared Preferences)
       final dynamicConfig = await PaymentConfigService.getCachedConfig();
-      
+
       // Get Merchant ID from storage OR use fallback
-      final String merchantId = dynamicConfig?.googlepay?.merchantId ?? "BCR2DN7TRDA73ZCT";
+      final String merchantId =
+          dynamicConfig?.googlepay?.merchantId ?? "BCR2DN7TRDA73ZCT";
       debugPrint('Initializing Google Pay with merchantId: $merchantId');
 
       if (configMap['data'] != null) {
@@ -298,8 +321,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
         // B. Update Gateway Merchant ID (Cybersource)
         // Use cybersource merchantId from config, or fallback to 'anzapcau' (default in asset)
-        final String gatewayMerchantId = dynamicConfig?.cybersource?.merchantId ?? "anzapcau";
-        final allowedMethods = configMap['data']['allowedPaymentMethods'] as List?;
+        final String gatewayMerchantId =
+            dynamicConfig?.cybersource?.merchantId ?? "anzapcau";
+        final allowedMethods =
+            configMap['data']['allowedPaymentMethods'] as List?;
         if (allowedMethods != null && allowedMethods.isNotEmpty) {
           final tokenSpec = allowedMethods[0]['tokenizationSpecification'];
           if (tokenSpec != null && tokenSpec['parameters'] != null) {
@@ -309,14 +334,17 @@ class _PaymentPageState extends State<PaymentPage> {
 
         // C. Update Transaction Info (Default to 0.00, will be updated on click)
         if (configMap['data']['transactionInfo'] != null) {
-          configMap['data']['transactionInfo']['totalPrice'] = (_amount ?? 0.0).toStringAsFixed(2);
+          configMap['data']['transactionInfo']['totalPrice'] = (_amount ?? 0.0)
+              .toStringAsFixed(2);
         }
       }
 
       // 3. Initialize Pay client
-      _googlePayConfig = PaymentConfiguration.fromJsonString(jsonEncode(configMap));
+      _googlePayConfig = PaymentConfiguration.fromJsonString(
+        jsonEncode(configMap),
+      );
       _payClient = Pay({PayProvider.google_pay: _googlePayConfig!});
-      
+
       _isGooglePayAvailable = await _payClient!.userCanPay(
         PayProvider.google_pay,
       );
@@ -357,8 +385,12 @@ class _PaymentPageState extends State<PaymentPage> {
     Map<String, dynamic> paymentResult,
   ) async {
     // SECURITY: Only process if the user actually clicked the 'PAY NOW' button
-    if (!_isWaitingForPaymentResult || _isPaymentProcessing || _hasNavigatedAway || !mounted) return;
-    
+    if (!_isWaitingForPaymentResult ||
+        _isPaymentProcessing ||
+        _hasNavigatedAway ||
+        !mounted)
+      return;
+
     _isWaitingForPaymentResult = false;
 
     try {
@@ -369,8 +401,7 @@ class _PaymentPageState extends State<PaymentPage> {
       final order = orderData?['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
       final orderId = _toInt(order?['id']);
-      final amount =
-          _amount ?? _toDouble(order?['pay_amount']) ?? 0.0;
+      final amount = _amount ?? _toDouble(order?['pay_amount']) ?? 0.0;
 
       if (orderNumber == null) throw Exception('Order number not found');
       if (orderId == null) throw Exception('Order ID not found');
@@ -451,8 +482,12 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
-      if (!_isPayLater && !_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        debugPrint('Google Pay clicked: Creating order via store-order API first...');
+      if (!_isPayLater &&
+          !_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        debugPrint(
+          'Google Pay clicked: Creating order via store-order API first...',
+        );
         final response = await _createOrderForDirectPayment();
         if (response == null) {
           if (mounted) {
@@ -465,13 +500,19 @@ class _PaymentPageState extends State<PaymentPage> {
         }
 
         // CONDITIONAL FLOW: check process_payment
-        if (response['process_payment'] == 0 && response['show_order_success'] == 1) {
+        if (response['process_payment'] == 0 &&
+            response['show_order_success'] == 1) {
           _navigateToOrderSuccess(response, 'Google Pay');
           return;
         }
-        debugPrint('Order created successfully: $_orderNumber. Proceeding to Google Pay flow...');
-      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        throw Exception('Order details not found. Please try again from the My Orders screen.');
+        debugPrint(
+          'Order created successfully: $_orderNumber. Proceeding to Google Pay flow...',
+        );
+      } else if (_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        throw Exception(
+          'Order details not found. Please try again from the My Orders screen.',
+        );
       }
 
       // 2. Re-initialize Google Pay configuration with the LATEST amount to ensure
@@ -536,10 +577,10 @@ class _PaymentPageState extends State<PaymentPage> {
     double subtotalExclGst = parseOrZero(data['subtotal_excluding_gst']) > 0
         ? parseOrZero(data['subtotal_excluding_gst'])
         : (parseOrZero(data['totalPrice']) > 0
-            ? parseOrZero(data['totalPrice'])
-            : (parseOrZero(order?['pay_amount']) > 0
-                ? parseOrZero(order?['pay_amount'])
-                : parseOrZero(order?['subtotal'])));
+              ? parseOrZero(data['totalPrice'])
+              : (parseOrZero(order?['pay_amount']) > 0
+                    ? parseOrZero(order?['pay_amount'])
+                    : parseOrZero(order?['subtotal'])));
 
     double gstAmount = parseOrZero(data['tax']) > 0
         ? parseOrZero(data['tax'])
@@ -585,6 +626,7 @@ class _PaymentPageState extends State<PaymentPage> {
       orderType: orderType,
       showRequestFreightCost: effectiveShowRequestFreightCost,
       showFreeShippingIcon: effectiveShowFreeShippingIcon,
+      shippingType: data['shipping_type'] ?? data['shipping_type_method'],
     );
 
     final double totalAmount = parseOrZero(data['grand_total']) > 0
@@ -627,6 +669,16 @@ class _PaymentPageState extends State<PaymentPage> {
   // FREIGHT & BREAKDOWN CALCULATION
   // ─────────────────────────────────────────────────────────────────────────
 
+  bool get _isPickupShipping => _shippingType == 'pickup';
+
+  String _normalizeShippingType(dynamic value) {
+    final normalized = value?.toString().toLowerCase().trim() ?? '';
+    if (normalized == 'pickup' || normalized.contains('pickup')) {
+      return 'pickup';
+    }
+    return 'shipto';
+  }
+
   /// Centralized freight rule resolution logic
   /// Determines whether to charge shipping, show free label, or pending quote
   /// Based on order type, product flags, and freight rules
@@ -635,15 +687,19 @@ class _PaymentPageState extends State<PaymentPage> {
     dynamic orderType,
     dynamic showRequestFreightCost,
     dynamic showFreeShippingIcon,
+    String? shippingType,
   }) {
     final normalizedOrderType = (orderType ?? '').toString().toLowerCase();
     final requestFreightCost = _toDouble(showRequestFreightCost) ?? 0.0;
     final freeShippingIcon = _toDouble(showFreeShippingIcon) ?? 0.0;
+    final isPickup = _normalizeShippingType(shippingType) == 'pickup';
 
     final hasPendingFreightQuote =
         normalizedOrderType == 'large' || requestFreightCost >= 1;
-    final showFreeShippingLabel =
-        !hasPendingFreightQuote && freeShippingIcon == 1;
+    // Pickup: customer collects from office — never show "free delivery" promo.
+    final showFreeShippingLabel = !isPickup &&
+        !hasPendingFreightQuote &&
+        freeShippingIcon == 1;
 
     final shippingCost = hasPendingFreightQuote || showFreeShippingLabel
         ? 0.0
@@ -856,6 +912,41 @@ class _PaymentPageState extends State<PaymentPage> {
     return null;
   }
 
+  /// Applies pricing fields from `/user/cart/shipping` (or compatible) response.
+  void _applyPricingFromShippingResponse(Map<String, dynamic> shippingResponse) {
+    _shippingCost = _toDouble(shippingResponse['shipping']) ?? 0.0;
+    _gstAmount = _toDouble(shippingResponse['tax']) ?? 0.0;
+    _discountAmount = _toDouble(shippingResponse['discount']) ?? 0.0;
+
+    _totalCostExclGst = _toDouble(shippingResponse['total_cost_excl_gst']);
+    _totalWithoutGst = _toDouble(shippingResponse['total_without_gst']);
+    _totalWithGst = _toDouble(shippingResponse['total_with_gst']);
+
+    if (_totalCostExclGst == null || _totalCostExclGst == 0) {
+      _totalCostExclGst = _totalWithoutGst;
+    }
+    if (_totalWithoutGst == null || _totalWithoutGst == 0) {
+      _totalWithoutGst = _totalCostExclGst;
+    }
+
+    _subtotalExclGst = _totalCostExclGst;
+
+    final shippingTotalWithGst = _totalWithGst;
+    if (shippingTotalWithGst != null && shippingTotalWithGst > 0) {
+      _amount = shippingTotalWithGst;
+    } else {
+      _amount =
+          (_totalWithoutGst ?? 0) +
+          (_gstAmount ?? 0) +
+          (_shippingCost ?? 0) -
+          (_discountAmount ?? 0);
+      _totalWithGst = (_totalWithoutGst ?? 0) + (_gstAmount ?? 0);
+      debugPrint(
+        'REFRESH_PRICING: total_with_gst was 0 or null, calculated local totals',
+      );
+    }
+  }
+
   /// Refresh all totals and breakdown from the centralized Shipping API
   Future<void> _refreshPricing({
     required String postcode,
@@ -874,14 +965,18 @@ class _PaymentPageState extends State<PaymentPage> {
           'shipping_type_method': "",
           'old_cart': "",
         };
-        debugPrint('REFRESH_PRICING: PayLater Case Payload: ${jsonEncode(shippingPayload)}');
+        debugPrint(
+          'REFRESH_PRICING: PayLater Case Payload: ${jsonEncode(shippingPayload)}',
+        );
       } else {
         // 2. Normal Flow Case (Standard Checkout)
         final checkoutData = await StorageService.getCheckoutData();
         final shippingMethod =
             checkoutData?['shipping_method'] as String? ?? 'Ship to Address';
-        final shippingTypeMethod =
-            shippingMethod == 'Pickup' ? 'pickup' : 'shipto';
+        final shippingTypeMethod = shippingMethod == 'Pickup'
+            ? 'pickup'
+            : 'shipto';
+        _shippingType = shippingTypeMethod;
 
         shippingPayload = {
           'order_id': "", // Empty or null for normal flow
@@ -890,52 +985,47 @@ class _PaymentPageState extends State<PaymentPage> {
           'code': _couponCode ?? "",
           'shipping_type_method': shippingTypeMethod,
         };
-        debugPrint('REFRESH_PRICING: Normal Flow Payload: ${jsonEncode(shippingPayload)}');
+        debugPrint(
+          'REFRESH_PRICING: Normal Flow Payload: ${jsonEncode(shippingPayload)}',
+        );
       }
 
-      final shippingResponse =
-          await _cartService.calculateShipping(shippingPayload);
+      final shippingResponse = await _cartService.calculateShipping(
+        shippingPayload,
+      );
 
       if (mounted) {
         setState(() {
-          // Use API values directly — no recalculation.
-          // The /user/cart/shipping endpoint already returns the correct breakdown.
-          _shippingCost = _toDouble(shippingResponse['shipping']) ?? 0.0;
-          _gstAmount = _toDouble(shippingResponse['tax']) ?? 0.0;
-          _discountAmount = _toDouble(shippingResponse['discount']) ?? 0.0;
-          _subtotalExclGst =
-              _toDouble(shippingResponse['total_without_gst']) ?? 0.0;
-
-          final shippingTotalWithGst =
-              _toDouble(shippingResponse['total_with_gst']);
-          
-          // If API returns 0.00 for total_with_gst (seen in some paylater cases), 
-          // calculate it: subtotal + tax + shipping - discount
-          if (shippingTotalWithGst != null && shippingTotalWithGst > 0) {
-            _amount = shippingTotalWithGst;
-          } else {
-            _amount = _subtotalExclGst! + _gstAmount! + _shippingCost! - _discountAmount!;
-            debugPrint('REFRESH_PRICING: total_with_gst was 0 or null, calculated local total: $_amount');
-          }
+          _applyPricingFromShippingResponse(shippingResponse);
 
           // Only use freight rule to determine UI flag state (pending quote / free label),
           // NOT to override _shippingCost (API already returns the correct value).
           final orderType = _extractOrderType(data: shippingResponse);
+          _shippingType = _normalizeShippingType(
+            shippingResponse['shipping_type'] ??
+                shippingResponse['shipping_type_method'],
+          );
+
           final freightRule = _resolveFreightRule(
             rawShippingCost: _shippingCost!,
             orderType: orderType,
             showRequestFreightCost: shippingResponse['show_freight_cost_icon'],
             showFreeShippingIcon: shippingResponse['show_free_shipping_icon'],
+            shippingType: _shippingType,
           );
           _hasPendingFreightQuote = freightRule.hasPendingFreightQuote;
-          debugPrint('REFRESH_PRICING: show_freight_icon=${shippingResponse['show_freight_cost_icon']}, hasPendingFreightQuote=$_hasPendingFreightQuote');
+          debugPrint(
+            'REFRESH_PRICING: shipping_type=$_shippingType, show_freight_icon=${shippingResponse['show_freight_cost_icon']}, show_free_shipping_icon=${shippingResponse['show_free_shipping_icon']}, hasPendingFreightQuote=$_hasPendingFreightQuote',
+          );
           _showFreeShippingLabel = freightRule.showFreeShippingLabel;
           _shippingTag = shippingResponse['shipping_tag']?.toString();
-          
+
           // Set _isPayLater based on the API response flag
           _isPayLater = shippingResponse['paylater']?.toString() == '1';
-          debugPrint('REFRESH_PRICING: _isPayLater set to $_isPayLater (raw: ${shippingResponse['paylater']})');
-          
+          debugPrint(
+            'REFRESH_PRICING: _isPayLater set to $_isPayLater (raw: ${shippingResponse['paylater']})',
+          );
+
           // NOTE: We intentionally do NOT use freightRule.shippingCost here
           // because _shippingCost is already set from the API response above.
         });
@@ -960,12 +1050,14 @@ class _PaymentPageState extends State<PaymentPage> {
           (widget.arguments?['order_data'] as Map?)?.cast<String, dynamic>() ??
           await StorageService.getOrderData();
 
-      debugPrint('Order data: ${orderData != null ? "Found (from: ${widget.arguments?['order_data'] != null ? 'argument' : 'storage'})" : "Not found"}');
+      debugPrint(
+        'Order data: ${orderData != null ? "Found (from: ${widget.arguments?['order_data'] != null ? 'argument' : 'storage'})" : "Not found"}',
+      );
 
       // DEFERRED: For direct normal checkout, we no longer call _createOrderForDirectPayment
       // during initialization. Instead, we call it when the user clicks 'PAY NOW'.
       // This allows the user to see the breakdown and apply coupons before the order is created on the server.
-      
+
       final resolvedOrderData = orderData;
 
       setState(() {
@@ -975,12 +1067,14 @@ class _PaymentPageState extends State<PaymentPage> {
               .toString()
               .toLowerCase()
               .trim();
-          final statusOrder = (resolvedOrderData['order']?['order_status'] ?? '')
-              .toString()
-              .toLowerCase()
-              .trim();
+          final statusOrder =
+              (resolvedOrderData['order']?['order_status'] ?? '')
+                  .toString()
+                  .toLowerCase()
+                  .trim();
           _isAwaitingFreight =
-              statusRoot.contains('awaiting') || statusOrder.contains('awaiting');
+              statusRoot.contains('awaiting') ||
+              statusOrder.contains('awaiting');
           debugPrint(
             'Freight Status Detected: $_isAwaitingFreight (Root: $statusRoot, Order: $statusOrder)',
           );
@@ -999,8 +1093,7 @@ class _PaymentPageState extends State<PaymentPage> {
       });
 
       // Initialize status-based flags
-      _manualOrderByAdmin =
-          _toInt(order?['manual_order_by_admin']) ?? 0;
+      _manualOrderByAdmin = _toInt(order?['manual_order_by_admin']) ?? 0;
       _orderPaymentStatus = (order?['payment_status'] ?? '')
           .toString()
           .toLowerCase();
@@ -1008,8 +1101,6 @@ class _PaymentPageState extends State<PaymentPage> {
       // Retrieve trade user status from StorageService
       final UserModel? currentUser = await StorageService.getUserData();
       final int tradeUserFlag = currentUser?.isTradeUser ?? 0;
-
-     
 
       final payAmount = _toDouble(order?['pay_amount']);
       final totalAmount = _toDouble(order?['total']);
@@ -1020,7 +1111,9 @@ class _PaymentPageState extends State<PaymentPage> {
       if (orderNumber != null && orderId != null) {
         debugPrint('Pre-existing order found: $orderNumber (ID: $orderId)');
       } else {
-        debugPrint('No pre-existing order. store-order API will be called on payment click.');
+        debugPrint(
+          'No pre-existing order. store-order API will be called on payment click.',
+        );
       }
 
       double? subtotalExclGst;
@@ -1030,6 +1123,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
       try {
         final checkoutData = await StorageService.getCheckoutData();
+        final checkoutShippingMethod =
+            checkoutData?['shipping_method'] as String? ?? 'Ship to Address';
+        _shippingType = checkoutShippingMethod == 'Pickup' ? 'pickup' : 'shipto';
         final postcode = (checkoutData?['post_code'] as String?)?.trim() ?? '';
         final cartResponse = await _getPaymentCartContainer();
         final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
@@ -1039,9 +1135,10 @@ class _PaymentPageState extends State<PaymentPage> {
         String activePostcode = postcode;
         if (fromMyOrdersPayment && resolvedOrderData != null) {
           final orderObj = resolvedOrderData['order'] as Map<String, dynamic>?;
-          activePostcode = (orderObj?['shipping_zip']?.toString().trim()) ?? 
-                           (orderObj?['zip']?.toString().trim()) ?? 
-                           postcode;
+          activePostcode =
+              (orderObj?['shipping_zip']?.toString().trim()) ??
+              (orderObj?['zip']?.toString().trim()) ??
+              postcode;
         }
 
         //debugPrint('DEBUG_PAYMENT_INIT: fromMyOrdersPayment=$fromMyOrdersPayment, postcode="$activePostcode", hasOldCart=${oldCart != null}');
@@ -1058,14 +1155,21 @@ class _PaymentPageState extends State<PaymentPage> {
           // Fallback for missing data
           final snap = _breakdownFromStoredOrder(resolvedOrderData ?? {});
           setState(() {
+            _totalCostExclGst = snap.subtotalExclGst;
+            _totalWithoutGst = snap.subtotalExclGst;
+            _totalWithGst = snap.amount;
             _subtotalExclGst = snap.subtotalExclGst;
             _shippingCost = snap.shippingCost;
             _gstAmount = snap.gstAmount;
             _discountAmount = snap.discountAmount;
             _amount = snap.amount;
-             _hasPendingFreightQuote = snap.hasPendingFreightQuote;
-            _showFreeShippingLabel = snap.showFreeShippingLabel;
-            _shippingTag = (resolvedOrderData?['shipping_tag'] ?? resolvedOrderData?['order']?['shipping_tag'])?.toString();
+            _hasPendingFreightQuote = snap.hasPendingFreightQuote;
+            _showFreeShippingLabel =
+                !_isPickupShipping && snap.showFreeShippingLabel;
+            _shippingTag =
+                (resolvedOrderData?['shipping_tag'] ??
+                        resolvedOrderData?['order']?['shipping_tag'])
+                    ?.toString();
           });
         }
       } catch (e) {
@@ -1085,7 +1189,7 @@ class _PaymentPageState extends State<PaymentPage> {
       final bool argIsPayLater = widget.arguments?['is_pay_later'] == true;
       final bool isCheckoutFreightPayment =
           widget.arguments?['checkout_freight_payment'] == true;
-      
+
       // If already true from API (_refreshPricing), keep it. Otherwise check arguments.
       if (!_isPayLater) {
         _isPayLater = argIsPayLater && !isCheckoutFreightPayment;
@@ -1130,29 +1234,55 @@ class _PaymentPageState extends State<PaymentPage> {
         }
 
         // Mathematically consistent Subtotal fallback
-        if (_subtotalExclGst == null || _subtotalExclGst == 0) {
-          _subtotalExclGst =
+        if (_totalCostExclGst == null || _totalCostExclGst == 0) {
+          _totalCostExclGst =
               (_amount! -
               _gstAmount! -
               _shippingCost! +
               (_specialDiscount ?? 0.0));
+          _subtotalExclGst = _totalCostExclGst;
+        }
+        if (_totalWithoutGst == null || _totalWithoutGst == 0) {
+          _totalWithoutGst = _totalCostExclGst;
+        }
+        if (_totalWithGst == null || _totalWithGst == 0) {
+          _totalWithGst = _amount;
         }
 
         // ABSOLUTE OVERRIDE: If we have explicit values from Order Details, use them exactly.
-        // BUT: For My Orders flow, we ignore these arguments because we just refreshed 
+        // BUT: For My Orders flow, we ignore these arguments because we just refreshed
         // with the fresh /user/cart/shipping API which is the new source of truth.
-        if (!_isFromMyOrdersPayment && widget.arguments?['summary_grand_total'] != null) {
-          _amount = _toDouble(widget.arguments?['summary_grand_total']) ?? _amount;
-          _gstAmount = _toDouble(widget.arguments?['summary_tax']) ?? _gstAmount;
-          _shippingCost = _toDouble(widget.arguments?['summary_shipping']) ?? _shippingCost;
-          _discountAmount = _toDouble(widget.arguments?['summary_discount']) ?? _discountAmount;
+        if (!_isFromMyOrdersPayment &&
+            widget.arguments?['summary_grand_total'] != null) {
+          _amount =
+              _toDouble(widget.arguments?['summary_grand_total']) ?? _amount;
+          _gstAmount =
+              _toDouble(widget.arguments?['summary_tax']) ?? _gstAmount;
+          _shippingCost =
+              _toDouble(widget.arguments?['summary_shipping']) ?? _shippingCost;
+          _discountAmount =
+              _toDouble(widget.arguments?['summary_discount']) ??
+              _discountAmount;
           _specialDiscount =
-              _toDouble(widget.arguments?['summary_special_discount']) ?? _specialDiscount;
-          _subtotalExclGst = _toDouble(widget.arguments?['summary_subtotal']) ?? _subtotalExclGst;
+              _toDouble(widget.arguments?['summary_special_discount']) ??
+              _specialDiscount;
+          _totalCostExclGst =
+              _toDouble(widget.arguments?['summary_total_cost_excl_gst']) ??
+              _toDouble(widget.arguments?['summary_subtotal']) ??
+              _totalCostExclGst;
+          _totalWithoutGst =
+              _toDouble(widget.arguments?['summary_total_without_gst']) ??
+              _toDouble(widget.arguments?['summary_subtotal']) ??
+              _totalWithoutGst;
+          _totalWithGst =
+              _toDouble(widget.arguments?['summary_total_with_gst']) ??
+              _toDouble(widget.arguments?['summary_grand_total']) ??
+              _totalWithGst;
+          _subtotalExclGst = _totalCostExclGst;
         }
 
-        if (_gstAmount! > 0 && _subtotalExclGst! > 0) {
-          _gstRate = (_gstAmount! / _subtotalExclGst!) * 100;
+        if (_gstAmount! > 0 && (_totalWithoutGst ?? 0) > 0) {
+          _gstRate = (_gstAmount! / _totalWithoutGst!) * 100;
         } else {
           _gstRate = 10.0;
         }
@@ -1176,12 +1306,10 @@ class _PaymentPageState extends State<PaymentPage> {
               cartSnap,
               grandTotalAfter: _amount,
             );
-            _isCouponApplied =
-                _couponCode != null && _couponCode!.isNotEmpty;
+            _isCouponApplied = _couponCode != null && _couponCode!.isNotEmpty;
           });
         }
       }
-
     } catch (e) {
       debugPrint('Error initializing payment: $e');
       if (mounted) setState(() => _isLoading = false);
@@ -1192,7 +1320,9 @@ class _PaymentPageState extends State<PaymentPage> {
     // Guard: If an order has already been created for this session, reuse it.
     // This prevents duplicate orders if the user switches payment methods after a failure.
     if (_orderId != null && _orderNumber != null) {
-      debugPrint('Order already exists: $_orderNumber (ID: $_orderId). Skipping creation.');
+      debugPrint(
+        'Order already exists: $_orderNumber (ID: $_orderId). Skipping creation.',
+      );
       return _orderData;
     }
 
@@ -1233,8 +1363,8 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       await StorageService.saveOrderData(response);
-      
-      // SAVE SNAPSHOT before clearing: This allows us to re-calculate shipping 
+
+      // SAVE SNAPSHOT before clearing: This allows us to re-calculate shipping
       // if the user navigates back and forth, even though the main cart is cleared.
       if (cartResponse != null) {
         await StorageService.savePaymentCartSnapshot(cartResponse);
@@ -1248,12 +1378,23 @@ class _PaymentPageState extends State<PaymentPage> {
           _orderId = _toInt(order?['id']);
 
           // Set additional flags to avoid redundant _initializePayment() calls
-          final statusRoot = (response['order_status'] ?? '').toString().toLowerCase().trim();
-          final statusOrder = (order?['order_status'] ?? '').toString().toLowerCase().trim();
-          _isAwaitingFreight = statusRoot.contains('awaiting') || statusOrder.contains('awaiting');
-          
+          final statusRoot = (response['order_status'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
+          final statusOrder = (order?['order_status'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
+          _isAwaitingFreight =
+              statusRoot.contains('awaiting') ||
+              statusOrder.contains('awaiting');
+
           _manualOrderByAdmin = _toInt(order?['manual_order_by_admin']) ?? 0;
-          _orderPaymentStatus = (order?['payment_status'] ?? '').toString().toLowerCase().trim();
+          _orderPaymentStatus = (order?['payment_status'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
         });
       }
 
@@ -1261,7 +1402,7 @@ class _PaymentPageState extends State<PaymentPage> {
       // This prevents the items from remaining in the cart if the user navigates back
       // after a payment failure, which would lead to duplicate orders.
       await StorageService.clearCartData();
-      
+
       return response;
     } on ApiException catch (_) {
       return null;
@@ -1363,7 +1504,8 @@ class _PaymentPageState extends State<PaymentPage> {
       '/order-placed',
       (route) => false,
       arguments: {
-        'payment_token': response['transaction_id'] ??
+        'payment_token':
+            response['transaction_id'] ??
             response['paymentId'] ??
             response['paymentID'] ??
             response['order']?['order_number'] ??
@@ -1377,11 +1519,12 @@ class _PaymentPageState extends State<PaymentPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (context) => PaymentFailureScreen(
-                isPayLater: _isPayLater,
-                orderNumber: orderNumber,
-                paymentId: paymentId,
-              )),
+        builder: (context) => PaymentFailureScreen(
+          isPayLater: _isPayLater,
+          orderNumber: orderNumber,
+          paymentId: paymentId,
+        ),
+      ),
     );
   }
 
@@ -1405,8 +1548,12 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
-      if (!_isPayLater && !_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        debugPrint('Payment clicked: Creating order via store-order API first...');
+      if (!_isPayLater &&
+          !_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        debugPrint(
+          'Payment clicked: Creating order via store-order API first...',
+        );
         final response = await _createOrderForDirectPayment();
         if (response == null) {
           if (mounted) setState(() => _isProcessing = false);
@@ -1414,14 +1561,20 @@ class _PaymentPageState extends State<PaymentPage> {
         }
 
         // CONDITIONAL FLOW: check process_payment
-        if (response['process_payment'] == 0 && response['show_order_success'] == 1) {
+        if (response['process_payment'] == 0 &&
+            response['show_order_success'] == 1) {
           _navigateToOrderSuccess(response, 'Credit Card');
           return;
         }
 
-        debugPrint('Order created successfully: $_orderNumber. Proceeding to payment...');
-      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        throw Exception('Order details not found. Please try again from the My Orders screen.');
+        debugPrint(
+          'Order created successfully: $_orderNumber. Proceeding to payment...',
+        );
+      } else if (_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        throw Exception(
+          'Order details not found. Please try again from the My Orders screen.',
+        );
       }
 
       // 3. Process expiry - MM/YY format to MM and YYYY
@@ -1477,7 +1630,7 @@ class _PaymentPageState extends State<PaymentPage> {
     } on ApiException catch (e) {
       //debugPrint('***********payment sesssion start******');
       //debugPrint(const JsonEncoder.withIndent('  ').convert(e.responseData ?? {'message': e.message}));
-     // debugPrint('***********payment sesssion end******');
+      // debugPrint('***********payment sesssion end******');
       if (mounted) setState(() => _isProcessing = false);
       _navigateToPaymentFailure();
       Fluttertoast.showToast(msg: e.message);
@@ -1497,7 +1650,7 @@ class _PaymentPageState extends State<PaymentPage> {
         } else if (e is Exception) {
           errMsg = e.toString().replaceAll('Exception: ', '');
         }
-        
+
         _navigateToPaymentFailure();
         Fluttertoast.showToast(
           msg: errMsg,
@@ -1520,8 +1673,12 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
-      if (!_isPayLater && !_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        debugPrint('PayPal clicked: Creating order via store-order API first...');
+      if (!_isPayLater &&
+          !_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        debugPrint(
+          'PayPal clicked: Creating order via store-order API first...',
+        );
         final response = await _createOrderForDirectPayment();
         if (response == null) {
           if (mounted) setState(() => _isProcessing = false);
@@ -1529,18 +1686,24 @@ class _PaymentPageState extends State<PaymentPage> {
         }
 
         // CONDITIONAL FLOW: check process_payment
-        if (response['process_payment'] == 0 && response['show_order_success'] == 1) {
+        if (response['process_payment'] == 0 &&
+            response['show_order_success'] == 1) {
           _navigateToOrderSuccess(response, 'PayPal');
           return;
         }
 
-        debugPrint('Order created successfully: $_orderNumber. Proceeding to PayPal flow...');
-      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        throw Exception('Order details not found. Please try again from the My Orders screen.');
+        debugPrint(
+          'Order created successfully: $_orderNumber. Proceeding to PayPal flow...',
+        );
+      } else if (_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        throw Exception(
+          'Order details not found. Please try again from the My Orders screen.',
+        );
       }
 
-      if (_paypalConfig == null || 
-          _paypalConfig!['client_key'] == null || 
+      if (_paypalConfig == null ||
+          _paypalConfig!['client_key'] == null ||
           _paypalConfig!['secret_key'] == null) {
         debugPrint('PayPal keys missing, attempting refresh...');
         await _loadPayPalConfig();
@@ -1552,7 +1715,8 @@ class _PaymentPageState extends State<PaymentPage> {
 
       if (clientId == null || secretKey == null) {
         throw Exception(
-            'PayPal configuration could not be loaded. Please check your internet connection.');
+          'PayPal configuration could not be loaded. Please check your internet connection.',
+        );
       }
 
       // MATHEMATICAL FIX: PayPal requires (subtotal + shipping + tax - discount) == total
@@ -1560,9 +1724,12 @@ class _PaymentPageState extends State<PaymentPage> {
       final double paypalTax = _gstAmount!;
       final double paypalShipping = _shippingCost!;
       final double paypalDiscount = _discountAmount!;
-      final double paypalSubtotal = paypalTotal - paypalTax - paypalShipping + paypalDiscount;
+      final double paypalSubtotal =
+          paypalTotal - paypalTax - paypalShipping + paypalDiscount;
 
-      debugPrint('Launching PayPal Webview for Order #$_orderNumber (Amount: $_amount)');
+      debugPrint(
+        'Launching PayPal Webview for Order #$_orderNumber (Amount: $_amount)',
+      );
       if (mounted) {
         // Get access token first
         final accessToken = await _paymentService.getPaypalAccessToken(
@@ -1592,8 +1759,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
         final approvalUrl = paypalPaymentData['approvalUrl'] as String?;
         final paymentId = paypalPaymentData['paymentId'] as String?;
-        
-        if (approvalUrl == null) throw Exception('No PayPal approval URL received.');
+
+        if (approvalUrl == null)
+          throw Exception('No PayPal approval URL received.');
         debugPrint('PayPal approval URL: $approvalUrl');
 
         final result = await Navigator.of(context).push<Map<String, String?>>(
@@ -1619,11 +1787,15 @@ class _PaymentPageState extends State<PaymentPage> {
           final payerId = result['payerId'] ?? '';
           final token = result['token'] ?? '';
 
-          debugPrint('PayPal success: paymentId=$returnedPaymentId, payerId=$payerId');
+          debugPrint(
+            'PayPal success: paymentId=$returnedPaymentId, payerId=$payerId',
+          );
 
           if (mounted) setState(() => _isProcessing = true);
           try {
-            debugPrint('Finalizing PayPal on server for order: #$_orderNumber (ID: $_orderId)');
+            debugPrint(
+              'Finalizing PayPal on server for order: #$_orderNumber (ID: $_orderId)',
+            );
             final paypalResult = {
               'status': 'success',
               'paymentId': returnedPaymentId,
@@ -1647,13 +1819,17 @@ class _PaymentPageState extends State<PaymentPage> {
             await StorageService.clearCheckoutData();
 
             if (mounted) {
-              _navigateToOrderSuccess({...paypalResult, ...serverResponse}, 'PayPal');
+              _navigateToOrderSuccess({
+                ...paypalResult,
+                ...serverResponse,
+              }, 'PayPal');
             }
           } catch (e) {
             debugPrint('Error finalizing PayPal on backend: $e');
             if (mounted) {
               Fluttertoast.showToast(
-                msg: 'Verification failed. Order: #$_orderNumber. Please contact support.',
+                msg:
+                    'Verification failed. Order: #$_orderNumber. Please contact support.',
                 backgroundColor: Colors.red,
                 textColor: Colors.white,
                 toastLength: Toast.LENGTH_LONG,
@@ -1704,7 +1880,6 @@ class _PaymentPageState extends State<PaymentPage> {
     });
 
     try {
-    
       final cartContainer = await _getPaymentCartContainer();
       final cartForCoupon = cartContainer?['cart'] as Map<String, dynamic>?;
 
@@ -1719,7 +1894,8 @@ class _PaymentPageState extends State<PaymentPage> {
       });
 
       if (response['cart'] == null) {
-        final errorMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
+        final errorMessage =
+            (response['message']?.toString().trim().isNotEmpty ?? false)
             ? response['message'].toString().trim()
             : 'Unable to apply promo code.';
         Fluttertoast.showToast(
@@ -1746,9 +1922,8 @@ class _PaymentPageState extends State<PaymentPage> {
         await _refreshPricing(postcode: _postcode!, oldCart: _oldCart!);
       }
 
-
-      
-      final successMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
+      final successMessage =
+          (response['message']?.toString().trim().isNotEmpty ?? false)
           ? response['message'].toString().trim()
           : 'Promo code applied';
       Fluttertoast.showToast(
@@ -1828,7 +2003,7 @@ class _PaymentPageState extends State<PaymentPage> {
           builder: (context, setModalState) {
             // Refresh logic if needed, but will return early if already fetched
             _fetchAvailableCoupons(onUpdate: () => setModalState(() {}));
-            
+
             return Container(
               padding: const EdgeInsets.all(20),
               height: 400,
@@ -1858,51 +2033,68 @@ class _PaymentPageState extends State<PaymentPage> {
                     child: _isLoadingCoupons
                         ? const Center(child: CircularProgressIndicator())
                         : _availableCoupons.isEmpty
-                            ? const Center(
-                                child: Text('No coupons available at the moment'),
-                              )
-                            : ListView.builder(
-                                itemCount: _availableCoupons.length,
-                                itemBuilder: (context, index) {
-                                  final coupon = _availableCoupons[index];
-                                  final code = coupon['code']?.toString() ?? '';
-                                  final discountValue = coupon['price']?.toString() ?? '';
-                                  final discountType = (coupon['coupon_discount_type']?.toString() ?? '').toLowerCase();
-                                  
-                                  String discountLabel = '';
-                                  if (discountType == 'percent' || discountType == 'percentage') {
-                                    discountLabel = '$discountValue% OFF';
-                                  } else {
-                                    discountLabel = '\$$discountValue OFF';
-                                  }
+                        ? const Center(
+                            child: Text('No coupons available at the moment'),
+                          )
+                        : ListView.builder(
+                            itemCount: _availableCoupons.length,
+                            itemBuilder: (context, index) {
+                              final coupon = _availableCoupons[index];
+                              final code = coupon['code']?.toString() ?? '';
+                              final discountValue =
+                                  coupon['price']?.toString() ?? '';
+                              final discountType =
+                                  (coupon['coupon_discount_type']?.toString() ??
+                                          '')
+                                      .toLowerCase();
 
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: BorderSide(color: Colors.grey[200]!),
+                              String discountLabel = '';
+                              if (discountType == 'percent' ||
+                                  discountType == 'percentage') {
+                                discountLabel = '$discountValue% OFF';
+                              } else {
+                                discountLabel = '\$$discountValue OFF';
+                              }
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: Colors.grey[200]!),
+                                ),
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.local_offer,
+                                    color: Color(0xFF151D51),
+                                  ),
+                                  title: Text(
+                                    code,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
                                     ),
-                                    child: ListTile(
-                                      leading: const Icon(Icons.local_offer, color: Color(0xFF151D51)),
-                                      title: Text(
-                                        code,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                      ),
-                                      subtitle: Text(
-                                        discountLabel,
-                                        style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600),
-                                      ),
-                                      trailing: const Icon(Icons.chevron_right, size: 20),
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        _couponController.text = code;
-                                        _applyPromoCode();
-                                      },
+                                  ),
+                                  subtitle: Text(
+                                    discountLabel,
+                                    style: TextStyle(
+                                      color: Colors.green[700],
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                  );
-                                },
-                              ),
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right,
+                                    size: 20,
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _couponController.text = code;
+                                    _applyPromoCode();
+                                  },
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
@@ -1922,7 +2114,6 @@ class _PaymentPageState extends State<PaymentPage> {
     });
 
     try {
-     
       final cartContainer = await _getPaymentCartContainer();
       final oldCart = cartContainer?['cart'] as Map<String, dynamic>?;
 
@@ -1956,8 +2147,8 @@ class _PaymentPageState extends State<PaymentPage> {
           await _refreshPricing(postcode: _postcode!, oldCart: _oldCart!);
         }
 
-
-         final removedMessage = (response['message']?.toString().trim().isNotEmpty ?? false)
+        final removedMessage =
+            (response['message']?.toString().trim().isNotEmpty ?? false)
             ? response['message'].toString().trim()
             : 'Promo code removed';
         Fluttertoast.showToast(
@@ -1996,16 +2187,24 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       // 1. Step A & B: Ensure order is created on server first (Normal Flow only)
-      if (!_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        debugPrint('Complete Order clicked: Creating order via store-order API first...');
+      if (!_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        debugPrint(
+          'Complete Order clicked: Creating order via store-order API first...',
+        );
         final response = await _createOrderForDirectPayment();
         if (response == null) {
           if (mounted) setState(() => _isProcessing = false);
           return;
         }
-        debugPrint('Order created successfully: $_orderNumber. Proceeding to order completion...');
-      } else if (_isFromMyOrdersPayment && (_orderId == null || _orderNumber == null)) {
-        throw Exception('Order details not found. Please try again from the My Orders screen.');
+        debugPrint(
+          'Order created successfully: $_orderNumber. Proceeding to order completion...',
+        );
+      } else if (_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        throw Exception(
+          'Order details not found. Please try again from the My Orders screen.',
+        );
       }
 
       // Log current order data for verification
@@ -2048,21 +2247,20 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
-
   /// Extract coupon details from API response
   Map<String, dynamic> _extractCouponDetails(Map<String, dynamic> response) {
     final coupon = response['coupon'] as Map<String, dynamic>?;
     final couponCode = coupon?['code']?.toString();
     final couponPrice = _toDouble(coupon?['price']) ?? 0.0;
-    final couponType =
-        (coupon?['coupon_discount_type'] ?? '').toString().toLowerCase();
+    final couponType = (coupon?['coupon_discount_type'] ?? '')
+        .toString()
+        .toLowerCase();
     final discountFromResponse = _toDouble(response['discount']) ?? 0.0;
 
     double computedCouponDiscount = discountFromResponse;
     if (computedCouponDiscount <= 0 && couponPrice > 0) {
       if (couponType == 'percentage' || couponType == 'percent') {
-        computedCouponDiscount =
-            (_subtotalExclGst ?? 0) * couponPrice / 100;
+        computedCouponDiscount = (_subtotalExclGst ?? 0) * couponPrice / 100;
       } else {
         computedCouponDiscount = couponPrice;
       }
@@ -2088,7 +2286,10 @@ class _PaymentPageState extends State<PaymentPage> {
   // ─────────────────────────────────────────────────────────────────────────
 
   bool get _canShowPaymentOptionsByStatus =>
-      _isPayLater || _orderData == null || _orderPaymentStatus == 'partial' || _orderPaymentStatus == 'unpaid';
+      _isPayLater ||
+      _orderData == null ||
+      _orderPaymentStatus == 'partial' ||
+      _orderPaymentStatus == 'unpaid';
 
   bool get _canShowAlternativePaymentMethods =>
       _isPayLater || (_manualOrderByAdmin == 0 && _isTradeUser == 0);
@@ -2134,12 +2335,17 @@ class _PaymentPageState extends State<PaymentPage> {
       canPop: false, // Force all pops through onPopInvokedWithResult for safety
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        
+
         if (useProfileBack) {
           _navigateToProfile();
         } else if (shouldRedirectToHome) {
           debugPrint('BACK_DEBUG: Order processed. Redirecting to Home.');
-          Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false, arguments: {'tabIndex': 0});
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/main',
+            (route) => false,
+            arguments: {'tabIndex': 0},
+          );
         } else {
           // Standard pop (back to Address/Shipping or previous screen)
           Navigator.of(context).pop();
@@ -2158,8 +2364,15 @@ class _PaymentPageState extends State<PaymentPage> {
               if (useProfileBack) {
                 _navigateToProfile();
               } else if (shouldRedirectToHome) {
-                debugPrint('BACK_DEBUG: AppBar Redirecting to Home (Order Processed)');
-                Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false, arguments: {'tabIndex': 0});
+                debugPrint(
+                  'BACK_DEBUG: AppBar Redirecting to Home (Order Processed)',
+                );
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/main',
+                  (route) => false,
+                  arguments: {'tabIndex': 0},
+                );
               } else {
                 Navigator.of(context).pop();
               }
@@ -2214,7 +2427,9 @@ class _PaymentPageState extends State<PaymentPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF151D51),
+                          ),
                         ),
                         const SizedBox(height: 20),
                         Text(
@@ -2264,7 +2479,9 @@ class _PaymentPageState extends State<PaymentPage> {
                 color: Colors.black.withOpacity(0.3),
                 child: const Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF151D51),
+                    ),
                   ),
                 ),
               ),
@@ -2274,13 +2491,14 @@ class _PaymentPageState extends State<PaymentPage> {
             ? null
             : SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: _canShowPaymentOptionsByStatus
                       ? (effectivePaymentMethod == 'PayPal'
-                          ? _buildPayPalButton()
-                          : (effectivePaymentMethod == 'Google Pay'
-                              ? _buildGooglePayButton()
-                              : _buildSubmitButton()))
+                            ? _buildPayPalButton()
+                            : _buildSubmitButton())
                       : _buildSubmitButton(),
                 ),
               ),
@@ -2325,7 +2543,10 @@ class _PaymentPageState extends State<PaymentPage> {
             if (!_canShowAlternativePaymentMethods) ...[
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF8E1),
                   borderRadius: BorderRadius.circular(8),
@@ -2333,13 +2554,17 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, size: 18, color: Color(0xFFF9A825)),
+                    const Icon(
+                      Icons.info_outline,
+                      size: 18,
+                      color: Color(0xFFF9A825),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _manualOrderByAdmin != 0 
-                          ? 'This order was created by admin. Only Credit Card payment is available.'
-                          : 'Only Credit Card payment is available for trade accounts.',
+                        _manualOrderByAdmin != 0
+                            ? 'This order was created by admin. Only Credit Card payment is available.'
+                            : 'Only Credit Card payment is available for trade accounts.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF5D4037),
@@ -2371,10 +2596,10 @@ class _PaymentPageState extends State<PaymentPage> {
                       setState(() => _selectedPaymentMethod = 'Google Pay'),
                   child: _paymentOptionRow(
                     'Google Pay',
-                    'assets/images/gpayicon.png',
+                    'assets/images/gpay.png',
                     effectivePaymentMethod == 'Google Pay',
                     isEnabled: true,
-                    fallbackAsset: 'assets/images/gpayicon.png',
+                    fallbackAsset: 'assets/images/gpay.png',
                     trailing: _isInitializingGooglePay
                         ? const SizedBox(
                             height: 18,
@@ -2433,39 +2658,45 @@ class _PaymentPageState extends State<PaymentPage> {
                 color: isSelected ? const Color(0xFF002e5b) : Colors.grey[600],
               )
             else if (iconOrImage is String)
-              iconOrImage.startsWith('http') 
-              ? CachedNetworkImage(
-                imageUrl: iconOrImage,
-                height: 24,
-                fit: BoxFit.contain,
-                placeholder: (context, url) => const SizedBox(width: 24, height: 20),
-                errorWidget: (context, url, error) => fallbackAsset != null
-                    ? Image.asset(
-                        fallbackAsset,
-                        height: 24,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => Icon(
-                          Icons.payment,
-                          color: isSelected
-                              ? const Color(0xFF002e5b)
-                              : Colors.grey[600],
-                        ),
-                      )
-                    : Icon(
+              iconOrImage.startsWith('http')
+                  ? CachedNetworkImage(
+                      imageUrl: iconOrImage,
+                      height: 24,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) =>
+                          const SizedBox(width: 24, height: 20),
+                      errorWidget: (context, url, error) =>
+                          fallbackAsset != null
+                          ? Image.asset(
+                              fallbackAsset,
+                              height: 24,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(
+                                    Icons.payment,
+                                    color: isSelected
+                                        ? const Color(0xFF002e5b)
+                                        : Colors.grey[600],
+                                  ),
+                            )
+                          : Icon(
+                              Icons.payment,
+                              color: isSelected
+                                  ? const Color(0xFF002e5b)
+                                  : Colors.grey[600],
+                            ),
+                    )
+                  : Image.asset(
+                      iconOrImage,
+                      height: 24,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Icon(
                         Icons.payment,
                         color: isSelected
                             ? const Color(0xFF002e5b)
                             : Colors.grey[600],
                       ),
-              ) : Image.asset(
-                iconOrImage,
-                height: 24,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  Icons.payment,
-                  color: isSelected ? const Color(0xFF002e5b) : Colors.grey[600],
-                ),
-              ),
+                    ),
             const SizedBox(width: 12),
             Text(
               title,
@@ -2522,28 +2753,50 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
             const SizedBox(height: 20),
 
-            // Item Total
+            // Items total (excl. GST)
             _summaryRow(
-              'Total Item Amount(Excl GST)',
-              formatPrice(_subtotalExclGst),
+              'Total of Items(excl. GST)',
+              formatPrice(_totalCostExclGst),
             ),
             const SizedBox(height: 12),
 
             // Shipping Cost
             _summaryRow(
-              'Shipping cost(Excl GST)',
-              _showFreeShippingLabel ? '${currencySign}0.00' : formatPrice(_shippingCost),
-              valueColor: _hasPendingFreightQuote ? Colors.red : (_showFreeShippingLabel ? Colors.green : const Color(0xFFF44336)),
-              labelColor: _hasPendingFreightQuote ? Colors.red : (_showFreeShippingLabel ? Colors.green : const Color(0xFFF44336)),
+              'Shipping Cost(excl. GST)',
+              _showFreeShippingLabel
+                  ? '${currencySign}0.00'
+                  : formatPrice(_shippingCost),
+              valueColor: _hasPendingFreightQuote
+                  ? Colors.red
+                  : (_showFreeShippingLabel
+                        ? Colors.green
+                        : const Color(0xFFF44336)),
+              labelColor: _hasPendingFreightQuote
+                  ? Colors.red
+                  : (_showFreeShippingLabel
+                        ? Colors.green
+                        : const Color(0xFFF44336)),
             ),
-
-
             const SizedBox(height: 12),
             const Divider(height: 1, thickness: 0.8),
             const SizedBox(height: 12),
 
+            // Total without GST
+            _summaryRow(
+              'Total without GST',
+              formatPrice(_totalWithoutGst),
+            ),
+            const SizedBox(height: 12),
+
             // GST Row
-            _summaryRow('GST', formatPrice(_gstAmount)),
+            _summaryRow('GST @ 10%', formatPrice(_gstAmount)),
+            const SizedBox(height: 12),
+
+            // Total incl. GST
+            _summaryRow(
+              'Total(incl. GST)',
+              formatPrice(_totalWithGst),
+            ),
             const SizedBox(height: 12),
 
             // Discount Row - ONLY visible if discount > 0
@@ -2634,19 +2887,25 @@ class _PaymentPageState extends State<PaymentPage> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
-                  onPressed: (_isLoadingCoupons || _isProcessing) ? null : _showCouponsModal,
+                  onPressed: (_isLoadingCoupons || _isProcessing)
+                      ? null
+                      : _showCouponsModal,
                   icon: _isLoadingCoupons
                       ? const SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF151D51)),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFF151D51),
+                            ),
                           ),
                         )
                       : const Icon(Icons.local_offer_outlined, size: 16),
                   label: Text(
-                    _isLoadingCoupons ? 'Loading Offers...' : 'View Available Offers',
+                    _isLoadingCoupons
+                        ? 'Loading Offers...'
+                        : 'View Available Offers',
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF151D51),
@@ -2659,12 +2918,17 @@ class _PaymentPageState extends State<PaymentPage> {
                   ),
                 ),
               ),
+              const Divider(height: 1, thickness: 0.8),
+              const SizedBox(height: 12),
               // Show applied promo code message
               if (hasAppliedCoupon) ...[
-                const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.check_circle, size: 16, color: Colors.green[600]),
+                    Icon(
+                      Icons.check_circle,
+                      size: 16,
+                      color: Colors.green[600],
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       _couponOfferSubtitle != null &&
@@ -2679,19 +2943,19 @@ class _PaymentPageState extends State<PaymentPage> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
               ],
+            ] else ...[
+              const Divider(height: 1, thickness: 0.8),
               const SizedBox(height: 16),
             ],
-
-            const Divider(height: 1, thickness: 0.8),
-            const SizedBox(height: 16),
 
             // Total Payable Amount
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Payable Amount',
+                  'Total Payble Amount :',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -2713,8 +2977,8 @@ class _PaymentPageState extends State<PaymentPage> {
             if (_hasPendingFreightQuote) ...[
               const SizedBox(height: 8),
               Text(
-                (_shippingTag != null && _shippingTag!.isNotEmpty) 
-                    ? _shippingTag! 
+                (_shippingTag != null && _shippingTag!.isNotEmpty)
+                    ? _shippingTag!
                     : 'Pending Freight Cost',
                 style: const TextStyle(
                   fontSize: 14,
@@ -2723,7 +2987,9 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
               ),
             ],
-            if (!_hasPendingFreightQuote && _showFreeShippingLabel) ...[
+            if (!_hasPendingFreightQuote &&
+                _showFreeShippingLabel &&
+                !_isPickupShipping) ...[
               const SizedBox(height: 8),
               Text(
                 'Your Order Eligible for Free Delivery',
@@ -2773,14 +3039,20 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
+  Future<void> Function()? _submitButtonAction() {
+    if (_effectiveSelectedPaymentMethod == 'Google Pay') {
+      return _handleGooglePayClick;
+    }
+    return _handlePayment;
+  }
+
   Widget _buildSubmitButton() {
+    final isBusy = _isProcessing || _isPaymentProcessing;
     return Container(
       height: 60,
       alignment: Alignment.center,
       child: ElevatedButton(
-        onPressed: _isProcessing
-            ? null
-            : _handlePayment,
+        onPressed: isBusy ? null : _submitButtonAction(),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
@@ -2788,7 +3060,7 @@ class _PaymentPageState extends State<PaymentPage> {
           shape: const StadiumBorder(),
           elevation: 2,
         ),
-        child: _isProcessing
+        child: isBusy
             ? const SizedBox(
                 height: 20,
                 width: 20,
@@ -2841,150 +3113,121 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
-  Widget _buildGooglePayButton() {
-    return Container(
-      height: 60,
-      width: double.infinity,
-      alignment: Alignment.center,
-      child: (_isProcessing || _isPaymentProcessing)
-          ? const SizedBox(
-              height: 24,
-              width: 24,
-              child: CircularProgressIndicator(
-                color: Color(0xFF002e5b),
-                strokeWidth: 2,
-              ),
-            )
-          : ElevatedButton(
-              onPressed: _handleGooglePayClick,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 80),
-                shape: const StadiumBorder(),
-                side: BorderSide(color: Colors.grey[300]!, width: 1),
-                elevation: 2,
-              ),
-              child: Image.asset(
-                'assets/images/gpay.png',
-                height: 40, // Increased logo size
-                fit: BoxFit.contain,
-              ),
-            ),
-    );
-  }
   Widget _buildCardInputFields() {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
       child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'CARD DETAILS',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF151D51),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'CARD DETAILS',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF151D51),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Cardholder Name
-          _buildTextField(
-            label: 'Cardholder Name',
-            controller: _cardholderNameController,
-            focusNode: _cardholderNameFocus,
-            hint: 'E.g. JOHN DOE',
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.next,
-            onSubmitted: () => FocusScope.of(context).requestFocus(_cardNumberFocus),
-            validator: (v) =>
-                v == null || v.isEmpty ? 'Enter cardholder name' : null,
-          ),
-          const SizedBox(height: 12),
+            // Cardholder Name
+            _buildTextField(
+              label: 'Cardholder Name',
+              controller: _cardholderNameController,
+              focusNode: _cardholderNameFocus,
+              hint: 'E.g. Full Name',
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.next,
+              onSubmitted: () =>
+                  FocusScope.of(context).requestFocus(_cardNumberFocus),
+              validator: (v) =>
+                  v == null || v.isEmpty ? 'Enter cardholder name' : null,
+            ),
+            const SizedBox(height: 12),
 
-          // Card Number
-          _buildTextField(
-            label: 'Card Number',
-            controller: _cardNumberController,
-            focusNode: _cardNumberFocus,
-            hint: 'XXXX XXXX XXXX XXXX',
-            keyboardType: TextInputType.number,
-            maxLength: 19,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              _CardNumberFormatter(),
-            ],
-            textInputAction: TextInputAction.next,
-            onSubmitted: () => FocusScope.of(context).requestFocus(_expiryFocus),
-            validator: (v) {
-              if (v == null || v.isEmpty) return 'Enter card number';
-              final clean = v.replaceAll(' ', '');
-              if (clean.length < 13 || clean.length > 19)
-                return 'Enter valid card number';
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
+            // Card Number
+            _buildTextField(
+              label: 'Card Number',
+              controller: _cardNumberController,
+              focusNode: _cardNumberFocus,
+              hint: 'XXXX XXXX XXXX XXXX',
+              keyboardType: TextInputType.number,
+              maxLength: 19,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                _CardNumberFormatter(),
+              ],
+              textInputAction: TextInputAction.next,
+              onSubmitted: () =>
+                  FocusScope.of(context).requestFocus(_expiryFocus),
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Enter card number';
+                final clean = v.replaceAll(' ', '');
+                if (clean.length < 13 || clean.length > 19)
+                  return 'Enter valid card number';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
 
-          Row(
-            children: [
-              // Expiry Date
-              Expanded(
-                flex: 2,
-                child: _buildTextField(
-                  label: 'Expiry Date',
-                  controller: _expiryController,
-                  focusNode: _expiryFocus,
-                  hint: 'MM/YY',
-                  keyboardType: TextInputType.number,
-                  maxLength: 5,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    _ExpiryDateFormatter(),
-                  ],
-                  textInputAction: TextInputAction.next,
-                  onSubmitted: () => FocusScope.of(context).requestFocus(_cvvFocus),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    if (v.length < 5) return 'Invalid';
-                    return null;
-                  },
+            Row(
+              children: [
+                // Expiry Date
+                Expanded(
+                  flex: 2,
+                  child: _buildTextField(
+                    label: 'Expiry Date',
+                    controller: _expiryController,
+                    focusNode: _expiryFocus,
+                    hint: 'MM/YY',
+                    keyboardType: TextInputType.number,
+                    maxLength: 5,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      _ExpiryDateFormatter(),
+                    ],
+                    textInputAction: TextInputAction.next,
+                    onSubmitted: () =>
+                        FocusScope.of(context).requestFocus(_cvvFocus),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      if (v.length < 5) return 'Invalid';
+                      return null;
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // CVV
-              Expanded(
-                flex: 1,
-                child: _buildTextField(
-                  label: 'CVV',
-                  controller: _cvvController,
-                  focusNode: _cvvFocus,
-                  hint: 'CVV',
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  obscureText: true,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: () => FocusScope.of(context).unfocus(),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    if (v.length < 3) return 'Invalid';
-                    return null;
-                  },
+                const SizedBox(width: 12),
+                // CVV
+                Expanded(
+                  flex: 1,
+                  child: _buildTextField(
+                    label: 'CVV',
+                    controller: _cvvController,
+                    focusNode: _cvvFocus,
+                    hint: 'CVV',
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    obscureText: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: () => FocusScope.of(context).unfocus(),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      if (v.length < 3) return 'Invalid';
+                      return null;
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3185,7 +3428,9 @@ class _PayPalWebViewScreenState extends State<_PayPalWebViewScreen> {
       final paymentId = uri.queryParameters['paymentId'];
       final payerId = uri.queryParameters['PayerID'];
       final token = uri.queryParameters['token'];
-      debugPrint('PayPalWebView: SUCCESS! paymentId=$paymentId, payerId=$payerId, token=$token');
+      debugPrint(
+        'PayPalWebView: SUCCESS! paymentId=$paymentId, payerId=$payerId, token=$token',
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           Navigator.of(context).pop({

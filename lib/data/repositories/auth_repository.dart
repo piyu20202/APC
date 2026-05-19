@@ -123,6 +123,34 @@ class AuthRepository {
     }
   }
 
+  /// Update user profile via POST /user/update-profile
+  Future<Map<String, dynamic>> updateUserProfile(
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      Logger.info('Repository: Updating user profile');
+      return await _authService.updateUserProfile(body);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Repository: Update profile error', e);
+      throw ApiException(message: 'Failed to update profile: ${e.toString()}');
+    }
+  }
+
+  /// Fetch current user profile from GET /user/profile
+  Future<Map<String, dynamic>> fetchUserProfile() async {
+    try {
+      Logger.info('Repository: Fetching user profile');
+      return await _authService.fetchUserProfile();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Repository: Fetch profile error', e);
+      throw ApiException(message: 'Failed to fetch profile: ${e.toString()}');
+    }
+  }
+
   /// Logout user (server-side)
   Future<String?> logout() async {
     try {

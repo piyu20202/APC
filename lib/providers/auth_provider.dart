@@ -157,6 +157,25 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Reload [currentUser] from SharedPreferences (e.g. after profile edit).
+  Future<void> refreshUserFromStorage() async {
+    final user = await StorageService.getUserData();
+    if (user == null) return;
+
+    _currentUser = user;
+    final token = _loginResponse?.accessToken ?? await StorageService.getAccessToken();
+    final tokenType = _loginResponse?.tokenType ?? await StorageService.getTokenType();
+
+    if (token != null && tokenType != null) {
+      _loginResponse = LoginResponse(
+        accessToken: token,
+        tokenType: tokenType,
+        user: user,
+      );
+    }
+    notifyListeners();
+  }
+
   /// Clear error message
   void clearError() {
     _errorMessage = null;

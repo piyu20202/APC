@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/network/api_endpoints.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:provider/provider.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../data/models/user_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../core/exceptions/api_exception.dart';
 import '../../../services/storage_service.dart';
-import '../../../data/models/user_model.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -14,6 +16,7 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
+  final AuthService _authService = AuthService();
   bool _isLoading = false;
   bool _isLoadingData = true;
 
@@ -128,33 +131,80 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _loadUserData();
   }
 
+  void _applyProfileToForm(Map<String, dynamic> profile) {
+    final state = profile['state']?.toString();
+    final areaCode = profile['area_code']?.toString();
+    final country = profile['country']?.toString();
+
+    _nameController.text = profile['name']?.toString() ?? '';
+    _phoneController.text = profile['phone']?.toString() ?? '';
+    _landlineController.text = profile['landline']?.toString() ?? '';
+    _unitController.text = profile['unit_apartmentno']?.toString() ?? '';
+    _addressController.text = profile['address']?.toString() ?? '';
+    _cityController.text = profile['city']?.toString() ?? '';
+    _zipController.text = profile['zip']?.toString() ?? '';
+
+    if (areaCode != null &&
+        areaCode.isNotEmpty &&
+        _areaCodes.contains(areaCode)) {
+      _selectedAreaCode = areaCode;
+    }
+    if (state != null && state.isNotEmpty && _australiaStatesCities.containsKey(state)) {
+      _selectedState = state;
+    }
+    if (country != null && country.isNotEmpty) {
+      _selectedCountry = country;
+    }
+  }
+
+  String? _messageFromApi(Map<String, dynamic>? data) {
+    final message = data?['message'];
+    if (message == null) return null;
+    final text = message.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  Future<void> _loadUserDataFromStorage() async {
+    final userData = await StorageService.getUserData();
+    if (userData == null) return;
+    _applyProfileToForm(userData.toJson());
+  }
+
+  /// Loads profile from GET /user/profile; falls back to local session on failure.
   Future<void> _loadUserData() async {
     setState(() {
       _isLoadingData = true;
     });
 
     try {
-      final userData = await StorageService.getUserData();
-      if (userData != null) {
-        setState(() {
-          _nameController.text = userData.name;
-          _phoneController.text = userData.phone;
-          _landlineController.text = userData.landline ?? '';
-          _unitController.text = userData.unitApartmentNo ?? '';
-          _addressController.text = userData.address ?? '';
-          _zipController.text = userData.zip ?? '';
-          _selectedAreaCode = userData.areaCode ?? '02';
-          _selectedState = userData.state ?? 'ACT';
-          _cityController.text = userData.city ?? '';
-          _selectedCountry = userData.country ?? 'AU';
-        });
+      final profileResponse = await _authService.fetchUserProfile();
+      final profileData = UserModel.unwrapProfileData(profileResponse);
+
+      if (profileData != null) {
+        setState(() => _applyProfileToForm(profileData));
+        await StorageService.mergeUserFromProfileResponse(profileResponse);
+        if (mounted) {
+          await Provider.of<AuthProvider>(context, listen: false)
+              .refreshUserFromStorage();
+        }
+      } else {
+        await _loadUserDataFromStorage();
+        if (mounted) setState(() {});
       }
     } catch (e) {
-      debugPrint('Error loading user data: $e');
+      debugPrint('Error loading profile from API: $e');
+      try {
+        await _loadUserDataFromStorage();
+        if (mounted) setState(() {});
+      } catch (storageError) {
+        debugPrint('Error loading user data from storage: $storageError');
+      }
     } finally {
-      setState(() {
-        _isLoadingData = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
     }
   }
 
@@ -546,75 +596,40 @@ class _EditProfilePageState extends State<EditProfilePage> {
       // Remove empty fields
       formData.removeWhere((key, value) => value.toString().isEmpty);
 
-      // Make API call
-      await ApiClient.post(
-        endpoint: ApiEndpoints.updateProfile,
-        body: formData,
-        contentType: 'application/x-www-form-urlencoded',
-        requireAuth: true,
-      );
+      // POST /user/update-profile
+      final updateResponse = await _authService.updateUserProfile(formData);
 
-      // Update local storage with new data
-      final userData = await StorageService.getUserData();
-      if (userData != null) {
-        // Create updated user model
-        final updatedUser = userData.copyWith(
-          name: formData['name'] ?? userData.name,
-          phone: formData['phone'] ?? userData.phone,
-          landline: formData['landline'] as String?,
-          areaCode: formData['area_code'] as String?,
-          unitApartmentNo: formData['unit_apartmentno'] as String?,
-          address: formData['address'] as String?,
-          city: formData['city'] as String?,
-          state: formData['state'] as String?,
-          country: formData['country'] as String?,
-          zip: formData['zip'] as String?,
-        );
+      // GET /user/profile — refresh local session with latest fields
+      final profileResponse = await _authService.fetchUserProfile();
+      await StorageService.mergeUserFromProfileResponse(profileResponse);
 
-        // Save updated user data
-        final loginResponse = await StorageService.getLoginResponse();
-        if (loginResponse != null) {
-          await StorageService.saveLoginData(
-            LoginResponse(
-              accessToken: loginResponse.accessToken,
-              tokenType: loginResponse.tokenType,
-              user: updatedUser,
-            ),
-          );
-        }
+      if (mounted) {
+        await Provider.of<AuthProvider>(context, listen: false)
+            .refreshUserFromStorage();
       }
 
       if (mounted) {
-        // Success message - status code 200
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Your profile is updated successfully'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
+        Fluttertoast.showToast(
+          msg: _messageFromApi(updateResponse) ??
+              'Profile updated successfully',
+          toastLength: Toast.LENGTH_LONG,
         );
         Navigator.of(context).pop();
       }
-    } on ApiException {
-      // API error - status code 200 के अलावा कुछ भी
+    } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Something went wrong'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          ),
+        Fluttertoast.showToast(
+          msg: e.message.isNotEmpty
+              ? e.message
+              : 'Something went wrong',
+          toastLength: Toast.LENGTH_LONG,
         );
       }
     } catch (_) {
-      // Any other error
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Something went wrong'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          ),
+        Fluttertoast.showToast(
+          msg: 'Something went wrong',
+          toastLength: Toast.LENGTH_LONG,
         );
       }
     } finally {

@@ -61,6 +61,56 @@ class StorageService {
     return null;
   }
 
+  /// Merges login-user fields from a profile GET response into stored `user_data`.
+  /// Does not modify [access_token], [token_type], or [is_logged_in].
+  static Future<UserModel?> mergeUserFromProfileResponse(
+    Map<String, dynamic> profileApiResponse,
+  ) async {
+    final profileData = UserModel.unwrapProfileData(profileApiResponse);
+    if (profileData == null) {
+      debugPrint('StorageService: Could not unwrap profile response');
+      return null;
+    }
+
+    final filtered = UserModel.extractLoginFields(profileData);
+    if (filtered.isEmpty) {
+      debugPrint('StorageService: No login user fields in profile response');
+      return null;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final existingJson = <String, dynamic>{};
+
+    final userJson = prefs.getString(_keyUserData);
+    if (userJson != null) {
+      try {
+        final decoded = jsonDecode(userJson);
+        if (decoded is Map<String, dynamic>) {
+          existingJson.addAll(decoded);
+        } else if (decoded is Map) {
+          existingJson.addAll(Map<String, dynamic>.from(decoded));
+        }
+      } catch (e) {
+        debugPrint('StorageService: Failed to decode existing user_data: $e');
+      }
+    }
+
+    existingJson.addAll(filtered);
+
+    final updatedUser = UserModel.fromJson(existingJson);
+    await prefs.setString(_keyUserData, jsonEncode(existingJson));
+    await UserRoleService.setIsTraderUser(updatedUser.isTradeUser == 1);
+
+    return updatedUser;
+  }
+
+  /// Updates only `user_data` in SharedPreferences (keeps token/session keys).
+  static Future<void> saveUserData(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyUserData, jsonEncode(user.toJson()));
+    await UserRoleService.setIsTraderUser(user.isTradeUser == 1);
+  }
+
   /// Get user data
   static Future<UserModel?> getUserData() async {
     final prefs = await SharedPreferences.getInstance();

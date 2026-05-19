@@ -1,4 +1,24 @@
 class UserModel {
+  /// JSON keys stored at login (`user` object). Profile GET may return more fields;
+  /// only these keys are merged into SharedPreferences.
+  static const Set<String> loginUserJsonKeys = {
+    'id',
+    'name',
+    'email',
+    'phone',
+    'area_code',
+    'landline',
+    'unit_apartmentno',
+    'address',
+    'city',
+    'state',
+    'country',
+    'zip',
+    'is_trade_user',
+    'special_user',
+    'free_shipping_threshold',
+  };
+
   final int id;
   final String name;
   final String email;
@@ -33,9 +53,45 @@ class UserModel {
     this.freeShippingThreshold,
   });
 
+  /// Picks only fields that exist on the login `user` object from a profile API map.
+  static Map<String, dynamic> extractLoginFields(Map<String, dynamic> source) {
+    final filtered = <String, dynamic>{};
+    for (final key in loginUserJsonKeys) {
+      if (source.containsKey(key) && source[key] != null) {
+        filtered[key] = source[key];
+      }
+    }
+    return filtered;
+  }
+
+  /// Unwraps profile GET payloads (`user`, `data`, or root user object).
+  static Map<String, dynamic>? unwrapProfileData(Map<String, dynamic> response) {
+    final user = response['user'];
+    if (user is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(user);
+    }
+    if (user is Map) {
+      return Map<String, dynamic>.from(user);
+    }
+
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data);
+    }
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+
+    if (response.containsKey('id')) {
+      return Map<String, dynamic>.from(response);
+    }
+
+    return null;
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as int,
+      id: _parseInt(json['id']),
       name: json['name'] as String,
       email: json['email'] as String,
       phone: json['phone'] as String,
@@ -47,14 +103,20 @@ class UserModel {
       state: json['state'] as String?,
       country: json['country'] as String?,
       zip: json['zip'] as String?,
-      isTradeUser: json['is_trade_user'] as int,
-      specialUser: json['special_user'] as int,
+      isTradeUser: _parseInt(json['is_trade_user']),
+      specialUser: _parseInt(json['special_user']),
       freeShippingThreshold: json['free_shipping_threshold'] != null
           ? (json['free_shipping_threshold'] is int
                 ? json['free_shipping_threshold'] as int
                 : int.tryParse(json['free_shipping_threshold'].toString()))
           : null,
     );
+  }
+
+  static int _parseInt(dynamic value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
   }
 
   Map<String, dynamic> toJson() {

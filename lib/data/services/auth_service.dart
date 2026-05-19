@@ -184,6 +184,59 @@ class AuthService {
     }
   }
 
+  /// Update user profile (POST /user/update-profile).
+  Future<Map<String, dynamic>> updateUserProfile(
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      Logger.info('Updating user profile');
+
+      final response = await ApiClient.post(
+        endpoint: ApiEndpoints.updateProfile,
+        body: body,
+        contentType: 'application/x-www-form-urlencoded',
+        requireAuth: true,
+      );
+
+      Logger.info('User profile updated successfully');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Update user profile failed', e);
+      throw ApiException(
+        message: 'Failed to update profile: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Fetch current user profile (GET /user/profile). Response may include extra fields;
+  /// merge into session via [StorageService.mergeUserFromProfileResponse].
+  Future<Map<String, dynamic>> fetchUserProfile() async {
+    try {
+      Logger.info('Fetching user profile');
+
+      final response = await ApiClient.get(
+        endpoint: ApiEndpoints.userProfile,
+        requireAuth: true,
+      );
+
+      if (response.isEmpty) {
+        throw ApiException(message: 'Invalid profile response from server');
+      }
+
+      Logger.info('User profile fetched successfully');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      Logger.error('Fetch user profile failed', e);
+      throw ApiException(
+        message: 'Failed to fetch profile: ${e.toString()}',
+      );
+    }
+  }
+
   /// Change password for the current user (requires auth token)
   /// Body: { "current_password": "", "new_password": "" }
   /// Expected 200 response on success

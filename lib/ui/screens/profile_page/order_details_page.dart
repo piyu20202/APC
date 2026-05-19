@@ -1190,8 +1190,12 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       final double tax = _safeParseAmount(shippingResponse['tax']);
       final double discount = _safeParseAmount(shippingResponse['discount']);
       final double shipping = _safeParseAmount(shippingResponse['shipping']);
-      // Use total_without_gst directly from API — do NOT calculate manually
-      final double subtotal = _safeParseAmount(shippingResponse['total_without_gst']);
+      final double itemsExclGst = _safeParseAmount(
+        shippingResponse['total_cost_excl_gst'],
+      );
+      final double totalWithoutGst = _safeParseAmount(
+        shippingResponse['total_without_gst'],
+      );
       
       final orderSource =
           _orderData?['order_source']?.toString().toLowerCase() ?? '';
@@ -1213,7 +1217,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           'summary_shipping': shipping,
           'summary_discount': discount,
           'summary_special_discount': specialDiscount,
-          'summary_subtotal': subtotal,
+          'summary_total_cost_excl_gst': itemsExclGst,
+          'summary_total_without_gst': totalWithoutGst,
+          'summary_total_with_gst': grandTotal,
+          'summary_subtotal': totalWithoutGst,
         },
       ).then((_) {
         if (mounted) _fetchOrderDetails();

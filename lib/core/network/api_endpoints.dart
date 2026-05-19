@@ -1,10 +1,11 @@
 class ApiEndpoints {
   // Base URL
- /* static const String baseUrl =
+  /* static const String baseUrl =
       'https://www.gurgaonit.com/apc_production_dev/api'; */
 
-  static const String baseUrl = 'https://www.automotionplus.com.au/api';
-  //static const String baseUrl = 'https://www.gurgaonit.com/apc_production_dev/api';
+  //static const String baseUrl = 'https://www.automotionplus.com.au/api';
+  static const String baseUrl =
+      'https://www.gurgaonit.com/apc_production_dev/api';
 
   // Authentication endpoints
   static const String login = '/login';
@@ -64,7 +65,8 @@ class ApiEndpoints {
   static const String getOrderDetails = '/user/orders/details';
 
   // Profile endpoints
-  static const String updateProfile = '/user/profile';
+  static const String userProfile = '/user/profile';
+  static const String updateProfile = '/user/update-profile';
   static const String deleteAccount = '/user/profile/delete';
 
   // Payment endpoints (CyberSource)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../categories_view/categories_grid.dart';
@@ -24,7 +25,22 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   String? _selectedTitle;
+  String _appVersion = '';
   final HomepageService _homepageService = HomepageService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() {
+      _appVersion = '${info.version}+${info.buildNumber}';
+    });
+  }
 
   /// Find category by slug from homepage data
   Category? _findCategoryBySlug(String slug) {
@@ -347,9 +363,12 @@ class _AppDrawerState extends State<AppDrawer> {
     return Drawer(
       child: Container(
         color: const Color(0xFFF8F8F8),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
+        child: Column(
           children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
+                children: [
             SizedBox(
               height: 60,
               child: DrawerHeader(
@@ -441,7 +460,28 @@ class _AppDrawerState extends State<AppDrawer> {
                 );
               },
             ),
+                ],
+              ),
+            ),
+            _buildVersionFooter(),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVersionFooter() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Text(
+          _appVersion.isEmpty ? '' : 'Version $_appVersion',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
         ),
       ),
     );
