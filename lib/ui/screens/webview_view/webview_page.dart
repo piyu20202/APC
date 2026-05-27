@@ -4,11 +4,13 @@ import 'package:webview_flutter/webview_flutter.dart';
 class WebViewPage extends StatefulWidget {
   final String url;
   final String title;
+  final Duration delay;
 
   const WebViewPage({
     super.key,
     required this.url,
     required this.title,
+    this.delay = const Duration(milliseconds: 1000), // Default 1-second delay
   });
 
   @override
@@ -36,8 +38,12 @@ class _WebViewPageState extends State<WebViewPage> {
             });
           },
           onPageFinished: (String url) {
-            setState(() {
-              _isLoading = false;
+            Future.delayed(widget.delay, () {
+              if (mounted) {
+                setState(() {
+                  _isLoading = false;
+                });
+              }
             });
           },
           onWebResourceError: (WebResourceError error) {},
@@ -61,12 +67,22 @@ class _WebViewPageState extends State<WebViewPage> {
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF151D51),
+          AnimatedOpacity(
+            opacity: _isLoading ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: IgnorePointer(
+              ignoring: !_isLoading,
+              child: Container(
+                color: Colors.white,
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF151D51),
+                  ),
+                ),
               ),
             ),
+          ),
         ],
       ),
     );

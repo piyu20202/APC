@@ -14,7 +14,6 @@ import 'package:apcproject/config/environment.dart';
 import 'package:apcproject/data/models/user_model.dart';
 import 'package:apcproject/core/utils/logger.dart';
 import 'package:apcproject/core/utils/coupon_cart_display.dart';
-import 'package:flutter_paypal/flutter_paypal.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:apcproject/data/services/payment_config_service.dart';
 import 'package:apcproject/data/models/payment_config_model.dart';
@@ -91,6 +90,7 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _hasPendingFreightQuote = false;
   bool _isPayLater = false;
   bool _showFreeShippingLabel = false;
+
   /// From API `shipping_type`: `shipto` or `pickup`. Pickup hides free-delivery promo.
   String _shippingType = 'shipto';
   bool _isAwaitingFreight = false;
@@ -145,6 +145,8 @@ class _PaymentPageState extends State<PaymentPage> {
   // Stored for price refreshes
   String? _postcode;
   dynamic _oldCart;
+  bool _pricingLoadFailed = false;
+  bool _isRefreshingPricing = false;
 
   @override
   void initState() {
@@ -217,6 +219,51 @@ class _PaymentPageState extends State<PaymentPage> {
       // We must initialize to get the breakdown, otherwise the UI shows $0.00 and spins forever.
       _initializePayment();
     }
+  }
+
+  void _showShippingPricingErrorToast(Object error) {
+    final isTimeout = error.toString().toLowerCase().contains('timeout');
+    Fluttertoast.showToast(
+      msg: isTimeout
+          ? 'Shipping API timed out (90 sec). No response received. Pull down to refresh and try again.'
+          : 'Could not load pricing from server. Pull down to refresh and try again.',
+      toastLength: Toast.LENGTH_LONG,
+    );
+  }
+
+  /// Pull-to-refresh: re-call /user/cart/shipping (user-initiated).
+  Future<void> _onPullToRefreshPricing() async {
+    if (_isRefreshingPricing || _isProcessing) return;
+    setState(() => _isRefreshingPricing = true);
+    try {
+      await _reloadShippingPricing();
+    } finally {
+      if (mounted) setState(() => _isRefreshingPricing = false);
+    }
+  }
+
+  Future<void> _reloadShippingPricing() async {
+    String? postcode = _postcode;
+    dynamic oldCart = _oldCart;
+
+    if (postcode == null || postcode.isEmpty || oldCart == null) {
+      final checkoutData = await StorageService.getCheckoutData();
+      postcode = (checkoutData?['post_code'] as String?)?.trim();
+      final cartResponse = await _getPaymentCartContainer();
+      oldCart = cartResponse?['cart'];
+      _postcode = postcode;
+      _oldCart = oldCart;
+    }
+
+    if (postcode == null || postcode.isEmpty || oldCart == null) {
+      Fluttertoast.showToast(
+        msg: 'Missing checkout details. Please go back and try again.',
+        toastLength: Toast.LENGTH_LONG,
+      );
+      return;
+    }
+
+    await _refreshPricing(postcode: postcode, oldCart: oldCart);
   }
 
   /// Load PayPal configuration from API (with asset fallback)
@@ -697,9 +744,8 @@ class _PaymentPageState extends State<PaymentPage> {
     final hasPendingFreightQuote =
         normalizedOrderType == 'large' || requestFreightCost >= 1;
     // Pickup: customer collects from office — never show "free delivery" promo.
-    final showFreeShippingLabel = !isPickup &&
-        !hasPendingFreightQuote &&
-        freeShippingIcon == 1;
+    final showFreeShippingLabel =
+        !isPickup && !hasPendingFreightQuote && freeShippingIcon == 1;
 
     final shippingCost = hasPendingFreightQuote || showFreeShippingLabel
         ? 0.0
@@ -913,7 +959,9 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   /// Applies pricing fields from `/user/cart/shipping` (or compatible) response.
-  void _applyPricingFromShippingResponse(Map<String, dynamic> shippingResponse) {
+  void _applyPricingFromShippingResponse(
+    Map<String, dynamic> shippingResponse,
+  ) {
     _shippingCost = _toDouble(shippingResponse['shipping']) ?? 0.0;
     _gstAmount = _toDouble(shippingResponse['tax']) ?? 0.0;
     _discountAmount = _toDouble(shippingResponse['discount']) ?? 0.0;
@@ -947,8 +995,9 @@ class _PaymentPageState extends State<PaymentPage> {
     }
   }
 
-  /// Refresh all totals and breakdown from the centralized Shipping API
-  Future<void> _refreshPricing({
+  /// Refresh all totals and breakdown from the centralized Shipping API.
+  /// Returns true when pricing was loaded successfully.
+  Future<bool> _refreshPricing({
     required String postcode,
     required dynamic oldCart,
   }) async {
@@ -996,6 +1045,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
       if (mounted) {
         setState(() {
+          _pricingLoadFailed = false;
           _applyPricingFromShippingResponse(shippingResponse);
 
           // Only use freight rule to determine UI flag state (pending quote / free label),
@@ -1030,8 +1080,14 @@ class _PaymentPageState extends State<PaymentPage> {
           // because _shippingCost is already set from the API response above.
         });
       }
+      return true;
     } catch (e) {
       debugPrint('Error refreshing pricing: $e');
+      if (mounted) {
+        setState(() => _pricingLoadFailed = true);
+        _showShippingPricingErrorToast(e);
+      }
+      return false;
     }
   }
 
@@ -1125,7 +1181,9 @@ class _PaymentPageState extends State<PaymentPage> {
         final checkoutData = await StorageService.getCheckoutData();
         final checkoutShippingMethod =
             checkoutData?['shipping_method'] as String? ?? 'Ship to Address';
-        _shippingType = checkoutShippingMethod == 'Pickup' ? 'pickup' : 'shipto';
+        _shippingType = checkoutShippingMethod == 'Pickup'
+            ? 'pickup'
+            : 'shipto';
         final postcode = (checkoutData?['post_code'] as String?)?.trim() ?? '';
         final cartResponse = await _getPaymentCartContainer();
         final oldCart = cartResponse?['cart'] as Map<String, dynamic>?;
@@ -1778,7 +1836,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
         if (result == null || result['status'] == 'cancelled') {
           debugPrint('PayPal: Cancelled or no result.');
-          _navigateToPaymentFailure();
+          // _navigateToPaymentFailure();
           return;
         }
 
@@ -2451,30 +2509,66 @@ class _PaymentPageState extends State<PaymentPage> {
                       ],
                     ),
                   )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          _buildOrderSummaryCard(),
-                          const SizedBox(height: 24),
-
-                          if (_canShowPaymentOptionsByStatus) ...[
-                            _buildPaymentMethodSection(),
+                : RefreshIndicator(
+                    onRefresh: _onPullToRefreshPricing,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            if (_pricingLoadFailed) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.orange.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.refresh,
+                                      color: Colors.orange.shade800,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Pricing could not be loaded. Pull down to refresh.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.orange.shade900,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            _buildOrderSummaryCard(),
                             const SizedBox(height: 24),
 
-                            if (effectivePaymentMethod == 'Credit Card') ...[
-                              const SizedBox(height: 12),
-                              _buildCardInputFields(),
+                            if (_canShowPaymentOptionsByStatus) ...[
+                              _buildPaymentMethodSection(),
                               const SizedBox(height: 24),
+
+                              if (effectivePaymentMethod == 'Credit Card') ...[
+                                const SizedBox(height: 12),
+                                _buildCardInputFields(),
+                                const SizedBox(height: 24),
+                              ],
                             ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-            if (_isUpdatingCoupon)
+            if (_isUpdatingCoupon || _isRefreshingPricing)
               Container(
                 color: Colors.black.withOpacity(0.3),
                 child: const Center(
@@ -2487,7 +2581,7 @@ class _PaymentPageState extends State<PaymentPage> {
               ),
           ],
         ),
-        bottomNavigationBar: _isLoading
+        bottomNavigationBar: (_isLoading || _pricingLoadFailed)
             ? null
             : SafeArea(
                 child: Padding(
@@ -2782,10 +2876,7 @@ class _PaymentPageState extends State<PaymentPage> {
             const SizedBox(height: 12),
 
             // Total without GST
-            _summaryRow(
-              'Total without GST',
-              formatPrice(_totalWithoutGst),
-            ),
+            _summaryRow('Total without GST', formatPrice(_totalWithoutGst)),
             const SizedBox(height: 12),
 
             // GST Row
@@ -2793,10 +2884,7 @@ class _PaymentPageState extends State<PaymentPage> {
             const SizedBox(height: 12),
 
             // Total incl. GST
-            _summaryRow(
-              'Total(incl. GST)',
-              formatPrice(_totalWithGst),
-            ),
+            _summaryRow('Total(incl. GST)', formatPrice(_totalWithGst)),
             const SizedBox(height: 12),
 
             // Discount Row - ONLY visible if discount > 0

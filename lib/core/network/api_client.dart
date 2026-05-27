@@ -85,7 +85,9 @@ class ApiClient {
     Map<String, dynamic>? body,
     String? contentType,
     bool requireAuth = false,
+    Duration? timeout,
   }) async {
+    final requestTimeout = timeout ?? _timeout;
     try {
       Uri url;
       if (queryParameters != null && queryParameters.isNotEmpty) {
@@ -140,12 +142,12 @@ class ApiClient {
 
         final streamedResponse = await http.Client()
             .send(request)
-            .timeout(_timeout);
+            .timeout(requestTimeout);
         response = await http.Response.fromStream(streamedResponse);
       } else {
         response = await http
             .get(url, headers: defaultHeaders)
-            .timeout(_timeout);
+            .timeout(requestTimeout);
       }
 
       return _handleResponse(response, endpoint);

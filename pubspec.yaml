@@ -46,7 +46,7 @@ dependencies:
   pay: ^3.3.0
   cybersource_inapp:
     path: packages/cybersource_inapp
-  flutter_paypal: ^0.2.1
+  
   syncfusion_flutter_pdfviewer: ^31.1.19
   webview_flutter: ^4.9.0
   package_info_plus: ^9.0.1

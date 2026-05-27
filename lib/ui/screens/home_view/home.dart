@@ -665,179 +665,191 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         }
 
         return Container(
-          height: 200,
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-          child: Stack(
-            children: [
-              PageView.builder(
-                controller: _bannerController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentBannerIndex = index;
-                  });
-                },
-                itemCount: itemCount,
-                itemBuilder: (context, index) {
-                  // Use API sliders if available, otherwise fall back to local assets
-                  if (hasApiSliders) {
-                    final slider = apiSliders[index];
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ClipRRect(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double width = constraints.maxWidth;
+              // A ratio of 16 / 8 (2.0) on mobile scales nicely. For tablets,
+              // we can use a wider ratio like 21 / 9 (2.33) to prevent the banner
+              // from getting too tall.
+              final double aspectRatio = width > 600 ? 21 / 9 : 16 / 8;
+
+              return AspectRatio(
+                aspectRatio: aspectRatio,
+                child: Stack(
+                  children: [
+                    PageView.builder(
+                      controller: _bannerController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentBannerIndex = index;
+                        });
+                      },
+                      itemCount: itemCount,
+                      itemBuilder: (context, index) {
+                        // Use API sliders if available, otherwise fall back to local assets
+                        if (hasApiSliders) {
+                          final slider = apiSliders[index];
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              child: GestureDetector(
-                                onTap: () async {
-                                  if (slider.link != null &&
-                                      slider.link!.isNotEmpty) {
-                                    final uri = Uri.parse(slider.link!);
-                                    if (await canLaunchUrl(uri)) {
-                                      await launchUrl(uri);
-                                    }
-                                  }
-                                },
-                                child: CachedNetworkImage(
-                                  imageUrl: slider.photo,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (context, url, error) {
-                                    return Container(
-                                      color: Colors.grey[300],
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.image,
-                                          color: Colors.white54,
-                                          size: 60,
+                            ),
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: GestureDetector(
+                                      onTap: () async {
+                                        if (slider.link != null &&
+                                            slider.link!.isNotEmpty) {
+                                          final uri = Uri.parse(slider.link!);
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(uri);
+                                          }
+                                        }
+                                      },
+                                      child: CachedNetworkImage(
+                                        imageUrl: slider.photo,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (context, url, error) {
+                                          return Container(
+                                            color: Colors.grey[300],
+                                            child: const Center(
+                                              child: Icon(
+                                                Icons.image,
+                                                color: Colors.white54,
+                                                size: 60,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        placeholder: (context, url) => Container(
+                                          color: Colors.grey[200],
+                                          child: const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                  placeholder: (context, url) => Container(
-                                    color: Colors.grey[200],
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          // Overlay for better text readability
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                gradient: LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.4),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  } else {
-                    // Existing static banners (fallback)
-                    final banner = banners[index];
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.asset(
-                                banner['image'],
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
+                                // Overlay for better text readability
+                                Positioned.fill(
+                                  child: Container(
                                     decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
                                       gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
                                         colors: [
-                                          banner['backgroundColor'],
-                                          banner['backgroundColor'].withValues(
-                                            alpha: 0.8,
-                                          ),
+                                          Colors.black.withValues(alpha: 0.4),
+                                          Colors.transparent,
                                         ],
                                       ),
                                     ),
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.image,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                        size: 60,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else {
+                          // Existing static banners (fallback)
+                          final banner = banners[index];
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.asset(
+                                      banner['image'],
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                banner['backgroundColor'],
+                                                banner['backgroundColor'].withValues(
+                                                  alpha: 0.8,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.image,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.5,
+                                              ),
+                                              size: 60,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [
+                                          Colors.black.withValues(alpha: 0.6),
+                                          Colors.transparent,
+                                          Colors.transparent,
+                                        ],
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                gradient: LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.6),
-                                    Colors.transparent,
-                                    Colors.transparent,
-                                  ],
+                                  ),
                                 ),
-                              ),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                    ),
+
+                    // Banner Indicators
+                    Positioned(
+                      bottom: 16,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          itemCount,
+                          (index) => Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _currentBannerIndex == index
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.5),
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  }
-                },
-              ),
-
-              // Banner Indicators
-              Positioned(
-                bottom: 16,
-                left: 0,
-                right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    itemCount,
-                    (index) => Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _currentBannerIndex == index
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
         );
       },
@@ -858,11 +870,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     final gridSpacing = (screenWidth * 0.03).clamp(8.0, 16.0);
     
     // Dynamic height calculation for childAspectRatio
-    // We target a square image area + space for 2 lines of text
+    // We target a square image area + space for full text (up to 3.5 lines to prevent clipping)
     final itemWidth = (screenWidth - (horizontalPadding * 2) - (gridSpacing * (crossAxisCount - 1))) / crossAxisCount;
     final double labelFontSize = (screenWidth * 0.032).clamp(10.0, 13.0);
-    // Height for text area: 2 lines * (fontSize * line-height) + vertical padding
-    final double textAreaHeight = (labelFontSize * 1.2 * 2) + (isSmall ? 10 : 14);
+    // Height for text area: Support up to 3.5 lines of text + vertical padding
+    final double textAreaHeight = (labelFontSize * 1.25 * 3.5) + (isSmall ? 10 : 14);
     final itemHeight = itemWidth + textAreaHeight;
     final childAspectRatio = itemWidth / itemHeight;
 
@@ -1104,8 +1116,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         child: Text(
                           category.name,
                           textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: labelFontSize,
                             fontWeight: FontWeight.w600,
@@ -1232,7 +1242,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         }
 
         return Container(
-          height: 140,
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -1244,77 +1253,88 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: PageView.builder(
-                  controller: _midBannerController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentMidBannerIndex = index;
-                    });
-                  },
-                  itemCount: allBanners.length,
-                  itemBuilder: (context, index) {
-                    final banner = allBanners[index];
-                    return GestureDetector(
-                      onTap: () {
-                        if (banner.link != null && banner.link!.isNotEmpty) {
-                          launchUrl(Uri.parse(banner.link!));
-                        }
-                      },
-                      child: CachedNetworkImage(
-                        imageUrl: banner.photo,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: 140,
-                        placeholder: (context, url) => Container(
-                          color: Colors.grey[200],
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: Icon(
-                              Icons.image,
-                              color: Colors.grey,
-                              size: 40,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double width = constraints.maxWidth;
+              // A ratio of 16 / 6.5 (2.46) on mobile scales nicely. For tablets,
+              // we can use a wider ratio like 21 / 7 (3.0) to keep it compact.
+              final double aspectRatio = width > 600 ? 21 / 7 : 16 / 6.5;
+
+              return AspectRatio(
+                aspectRatio: aspectRatio,
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: PageView.builder(
+                        controller: _midBannerController,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentMidBannerIndex = index;
+                          });
+                        },
+                        itemCount: allBanners.length,
+                        itemBuilder: (context, index) {
+                          final banner = allBanners[index];
+                          return GestureDetector(
+                            onTap: () {
+                              if (banner.link != null && banner.link!.isNotEmpty) {
+                                launchUrl(Uri.parse(banner.link!));
+                              }
+                            },
+                            child: CachedNetworkImage(
+                              imageUrl: banner.photo,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.image,
+                                    color: Colors.grey,
+                                    size: 40,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    // Indicators (small, subtle)
+                    if (allBanners.length > 1)
+                      Positioned(
+                        bottom: 8,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            allBanners.length,
+                            (index) => Container(
+                              width: 6,
+                              height: 6,
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _currentMidBannerIndex == index
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.6),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    );
-                  },
+                  ],
                 ),
-              ),
-              // Indicators (small, subtle)
-              if (allBanners.length > 1)
-                Positioned(
-                  bottom: 8,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      allBanners.length,
-                      (index) => Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _currentMidBannerIndex == index
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+              );
+            },
           ),
         );
       },

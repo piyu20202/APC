@@ -11,6 +11,7 @@ import '../../../services/navigation_service.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../data/models/product_details_model.dart';
 import '../../../data/models/product_detail_response.dart';
+import 'addon_detail_screen.dart';
 import '../../../data/models/settings_model.dart';
 import '../../../services/storage_service.dart';
 import '../../../core/exceptions/api_exception.dart';
@@ -76,6 +77,36 @@ class _DetailViewState extends State<DetailView> {
   /// no upgrades are available for this kit.
   bool get _shouldShowUpgradesSection => _isKitProduct;
 
+  /// Checks if user has made any customization (quantities, upgrades, or add-ons)
+  bool get _hasUserMadeCustomizations {
+    final customiseData = getCustomiseKitData();
+    final upgradeData = getSelectedUpgradeData();
+    final addOnData = getSelectedAddOnData();
+
+    // Check if quantities were changed from base
+    final hasCustomise = customiseData.any((item) {
+      final itemData = _qtyUpgradeProducts.firstWhere(
+        (p) => p.id == item['id'],
+        orElse: () => _qtyUpgradeProducts.first,
+      );
+      final selectedQty = item['qty'] as int;
+      final baseQty = itemData.productBaseQuantity;
+      return selectedQty > baseQty;
+    });
+
+    // Check if user manually selected an upgrade (not auto-selected default)
+    final hasUpgrade =
+        _hasUserManuallySelectedUpgrade &&
+        upgradeData != null &&
+        (upgradeData['isUpgrade'] as bool? ?? false) &&
+        (upgradeData['price'] as num) > 0;
+
+    // Check if any add-ons were selected
+    final hasAddOn = addOnData.isNotEmpty;
+
+    return hasCustomise || hasUpgrade || hasAddOn;
+  }
+
   List<String> get productImages {
     final List<String> images = [];
     if (_gallery.isNotEmpty) {
@@ -139,12 +170,12 @@ class _DetailViewState extends State<DetailView> {
   }
 
   List<int> _quantityOptionsFor(QtyUpgradeProduct item) {
-    final minQty = (item.minQuantity > 0
-            ? item.minQuantity
-            : item.productBaseQuantity)
-        .clamp(1, 9999);
-    final maxQty =
-        item.maxQuantity >= minQty ? item.maxQuantity.clamp(minQty, 9999) : minQty;
+    final minQty =
+        (item.minQuantity > 0 ? item.minQuantity : item.productBaseQuantity)
+            .clamp(1, 9999);
+    final maxQty = item.maxQuantity >= minQty
+        ? item.maxQuantity.clamp(minQty, 9999)
+        : minQty;
     final totalOptions = (maxQty - minQty + 1).clamp(1, 9999);
     return List<int>.generate(totalOptions, (index) => minQty + index);
   }
@@ -244,13 +275,13 @@ class _DetailViewState extends State<DetailView> {
           _startImageAutoSlide();
         }
       }
-
     } on ApiException catch (e) {
       String message;
       if (e.statusCode == 500) {
         message = 'Server error. Please try again later.';
       } else if (e.statusCode == 404) {
-        message = 'This product is currently unavailable. Please try another product.';
+        message =
+            'This product is currently unavailable. Please try another product.';
       } else if (e.statusCode == 401) {
         message = 'Unauthorized. Please check your credentials.';
       } else {
@@ -323,6 +354,24 @@ class _DetailViewState extends State<DetailView> {
     });
   }
 
+  void _scrollToCustomizationSection() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -391,7 +440,9 @@ class _DetailViewState extends State<DetailView> {
                                   width: 24,
                                   height: 24,
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey[400]!),
+                                    border: Border.all(
+                                      color: Colors.grey[400]!,
+                                    ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(
@@ -440,7 +491,9 @@ class _DetailViewState extends State<DetailView> {
                                   width: 24,
                                   height: 24,
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey[400]!),
+                                    border: Border.all(
+                                      color: Colors.grey[400]!,
+                                    ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(
@@ -504,7 +557,8 @@ class _DetailViewState extends State<DetailView> {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: !_isProductLoaded ||
+                                  color:
+                                      !_isProductLoaded ||
                                           (_product?.outOfStock ?? 0) == 1
                                       ? Colors.grey[400]
                                       : Colors.orange,
@@ -666,7 +720,11 @@ class _DetailViewState extends State<DetailView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.search_off_rounded, size: 72, color: Color(0xFFBDBDBD)),
+                  const Icon(
+                    Icons.search_off_rounded,
+                    size: 72,
+                    color: Color(0xFFBDBDBD),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Oops! Product Unavailable',
@@ -725,12 +783,14 @@ class _DetailViewState extends State<DetailView> {
                       if (_isKitProduct) ...[
                         _buildKitIncludes(),
                         _buildCustomiseYourKit(),
-                        if (_shouldShowUpgradesSection) _buildUpgrades(
-                          key: _upgradeAddonKey,
-                        ),
-                        if (_addonProducts.isNotEmpty) _buildAddOnItems(
-                          key: _shouldShowUpgradesSection ? null : _upgradeAddonKey,
-                        ),
+                        if (_shouldShowUpgradesSection)
+                          _buildUpgrades(key: _upgradeAddonKey),
+                        if (_addonProducts.isNotEmpty)
+                          _buildAddOnItems(
+                            key: _shouldShowUpgradesSection
+                                ? null
+                                : _upgradeAddonKey,
+                          ),
                       ],
 
                       // Product Information section
@@ -758,7 +818,8 @@ class _DetailViewState extends State<DetailView> {
       );
     }
 
-    final isOnSale = (_product!.previousPrice > 0 &&
+    final isOnSale =
+        (_product!.previousPrice > 0 &&
             _product!.previousPrice > _product!.price) ||
         _product!.sale == 1 ||
         _product!.isDiscount == 1;
@@ -1000,7 +1061,9 @@ class _DetailViewState extends State<DetailView> {
             _product!.name,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
+          // `View Customization` button moved to Add-On Items section
+          if (_isKitProduct) const SizedBox(height: 4),
           Text(
             'Product SKU: ${_product!.sku}',
             style: const TextStyle(fontSize: 14, color: Colors.black87),
@@ -1033,8 +1096,10 @@ class _DetailViewState extends State<DetailView> {
                 // Free Shipping Badge
                 if ((_product?.showFreeShippingIcon ?? 0) == 1)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9), // Light green
                       borderRadius: BorderRadius.circular(8),
@@ -1065,8 +1130,10 @@ class _DetailViewState extends State<DetailView> {
                 // Freight Delivery Badge
                 if ((_product?.showFreightCostIcon ?? 0) == 1)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8EAF6), // Light navy
                       borderRadius: BorderRadius.circular(8),
@@ -1258,7 +1325,7 @@ class _DetailViewState extends State<DetailView> {
   }
 
   Widget _buildScrollableFooter() {
-    // Only show the "Your Customised Kit Includes" section if there are actual user selections
+    // Always show for kit products (with or without customizations)
     if (!_isKitProduct) {
       return const SizedBox.shrink();
     }
@@ -1289,10 +1356,7 @@ class _DetailViewState extends State<DetailView> {
     // For add-on: only show if user actually selected add-ons
     final hasAddOn = addOnData.isNotEmpty;
 
-    // Only show section if user has made selections
-    if (!hasCustomise && !hasUpgrade && !hasAddOn) {
-      return const SizedBox.shrink();
-    }
+    final hasAnySelections = hasCustomise || hasUpgrade || hasAddOn;
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -1300,119 +1364,80 @@ class _DetailViewState extends State<DetailView> {
       child: Column(
         children: [
           // Kit Summary Section - Only shows when user makes selections
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              border: Border(top: BorderSide(color: Colors.grey[300]!)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Your Customised Kit Includes:',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF151D51),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Customise your Kit Items (only if user changed quantities)
-                if (hasCustomise) ...[
-                  ...customiseData
-                      .where((item) {
-                        final itemData = _qtyUpgradeProducts.firstWhere(
-                          (p) => p.id == item['id'],
-                          orElse: () => _qtyUpgradeProducts.first,
-                        );
-                        final selectedQty = item['qty'] as int;
-                        final baseQty = itemData.productBaseQuantity;
-                        // Only show if quantity was changed from base
-                        return selectedQty > baseQty;
-                      })
-                      .map((item) {
-                        final itemData = _qtyUpgradeProducts.firstWhere(
-                          (p) => p.id == item['id'],
-                          orElse: () => _qtyUpgradeProducts.first,
-                        );
-                        final selectedQty = item['qty'] as int;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Customise: ${itemData.name} - Qty: $selectedQty',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                ],
-
-                // Upgrade Items (only if user selected an upgrade)
-                if (hasUpgrade) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 16,
-                          height: 16,
-                          decoration: const BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.green,
-                            ),
-                          ),
-                        ),
-                      ],
+          if (hasAnySelections)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                border: Border(top: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Your Customised Kit Includes:',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF151D51),
                     ),
                   ),
-                ],
+                  const SizedBox(height: 12),
 
-                // Add-On Items (only if user added add-ons)
-                if (hasAddOn) ...[
-                  ...addOnData.map((item) {
-                    final itemData = _addonProducts.firstWhere(
-                      (p) => p.id == item['id'],
-                      orElse: () => _addonProducts.first,
-                    );
-                    return Padding(
+                  // Customise your Kit Items (only if user changed quantities)
+                  if (hasCustomise)
+                    ...customiseData
+                        .where((item) {
+                          final itemData = _qtyUpgradeProducts.firstWhere(
+                            (p) => p.id == item['id'],
+                            orElse: () => _qtyUpgradeProducts.first,
+                          );
+                          final selectedQty = item['qty'] as int;
+                          final baseQty = itemData.productBaseQuantity;
+                          // Only show if quantity was changed from base
+                          return selectedQty > baseQty;
+                        })
+                        .map((item) {
+                          final itemData = _qtyUpgradeProducts.firstWhere(
+                            (p) => p.id == item['id'],
+                            orElse: () => _qtyUpgradeProducts.first,
+                          );
+                          final selectedQty = item['qty'] as int;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Customise: ${itemData.name} - Qty: $selectedQty',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+
+                  // Upgrade Items (only if user selected an upgrade)
+                  if (hasUpgrade) ...[
+                    Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
                         children: [
@@ -1432,7 +1457,7 @@ class _DetailViewState extends State<DetailView> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Add-On: ${itemData.name} - Qty: ${item['qty']}',
+                              'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}',
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: Colors.green,
@@ -1441,13 +1466,80 @@ class _DetailViewState extends State<DetailView> {
                           ),
                         ],
                       ),
-                    );
-                  }),
+                    ),
+                  ],
+
+                  // Add-On Items (only if user added add-ons)
+                  if (hasAddOn) ...[
+                    ...addOnData.map((item) {
+                      final itemData = _addonProducts.firstWhere(
+                        (p) => p.id == item['id'],
+                        orElse: () => _addonProducts.first,
+                      );
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Add-On: ${itemData.name} - Qty: ${item['qty']}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ],
-              ],
+              ),
+            ),
+          // Always show Scroll to Top button at bottom
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, hasAnySelections ? 12 : 16, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: _scrollToTop,
+                icon: const Icon(Icons.keyboard_arrow_up, size: 16),
+                label: const Text('Scroll to Top'),
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: const Color(0xFFFFF4E5),
+                  foregroundColor: const Color(0xFF151D51),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: Colors.orange.shade200),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ),
-
           // Bottom padding for scroll
           const SizedBox(height: 40),
         ],
@@ -1504,71 +1596,29 @@ class _DetailViewState extends State<DetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-              // Customise your Kit Summary
-              if (hasCustomise) ...[
-                ...customiseData
-                    .where((item) {
-                      final itemData = _qtyUpgradeProducts.firstWhere(
-                        (p) => p.id == item['id'],
-                        orElse: () => _qtyUpgradeProducts.first,
-                      );
-                      final selectedQty = item['qty'] as int;
-                      final baseQty = itemData.productBaseQuantity;
-                      // Only show if quantity was changed from base
-                      return selectedQty > baseQty;
-                    })
-                    .map((item) {
-                      final itemData = _qtyUpgradeProducts.firstWhere(
-                        (p) => p.id == item['id'],
-                        orElse: () => _qtyUpgradeProducts.first,
-                      );
-                      final price = (item['price'] as num).toDouble();
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          'Customise: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(price)}',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.green,
-                            height: 1.2,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }),
-              ],
-
-              // Upgrades Summary
-              if (hasUpgrade) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}, Price: \$${_formatCurrency((upgradeData['price'] as num).toDouble())}',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.green,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-
-              // Add-On Items Summary
-              if (hasAddOn) ...[
-                ...addOnData.map((item) {
-                  final itemData = _addonProducts.firstWhere(
+          // Customise your Kit Summary
+          if (hasCustomise) ...[
+            ...customiseData
+                .where((item) {
+                  final itemData = _qtyUpgradeProducts.firstWhere(
                     (p) => p.id == item['id'],
-                    orElse: () => _addonProducts.first,
+                    orElse: () => _qtyUpgradeProducts.first,
                   );
-                  final totalPrice =
-                      (item['qty'] as int) * (item['price'] as num).toDouble();
+                  final selectedQty = item['qty'] as int;
+                  final baseQty = itemData.productBaseQuantity;
+                  // Only show if quantity was changed from base
+                  return selectedQty > baseQty;
+                })
+                .map((item) {
+                  final itemData = _qtyUpgradeProducts.firstWhere(
+                    (p) => p.id == item['id'],
+                    orElse: () => _qtyUpgradeProducts.first,
+                  );
+                  final price = (item['price'] as num).toDouble();
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      'Add-On: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(totalPrice)}',
+                      'Customise: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(price)}',
                       style: const TextStyle(
                         fontSize: 10,
                         color: Colors.green,
@@ -1579,9 +1629,51 @@ class _DetailViewState extends State<DetailView> {
                     ),
                   );
                 }),
-              ],
-            ],
-          ),
+          ],
+
+          // Upgrades Summary
+          if (hasUpgrade) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}, Price: \$${_formatCurrency((upgradeData['price'] as num).toDouble())}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.green,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+
+          // Add-On Items Summary
+          if (hasAddOn) ...[
+            ...addOnData.map((item) {
+              final itemData = _addonProducts.firstWhere(
+                (p) => p.id == item['id'],
+                orElse: () => _addonProducts.first,
+              );
+              final totalPrice =
+                  (item['qty'] as int) * (item['price'] as num).toDouble();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'Add-On: ${itemData.name} - Qty: ${item['qty']}, Price: \$${_formatCurrency(totalPrice)}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.green,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
     );
   }
 
@@ -1710,6 +1802,42 @@ class _DetailViewState extends State<DetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader('Customise your Kit'),
+          // Place View Customization button to the right under this header
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _hasUserMadeCustomizations
+                  ? _scrollToCustomizationSection
+                  : null,
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View Customization'),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFFFFF4E5)
+                    : Colors.grey[300],
+                foregroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFF151D51)
+                    : Colors.grey[600],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _hasUserMadeCustomizations
+                        ? Colors.orange.shade200
+                        : Colors.grey[400]!,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           Column(
             children: List.generate(_qtyUpgradeProducts.length, (index) {
@@ -1804,7 +1932,7 @@ class _DetailViewState extends State<DetailView> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -1818,8 +1946,8 @@ class _DetailViewState extends State<DetailView> {
                               ),
                               const SizedBox(width: 6),
                               SizedBox(
-                              width: 92,
-                              child: Container(
+                                width: 92,
+                                child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 4,
                                     vertical: 2,
@@ -1827,49 +1955,56 @@ class _DetailViewState extends State<DetailView> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.grey[300]!),
+                                    border: Border.all(
+                                      color: Colors.grey[300]!,
+                                    ),
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<int>(
-                                    value: () {
-                                      if (quantityOptions.isEmpty) return null;
-                                      return quantityOptions.contains(selectedQty)
-                                          ? selectedQty
-                                          : quantityOptions.first;
-                                    }(),
-                                    isDense: true,
-                                    isExpanded: true,
-                                    iconSize: 14,
-                                    items: quantityOptions.map((qty) {
-                                      final optionExtra = _calculateExtraCost(
-                                        item,
-                                        qty,
-                                      );
-                                      final formattedExtra = _formatCurrency(
-                                        optionExtra,
-                                      );
-                                      final displayText = optionExtra == 0.0
-                                          ? '$qty'
-                                          : '$qty (+\$$formattedExtra)';
-                                      return DropdownMenuItem<int>(
-                                        value: qty,
-                                        child: Text(
-                                          displayText,
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      setState(() {
-                                        _selectedQtyForCustomise[item.id] =
-                                            value;
-                                      });
-                                    },
+                                      value: () {
+                                        if (quantityOptions.isEmpty)
+                                          return null;
+                                        return quantityOptions.contains(
+                                              selectedQty,
+                                            )
+                                            ? selectedQty
+                                            : quantityOptions.first;
+                                      }(),
+                                      isDense: true,
+                                      isExpanded: true,
+                                      iconSize: 14,
+                                      items: quantityOptions.map((qty) {
+                                        final optionExtra = _calculateExtraCost(
+                                          item,
+                                          qty,
+                                        );
+                                        final formattedExtra = _formatCurrency(
+                                          optionExtra,
+                                        );
+                                        final displayText = optionExtra == 0.0
+                                            ? '$qty'
+                                            : '$qty (+\$$formattedExtra)';
+                                        return DropdownMenuItem<int>(
+                                          value: qty,
+                                          child: Text(
+                                            displayText,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setState(() {
+                                          _selectedQtyForCustomise[item.id] =
+                                              value;
+                                        });
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -1928,6 +2063,42 @@ class _DetailViewState extends State<DetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader('Upgrades are available for following items'),
+          // Place View Customization button to the right under this header
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _hasUserMadeCustomizations
+                  ? _scrollToCustomizationSection
+                  : null,
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View Customization'),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFFFFF4E5)
+                    : Colors.grey[300],
+                foregroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFF151D51)
+                    : Colors.grey[600],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _hasUserMadeCustomizations
+                        ? Colors.orange.shade200
+                        : Colors.grey[400]!,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           if (!hasUpgradeData)
             Text(
@@ -1945,24 +2116,28 @@ class _DetailViewState extends State<DetailView> {
                   children: [
                     _buildUpgradeProductCard(item, index, selectedSubIndex),
                     if (item.subProducts.isNotEmpty)
-                      ...item.subProducts.asMap().entries.map((entry) {
-                        final subIndex = entry.key;
-                        final subProduct = entry.value;
-                        return _buildSubProductCard(
-                          item,
-                          index,
-                          subProduct,
-                          subIndex,
-                          selectedSubIndex,
-                        );
-                      }),
+                      Column(
+                        children: item.subProducts
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) => _buildSubProductCard(
+                                item,
+                                index,
+                                entry.value,
+                                entry.key,
+                                selectedSubIndex,
+                              ),
+                            )
+                            .toList(),
+                      ),
                   ],
                 );
               }),
             ),
         ],
-      ),
-    );
+      ), // closes outer Column
+    ); // closes Container
   }
 
   Widget _buildUpgradeProductCard(
@@ -2318,6 +2493,42 @@ class _DetailViewState extends State<DetailView> {
           _buildSectionHeader(
             'Add-On Items (Discounted when purchased along with this Kit)',
           ),
+          // Place View Customization button to the right under this header
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _hasUserMadeCustomizations
+                  ? _scrollToCustomizationSection
+                  : null,
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View Customization'),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFFFFF4E5)
+                    : Colors.grey[300],
+                foregroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFF151D51)
+                    : Colors.grey[600],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _hasUserMadeCustomizations
+                        ? Colors.orange.shade200
+                        : Colors.grey[400]!,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           Column(
             children: List.generate(_addonProducts.length, (index) {
@@ -2341,60 +2552,49 @@ class _DetailViewState extends State<DetailView> {
                   ),
                 ),
                 child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center, // Changed from start to center for better alignment without IntrinsicHeight
-                    children: [
-                      Transform.scale(
-                        scale: 0.9,
-                        child: Checkbox(
-                          value: isSelected,
-                          onChanged: item.outOfStock == 1
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    _addOnSelections[index] = value ?? false;
-                                    // Price will update automatically via _calculateFinalPrice()
-                                  });
-                                },
-                          activeColor: Colors.blue,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                        ),
+                  crossAxisAlignment: CrossAxisAlignment
+                      .center, // Changed from start to center for better alignment without IntrinsicHeight
+                  children: [
+                    Transform.scale(
+                      scale: 0.9,
+                      child: Checkbox(
+                        value: isSelected,
+                        onChanged: item.outOfStock == 1
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _addOnSelections[index] = value ?? false;
+                                  // Price will update automatically via _calculateFinalPrice()
+                                });
+                              },
+                        activeColor: Colors.blue,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      const SizedBox(width: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: imageUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: imageUrl,
+                    ),
+                    const SizedBox(width: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: 55,
+                              height: 55,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
                                 width: 55,
                                 height: 55,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  width: 55,
-                                  height: 55,
-                                  color: Colors.grey[200],
-                                  child: const Center(
-                                    child: SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
                                   ),
                                 ),
-                                errorWidget: (context, url, error) => Container(
-                                  width: 55,
-                                  height: 55,
-                                  color: Colors.grey[200],
-                                  child: Icon(
-                                    Icons.image,
-                                    color: Colors.grey[500],
-                                    size: 18,
-                                  ),
-                                ),
-                              )
-                            : Container(
+                              ),
+                              errorWidget: (context, url, error) => Container(
                                 width: 55,
                                 height: 55,
                                 color: Colors.grey[200],
@@ -2404,169 +2604,218 @@ class _DetailViewState extends State<DetailView> {
                                   size: 18,
                                 ),
                               ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 6,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    item.name,
+                            )
+                          : Container(
+                              width: 55,
+                              height: 55,
+                              color: Colors.grey[200],
+                              child: Icon(
+                                Icons.image,
+                                color: Colors.grey[500],
+                                size: 18,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: item.outOfStock == 1
+                                        ? Colors.grey
+                                        : const Color(0xFF151D51),
+                                    height: 1.35,
+                                    decoration: item.outOfStock == 1
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (item.outOfStock == 1) ...[
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: const Text(
+                                    'OUT OF STOCK',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
-                                      color: item.outOfStock == 1
-                                          ? Colors.grey
-                                          : const Color(0xFF151D51),
-                                      height: 1.35,
-                                      decoration: item.outOfStock == 1
-                                          ? TextDecoration.lineThrough
-                                          : null,
+                                      color: Colors.white,
                                     ),
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (item.outOfStock == 1) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: const Text(
-                                      'OUT OF STOCK',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.sku,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.blue[600],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              item.sku,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.blue[600],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.upgradeShortDescription,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                              height: 1.2,
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              item.upgradeShortDescription,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      // Right-side: qty dropdown + price stacked, fixed width
-                      SizedBox(
-                        width: 100,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Qty dropdown — full width of this column
-                            Container(
-                              width: 100,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: quantity,
-                                  isDense: true,
-                                  isExpanded: true,
-                                  items: List.generate(10, (i) {
-                                    final qty = i + 1;
-                                    return DropdownMenuItem<int>(
-                                      value: qty,
-                                      child: Text(
-                                        'Qty: $qty',
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                    );
-                                  }),
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _addOnQuantities[index] = val ?? 1;
-                                    });
-                                  },
-                                ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Right-side: qty dropdown + price stacked, fixed width
+                    SizedBox(
+                      width: 100,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          // Qty dropdown — full width of this column
+                          Container(
+                            width: 100,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(color: Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int>(
+                                value: quantity,
+                                isDense: true,
+                                isExpanded: true,
+                                items: List.generate(10, (i) {
+                                  final qty = i + 1;
+                                  return DropdownMenuItem<int>(
+                                    value: qty,
+                                    child: Text(
+                                      'Qty: $qty',
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  );
+                                }),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _addOnQuantities[index] = val ?? 1;
+                                  });
+                                },
                               ),
                             ),
-                            const SizedBox(height: 5),
-                            // Unit price label
-                            const Text(
-                              'Unit Price',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 5),
+                          // Unit price label
+                          const Text(
+                            'Unit Price',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Color(0xFF151D51),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          // Price — always fits since parent width is fixed
+                          FittedBox(
+                            alignment: Alignment.centerRight,
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '\$${item.unitPrice.toStringAsFixed(2)}',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ),
+                          if (item.originalPrice != null) ...[
+                            const SizedBox(height: 1),
+                            Text(
+                              '\$${item.originalPrice!.toStringAsFixed(2)}',
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                 fontSize: 9,
-                                color: Color(0xFF151D51),
-                                fontWeight: FontWeight.w500,
+                                decoration: TextDecoration.lineThrough,
+                                color: Colors.grey[600],
                               ),
                             ),
-                            const SizedBox(height: 1),
-                            // Price — always fits since parent width is fixed
-                            FittedBox(
-                              alignment: Alignment.centerRight,
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                '\$${item.unitPrice.toStringAsFixed(2)}',
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                            ),
-                            if (item.originalPrice != null) ...[
-                              const SizedBox(height: 1),
-                              Text(
-                                '\$${item.originalPrice!.toStringAsFixed(2)}',
-                                textAlign: TextAlign.right,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  decoration: TextDecoration.lineThrough,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
                           ],
-                        ),
+                          const SizedBox(height: 6),
+                          // Bottom-right: compact View Details button
+                          TextButton(
+                            onPressed:
+                                (item.details != null &&
+                                    item.details!.isNotEmpty)
+                                ? () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => AddonDetailScreen(
+                                          htmlContent: item.details ?? '',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: Colors.blue,
+                              textStyle: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            child: const Text(
+                              'View Details',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
+                    ),
+                  ],
+                ),
+              );
             }),
           ),
         ],
@@ -2824,18 +3073,11 @@ class FullScreenImageGallery extends StatelessWidget {
     if (images.isEmpty) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(
-          child: Icon(
-            Icons.image,
-            color: Colors.white54,
-            size: 64,
-          ),
-        ),
+        body: Center(child: Icon(Icons.image, color: Colors.white54, size: 64)),
       );
     }
 
-    final clampedInitialIndex =
-        initialIndex.clamp(0, images.length - 1);
+    final clampedInitialIndex = initialIndex.clamp(0, images.length - 1);
     final pageController = PageController(initialPage: clampedInitialIndex);
 
     return Scaffold(
@@ -2855,14 +3097,8 @@ class FullScreenImageGallery extends StatelessWidget {
           return InteractiveViewer(
             child: Center(
               child: isNetwork
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.contain,
-                    )
-                  : Image.asset(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                    ),
+                  ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain)
+                  : Image.asset(imageUrl, fit: BoxFit.contain),
             ),
           );
         },

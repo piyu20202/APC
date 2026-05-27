@@ -180,7 +180,9 @@ class QtyUpgradeProduct {
       upgradeShortDescription: _asString(json['upgradeShortDescription']),
       price: _asDouble(json['price']),
       outOfStock: _asInt(json['out_of_stock']),
-      minQuantity: _asInt(json['minQuantity'] ?? json['min_qty'] ?? json['productBaseQuantity']),
+      minQuantity: _asInt(
+        json['minQuantity'] ?? json['min_qty'] ?? json['productBaseQuantity'],
+      ),
     );
   }
 }
@@ -282,6 +284,7 @@ class AddonProduct {
   final String name;
   final String sku;
   final String photo;
+  final String? details;
   final String upgradeShortDescription;
   final double unitPrice;
   final double? originalPrice;
@@ -294,6 +297,7 @@ class AddonProduct {
     required this.name,
     required this.sku,
     required this.photo,
+    this.details,
     required this.upgradeShortDescription,
     required this.unitPrice,
     this.originalPrice,
@@ -308,6 +312,7 @@ class AddonProduct {
       name: _asString(json['name']),
       sku: _asString(json['sku']),
       photo: _asString(json['photo']),
+      details: json['details']?.toString(),
       upgradeShortDescription: _asString(json['upgradeShortDescription']),
       unitPrice: _asDouble(json['price'] ?? json['unitPrice']),
       originalPrice: json['previous_price'] != null

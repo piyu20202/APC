@@ -131,6 +131,7 @@ class CartService {
         body: payload,
         contentType: 'application/json',
         requireAuth: true,
+        timeout: const Duration(seconds: 90),
       );
       Logger.info('Calculate-shipping response: ${jsonEncode(response)}');
       return response;
