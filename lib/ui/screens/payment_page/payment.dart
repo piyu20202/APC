@@ -1727,6 +1727,23 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _handlePayPalPayment() async {
     if (_isProcessing) return;
 
+    // ─── TEMPORARY: Pause PayPal, open test URL ───
+    const String _tempPaypalUrl =
+        'https://www.gurgaonit.com/apc_production_dev/payment/paypal/MzMwMDM=';
+    if (mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _PayPalWebViewScreen(
+            approvalUrl: _tempPaypalUrl,
+            returnUrl: 'https://www.apc.com.au/payment/success',
+            cancelUrl: 'https://www.apc.com.au/payment/cancel',
+          ),
+        ),
+      );
+    }
+    return;
+    // ─── END TEMPORARY ───────────────────────────
+
     setState(() => _isProcessing = true);
 
     try {
@@ -2525,7 +2542,9 @@ class _PaymentPageState extends State<PaymentPage> {
                                 decoration: BoxDecoration(
                                   color: Colors.orange.shade50,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.orange.shade200),
+                                  border: Border.all(
+                                    color: Colors.orange.shade200,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [

@@ -16,6 +16,7 @@ import '../../../data/services/homepage_service.dart';
 import '../../../providers/homepage_provider.dart';
 import '../../../core/services/categories_cache_service.dart';
 import '../../../core/utils/logger.dart';
+import '../../../core/utils/product_card_mapper.dart';
 import '../../../services/navigation_service.dart';
 import '../../../core/network/network_checker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1163,32 +1164,20 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : SizedBox(
-                  height: 265,
+                  height: 290,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: itemCount,
                     itemBuilder: (context, index) {
                       if (displayProducts != null) {
                         final apiProduct = displayProducts[index];
-                        final mapped = {
-                          'id': apiProduct.id,
-                          'image': apiProduct.thumbnail,
-                          'thumbnail': apiProduct.thumbnail,
-                          'name': apiProduct.name,
-                          'sku': apiProduct.sku,
-                          'description':
-                              apiProduct.shortDescription ??
+                        final mapped =
+                            ProductCardMapper.mapLatestProductForListingCard(
+                          product: apiProduct,
+                          isTradeUser: _isTrader,
+                          descriptionFallback:
                               'Latest product — description coming soon.',
-                          'price': apiProduct.price,
-                          'previous_price': apiProduct.previousPrice,
-                          'currentPrice': apiProduct.price.toString(),
-                          'originalPrice': apiProduct.previousPrice.toString(),
-                          'onSale': apiProduct.previousPrice > 0 &&
-                              apiProduct.previousPrice > apiProduct.price,
-                          'out_of_stock': apiProduct.outOfStock,
-                          'show_freight_cost_icon': apiProduct.showFreightCostIcon,
-                          'show_free_shipping_icon': apiProduct.showFreeShippingIcon,
-                        };
+                        );
                         return SizedBox(
                           width: 180,
                           child: Padding(
@@ -1198,14 +1187,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         );
                       }
                       final product = products[index];
-                      final mapped = {
-                        ...product,
-                        'thumbnail': product['image'],
-                        'price': product['currentPrice'],
-                        'previous_price': product['originalPrice'],
-                        'out_of_stock': 0,
-                      };
-                      return SizedBox(
+                      final mapped =
+                          ProductCardMapper.mapLegacyProductMapForListingCard(
+                        product: product,
+                        isTradeUser: _isTrader,
+                      );
+                        return SizedBox(
                         width: 180,
                         child: Padding(
                           padding: const EdgeInsets.only(right: 12),
@@ -1347,10 +1334,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final saleProducts = homeProvider.saleProducts;
         final isLoading = homeProvider.isLoadingSaleProducts;
         final double sectionHeight = isLoading
-            ? 265
+            ? 290
             : saleProducts.isEmpty
             ? 90
-            : 265;
+            : 290;
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -1391,25 +1378,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         itemCount: saleProducts.length,
                         itemBuilder: (context, index) {
                           final apiProduct = saleProducts[index];
-                          final mapped = {
-                            'image': apiProduct.thumbnail,
-                            'thumbnail': apiProduct.thumbnail,
-                            'id': apiProduct.id,
-                            'name': apiProduct.name,
-                            'sku': apiProduct.sku,
-                            'price': apiProduct.price,
-                            'previous_price': apiProduct.previousPrice,
-                            'currentPrice': apiProduct.price.toString(),
-                            'originalPrice': apiProduct.previousPrice
-                                .toString(),
-                            'description':
-                                apiProduct.shortDescription ??
+                          final mapped =
+                              ProductCardMapper.mapLatestProductForListingCard(
+                            product: apiProduct,
+                            isTradeUser: _isTrader,
+                            descriptionFallback:
                                 'On sale — description coming soon.',
-                            'onSale': true,
-                            'out_of_stock': apiProduct.outOfStock,
-                            'show_freight_cost_icon': apiProduct.showFreightCostIcon,
-                            'show_free_shipping_icon': apiProduct.showFreeShippingIcon,
-                          };
+                          );
                           return SizedBox(
                             width: 180,
                             child: Padding(

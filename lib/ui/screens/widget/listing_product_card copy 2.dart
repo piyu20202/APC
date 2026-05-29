@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:marquee/marquee.dart';
 import '../detail_view/detail_view.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/cart_service.dart';
@@ -149,31 +148,36 @@ class _ListingProductCardState extends State<ListingProductCard> {
                     ),
                     if (isOnSale)
                       Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(5),
-                              topRight: Radius.circular(5),
+                        top: 8,
+                        left: -10,
+                        child: Transform.rotate(
+                          angle: -0.785398,
+                          child: Container(
+                            width: 50,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              boxShadow: [
+                                BoxShadow(
+                                  // FIX 5: withOpacity -> withValues
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  spreadRadius: 0.5,
+                                  blurRadius: 1,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 2,
-                                offset: const Offset(0, 1),
+                            child: const Center(
+                              child: Text(
+                                'SALE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 8,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          child: _buildSaleTopBannerLabel(
-                            _saleLabel(product),
-                            fontSize: 11,
+                            ),
                           ),
                         ),
                       ),
@@ -701,30 +705,33 @@ class _ProductListCardState extends State<ProductListCard> {
                     ),
                     if (isOnSale)
                       Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
+                        top: 8,
+                        left: 8,
                         child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.red,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                            ),
+                            borderRadius: BorderRadius.circular(4),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 2,
+                                // FIX 5: withOpacity -> withValues
+                                color: Colors.black.withValues(alpha: 0.1),
+                                spreadRadius: 0.5,
+                                blurRadius: 1,
                                 offset: const Offset(0, 1),
                               ),
                             ],
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
-                          ),
-                          child: _buildSaleTopBannerLabel(
-                            _saleLabel(product),
-                            fontSize: 9,
+                          child: const Text(
+                            'SALE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
                           ),
                         ),
                       ),
@@ -1095,70 +1102,6 @@ class _ProductListCardState extends State<ProductListCard> {
 // ============================================================
 // Top-level helper functions
 // ============================================================
-
-String _saleLabel(Map<String, dynamic> product) {
-  final label = product['onsale_line'];
-  if (label is String && label.trim().isNotEmpty) {
-    return label.trim();
-  }
-  return 'Sale';
-}
-
-/// Scrolling sale text for narrow home cards; static centered when text fits.
-Widget _buildSaleTopBannerLabel(String text, {double fontSize = 11}) {
-  final style = TextStyle(
-    color: Colors.white,
-    fontWeight: FontWeight.bold,
-    fontSize: fontSize,
-    height: 1.2,
-  );
-  final lineHeight = fontSize * 1.2;
-
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: style),
-        maxLines: 1,
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: double.infinity);
-
-      if (painter.width <= constraints.maxWidth) {
-        return SizedBox(
-          height: lineHeight,
-          width: double.infinity,
-          child: Center(
-            child: Text(
-              text,
-              style: style,
-              maxLines: 1,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        );
-      }
-
-      return SizedBox(
-        height: lineHeight,
-        width: double.infinity,
-        child: Marquee(
-          text: text,
-          style: style,
-          scrollAxis: Axis.horizontal,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          blankSpace: 28,
-          velocity: 28,
-          pauseAfterRound: const Duration(milliseconds: 900),
-          startPadding: 6,
-          accelerationDuration: const Duration(milliseconds: 400),
-          decelerationDuration: const Duration(milliseconds: 400),
-          showFadingOnlyWhenScrolling: true,
-          fadingEdgeStartFraction: 0.08,
-          fadingEdgeEndFraction: 0.08,
-        ),
-      );
-    },
-  );
-}
 
 bool _hasStrikePrice(Map<String, dynamic> product) {
   final prev = _readNum(product['previous_price'] ?? product['originalPrice']);

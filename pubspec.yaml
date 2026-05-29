@@ -50,6 +50,7 @@ dependencies:
   syncfusion_flutter_pdfviewer: ^31.1.19
   webview_flutter: ^4.9.0
   package_info_plus: ^9.0.1
+  marquee: ^2.3.0
 
 dev_dependencies:
   flutter_test:

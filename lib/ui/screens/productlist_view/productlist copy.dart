@@ -250,7 +250,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
             'show_freight_cost_icon': p.showFreightCostIcon,
             'show_free_shipping_icon': p.showFreeShippingIcon,
             'out_of_stock': p.outOfStock,
-            'onsale_line': p.onSaleLine,
             'display_features': displayFeaturesList, // Passed to listing cards
             'display_feature_colors':
                 displayColorsList, // Per-feature background colors
@@ -332,7 +331,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
             'show_freight_cost_icon': p.showFreightCostIcon,
             'show_free_shipping_icon': p.showFreeShippingIcon,
             'out_of_stock': p.outOfStock,
-            'onsale_line': p.onSaleLine,
             'display_features': displayFeaturesList,
             'display_feature_colors':
                 displayColorsList, // Per-feature background colors

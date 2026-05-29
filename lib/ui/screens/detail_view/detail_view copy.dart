@@ -372,226 +372,6 @@ class _DetailViewState extends State<DetailView> {
     );
   }
 
-  void _showCustomizationBottomSheet() {
-    final customiseData = getCustomiseKitData();
-    final upgradeData = getSelectedUpgradeData();
-    final addOnData = getSelectedAddOnData();
-
-    final hasCustomise = customiseData.any((item) {
-      final itemData = _qtyUpgradeProducts.firstWhere(
-        (p) => p.id == item['id'],
-        orElse: () => _qtyUpgradeProducts.first,
-      );
-      return (item['qty'] as int) > itemData.productBaseQuantity;
-    });
-
-    final hasUpgrade =
-        _hasUserManuallySelectedUpgrade &&
-        upgradeData != null &&
-        (upgradeData['isUpgrade'] as bool? ?? false) &&
-        (upgradeData['price'] as num) > 0;
-
-    final hasAddOn = addOnData.isNotEmpty;
-    final hasAny = hasCustomise || hasUpgrade || hasAddOn;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-        final bottomPadding = MediaQuery.of(ctx).padding.bottom;
-        return Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.6,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE8F5E9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.tune_rounded,
-                          color: Color(0xFF2E7D32),
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Your Customised Kit Includes',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF151D51),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: Icon(
-                          Icons.close,
-                          size: 20,
-                          color: Colors.grey[600],
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: Colors.grey[200]),
-                // Scrollable content
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      18,
-                      20,
-                      20 + bottomPadding,
-                    ),
-                    child: hasAny
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (hasCustomise)
-                                ...customiseData
-                                    .where((item) {
-                                      final itemData = _qtyUpgradeProducts
-                                          .firstWhere(
-                                            (p) => p.id == item['id'],
-                                            orElse: () =>
-                                                _qtyUpgradeProducts.first,
-                                          );
-                                      return (item['qty'] as int) >
-                                          itemData.productBaseQuantity;
-                                    })
-                                    .map((item) {
-                                      final itemData = _qtyUpgradeProducts
-                                          .firstWhere(
-                                            (p) => p.id == item['id'],
-                                            orElse: () =>
-                                                _qtyUpgradeProducts.first,
-                                          );
-                                      return _buildBottomSheetRow(
-                                        'Customise: ${itemData.name} - Qty: ${item['qty']}',
-                                      );
-                                    }),
-                              if (hasUpgrade)
-                                _buildBottomSheetRow(
-                                  'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData!['qty']}',
-                                ),
-                              if (hasAddOn)
-                                ...addOnData.map((item) {
-                                  final itemData = _addonProducts.firstWhere(
-                                    (p) => p.id == item['id'],
-                                    orElse: () => _addonProducts.first,
-                                  );
-                                  return _buildBottomSheetRow(
-                                    'Add-On: ${itemData.name} - Qty: ${item['qty']}',
-                                  );
-                                }),
-                            ],
-                          )
-                        : Column(
-                            children: [
-                              const SizedBox(height: 20),
-                              Icon(
-                                Icons.tune_rounded,
-                                size: 52,
-                                color: Colors.grey[200],
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                'No customizations yet',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[500],
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Select upgrades or add-ons to\nsee your customization here.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey[400],
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                            ],
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBottomSheetRow(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            margin: const EdgeInsets.only(top: 1),
-            decoration: const BoxDecoration(
-              color: Colors.green,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check, color: Colors.white, size: 13),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.green,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -618,69 +398,6 @@ class _DetailViewState extends State<DetailView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Scroll to Top + View Customization buttons (kit products only)
-            if (_isKitProduct && _isProductLoaded)
-              Container(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
-                color: Colors.white,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Scroll to Top - left
-                    GestureDetector(
-                      onTap: _scrollToTop,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.keyboard_arrow_up,
-                            size: 16,
-                            color: Colors.orange[700],
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Scroll to Top',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.orange[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // View Customization - right
-                    GestureDetector(
-                      onTap: _showCustomizationBottomSheet,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.visibility_outlined,
-                            size: 16,
-                            color: _hasUserMadeCustomizations
-                                ? const Color(0xFF2E7D32)
-                                : Colors.grey[500],
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            'View Customization',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _hasUserMadeCustomizations
-                                  ? const Color(0xFF2E7D32)
-                                  : Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (_isKitProduct && _isProductLoaded)
-              Divider(height: 1, color: Colors.grey[200]),
             // Action Bar (fixed)
             Container(
               padding: const EdgeInsets.all(12),
@@ -1606,8 +1323,6 @@ class _DetailViewState extends State<DetailView> {
 
   /// Builds feature badge tiles below the short description.
   /// Shows `trade_features` for trade customers, `features` for normal customers.
-  /// Background color is driven by the `colors` field from the API (index-matched).
-  /// Fallback: dark green #006400 with white text.
   Widget _buildFeatureBadges() {
     if (_product == null) return const SizedBox.shrink();
 
@@ -1622,7 +1337,7 @@ class _DetailViewState extends State<DetailView> {
 
     if (rawFeatures == null) return const SizedBox.shrink();
 
-    // Parse features: supports String, List<dynamic>
+    // Parse: supports String, List<dynamic>
     List<String> badges;
     if (rawFeatures is String) {
       final s = rawFeatures.trim();
@@ -1639,58 +1354,50 @@ class _DetailViewState extends State<DetailView> {
 
     if (badges.isEmpty) return const SizedBox.shrink();
 
-    // Safely try to read `colors` from the model's JSON map (field may not exist in model yet)
-    List<String> featureColors = [];
-    try {
-      final json = _product!.toJson();
-      final rawColors = json['colors'];
-      if (rawColors is List) {
-        featureColors = rawColors
-            .map((e) => e.toString().trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
-      } else if (rawColors is String && rawColors.trim().isNotEmpty) {
-        featureColors = [rawColors.trim()];
-      }
-    } catch (_) {}
-
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: badges.asMap().entries.map((entry) {
-          final idx = entry.key;
-          String display = entry.value;
+        children: badges.map((badgeText) {
+          String display = badgeText;
+          Color bgColor;
+          final t = display.trim();
 
           // Strip surrounding brackets e.g. [CONTROL WITH YOUR PHONE]
           display = display.replaceAll(RegExp(r'^\[|\]$'), '').trim();
 
-          // Dynamic color from API, fallback to dark green #006400
-          const Color fallbackColor = Color(0xFF006400);
-          Color bgColor = fallbackColor;
-
-          if (idx < featureColors.length) {
-            final hexStr = featureColors[idx].replaceAll('#', '').trim();
-            if (hexStr.length == 6 || hexStr.length == 8) {
-              final fullHex = hexStr.length == 6 ? 'FF$hexStr' : hexStr;
-              final parsed = int.tryParse(fullHex, radix: 16);
-              if (parsed != null) bgColor = Color(parsed);
-            }
+          if (t.startsWith('GREEN::')) {
+            display = t.substring(7).trim();
+            bgColor = const Color(0xFF2E7D32);
+          } else if (t.startsWith('ORANGE::')) {
+            display = t.substring(8).trim();
+            bgColor = const Color(0xFFEF6C00);
+          } else {
+            final lower = t.toLowerCase();
+            final isGreen =
+                lower.contains('suitable') || lower.contains('limited');
+            bgColor = isGreen
+                ? const Color(0xFF2E7D32)
+                : const Color(0xFFEF6C00);
           }
 
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: bgColor,
+              color: bgColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: bgColor.withValues(alpha: 0.5),
+                width: 0.8,
+              ),
             ),
             child: Text(
               display.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: bgColor,
                 letterSpacing: 0.4,
               ),
             ),
@@ -1701,8 +1408,226 @@ class _DetailViewState extends State<DetailView> {
   }
 
   Widget _buildScrollableFooter() {
-    // Bottom padding for scroll area — buttons are now in fixed footer
-    return const SizedBox(height: 16);
+    // Always show for kit products (with or without customizations)
+    if (!_isKitProduct) {
+      return const SizedBox.shrink();
+    }
+
+    final customiseData = getCustomiseKitData();
+    final upgradeData = getSelectedUpgradeData();
+    final addOnData = getSelectedAddOnData();
+
+    // Check if there's anything to show - only items that user actually selected/changed
+    // For customise: only show if quantity was changed from base
+    final hasCustomise = customiseData.any((item) {
+      final itemData = _qtyUpgradeProducts.firstWhere(
+        (p) => p.id == item['id'],
+        orElse: () => _qtyUpgradeProducts.first,
+      );
+      final selectedQty = item['qty'] as int;
+      final baseQty = itemData.productBaseQuantity;
+      return selectedQty > baseQty;
+    });
+
+    // For upgrade: only show if user manually selected an upgrade (not default auto-selection)
+    final hasUpgrade =
+        _hasUserManuallySelectedUpgrade &&
+        upgradeData != null &&
+        (upgradeData['isUpgrade'] as bool? ?? false) &&
+        (upgradeData['price'] as num) > 0;
+
+    // For add-on: only show if user actually selected add-ons
+    final hasAddOn = addOnData.isNotEmpty;
+
+    final hasAnySelections = hasCustomise || hasUpgrade || hasAddOn;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Kit Summary Section - Only shows when user makes selections
+          if (hasAnySelections)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                border: Border(top: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Your Customised Kit Includes:',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF151D51),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Customise your Kit Items (only if user changed quantities)
+                  if (hasCustomise)
+                    ...customiseData
+                        .where((item) {
+                          final itemData = _qtyUpgradeProducts.firstWhere(
+                            (p) => p.id == item['id'],
+                            orElse: () => _qtyUpgradeProducts.first,
+                          );
+                          final selectedQty = item['qty'] as int;
+                          final baseQty = itemData.productBaseQuantity;
+                          // Only show if quantity was changed from base
+                          return selectedQty > baseQty;
+                        })
+                        .map((item) {
+                          final itemData = _qtyUpgradeProducts.firstWhere(
+                            (p) => p.id == item['id'],
+                            orElse: () => _qtyUpgradeProducts.first,
+                          );
+                          final selectedQty = item['qty'] as int;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Customise: ${itemData.name} - Qty: $selectedQty',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+
+                  // Upgrade Items (only if user selected an upgrade)
+                  if (hasUpgrade) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 16,
+                            height: 16,
+                            decoration: const BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Upgrade: ${_getUpgradeName(upgradeData)} - Qty: ${upgradeData['qty']}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Add-On Items (only if user added add-ons)
+                  if (hasAddOn) ...[
+                    ...addOnData.map((item) {
+                      final itemData = _addonProducts.firstWhere(
+                        (p) => p.id == item['id'],
+                        orElse: () => _addonProducts.first,
+                      );
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Add-On: ${itemData.name} - Qty: ${item['qty']}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            ),
+          // Always show Scroll to Top button at bottom
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, hasAnySelections ? 12 : 16, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: _scrollToTop,
+                icon: const Icon(Icons.keyboard_arrow_up, size: 16),
+                label: const Text('Scroll to Top'),
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: const Color(0xFFFFF4E5),
+                  foregroundColor: const Color(0xFF151D51),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: Colors.orange.shade200),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Bottom padding for scroll
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
   }
 
   // ignore: unused_element
@@ -1960,6 +1885,42 @@ class _DetailViewState extends State<DetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader('Customise your Kit'),
+          // Place View Customization button to the right under this header
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _hasUserMadeCustomizations
+                  ? _scrollToCustomizationSection
+                  : null,
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View Customization'),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFFFFF4E5)
+                    : Colors.grey[300],
+                foregroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFF151D51)
+                    : Colors.grey[600],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _hasUserMadeCustomizations
+                        ? Colors.orange.shade200
+                        : Colors.grey[400]!,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           Column(
             children: List.generate(_qtyUpgradeProducts.length, (index) {
@@ -2185,6 +2146,42 @@ class _DetailViewState extends State<DetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader('Upgrades are available for following items'),
+          // Place View Customization button to the right under this header
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _hasUserMadeCustomizations
+                  ? _scrollToCustomizationSection
+                  : null,
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View Customization'),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFFFFF4E5)
+                    : Colors.grey[300],
+                foregroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFF151D51)
+                    : Colors.grey[600],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _hasUserMadeCustomizations
+                        ? Colors.orange.shade200
+                        : Colors.grey[400]!,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           if (!hasUpgradeData)
             Text(
@@ -2578,6 +2575,42 @@ class _DetailViewState extends State<DetailView> {
         children: [
           _buildSectionHeader(
             'Add-On Items (Discounted when purchased along with this Kit)',
+          ),
+          // Place View Customization button to the right under this header
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _hasUserMadeCustomizations
+                  ? _scrollToCustomizationSection
+                  : null,
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View Customization'),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFFFFF4E5)
+                    : Colors.grey[300],
+                foregroundColor: _hasUserMadeCustomizations
+                    ? const Color(0xFF151D51)
+                    : Colors.grey[600],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _hasUserMadeCustomizations
+                        ? Colors.orange.shade200
+                        : Colors.grey[400]!,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Column(

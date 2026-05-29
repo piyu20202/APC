@@ -219,8 +219,8 @@ class Category {
         displayOrder: json['display_order'] is int
             ? json['display_order'] as int
             : int.tryParse(json['display_order']?.toString() ?? '') ??
-                int.tryParse(json['displayOrder']?.toString() ?? '') ??
-                0,
+                  int.tryParse(json['displayOrder']?.toString() ?? '') ??
+                  0,
         subcategories: json['subcategories'] != null
             ? (json['subcategories'] as List<dynamic>)
                   .map(
@@ -232,7 +232,12 @@ class Category {
       );
     } catch (e) {
       // Return a default category if parsing fails
-      return Category(id: 0, name: 'Unknown Category', image: null, photo: null);
+      return Category(
+        id: 0,
+        name: 'Unknown Category',
+        image: null,
+        photo: null,
+      );
     }
   }
 
@@ -491,13 +496,17 @@ class LatestProduct {
   final int status;
   final int outOfStock;
   final String tags;
-  final String features;
+  final dynamic features;
+  final dynamic tradeFeatures;
+  final dynamic colors;
+  final dynamic tradeColors;
   final String? isKit;
   final String? createdAt;
   final String slugUrl;
   final String? shortDescription;
   final int showFreightCostIcon;
   final int showFreeShippingIcon;
+  final String? onSaleLine;
 
   LatestProduct({
     required this.id,
@@ -511,12 +520,16 @@ class LatestProduct {
     required this.outOfStock,
     required this.tags,
     required this.features,
+    this.tradeFeatures,
+    this.colors,
+    this.tradeColors,
     required this.isKit,
     required this.createdAt,
     required this.slugUrl,
     this.shortDescription,
     this.showFreightCostIcon = 0,
     this.showFreeShippingIcon = 0,
+    this.onSaleLine,
   });
 
   factory LatestProduct.fromJson(Map<String, dynamic> json) {
@@ -546,7 +559,10 @@ class LatestProduct {
           ? json['out_of_stock']
           : int.tryParse('${json['out_of_stock']}') ?? 0,
       tags: (json['tags'] ?? '').toString(),
-      features: (json['features'] ?? '').toString(),
+      features: json['features'],
+      tradeFeatures: json['trade_features'],
+      colors: json['colors'],
+      tradeColors: json['trade_colors'],
       isKit: json['isKIT']?.toString(),
       createdAt: json['created_at']?.toString(),
       slugUrl: (json['slug_url'] ?? '').toString(),
@@ -556,7 +572,9 @@ class LatestProduct {
           : int.tryParse(json['show_freight_cost_icon']?.toString() ?? '') ?? 0,
       showFreeShippingIcon: json['show_free_shipping_icon'] is int
           ? json['show_free_shipping_icon'] as int
-          : int.tryParse(json['show_free_shipping_icon']?.toString() ?? '') ?? 0,
+          : int.tryParse(json['show_free_shipping_icon']?.toString() ?? '') ??
+                0,
+      onSaleLine: json['onsale_line']?.toString(),
     );
   }
 
@@ -573,12 +591,16 @@ class LatestProduct {
       'out_of_stock': outOfStock,
       'tags': tags,
       'features': features,
+      'trade_features': tradeFeatures,
+      'colors': colors,
+      'trade_colors': tradeColors,
       'isKIT': isKit,
       'created_at': createdAt,
       'slug_url': slugUrl,
       'short_description': shortDescription,
       'show_freight_cost_icon': showFreightCostIcon,
       'show_free_shipping_icon': showFreeShippingIcon,
+      'onsale_line': onSaleLine,
     };
   }
 }
