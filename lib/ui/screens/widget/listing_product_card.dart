@@ -1104,7 +1104,7 @@ String _saleLabel(Map<String, dynamic> product) {
   return 'Sale';
 }
 
-/// Scrolling sale text for narrow home cards; static centered when text fits.
+/// Scrolling sale text for red sale banners.
 Widget _buildSaleTopBannerLabel(String text, {double fontSize = 11}) {
   final style = TextStyle(
     color: Colors.white,
@@ -1114,49 +1114,24 @@ Widget _buildSaleTopBannerLabel(String text, {double fontSize = 11}) {
   );
   final lineHeight = fontSize * 1.2;
 
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: style),
-        maxLines: 1,
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: double.infinity);
-
-      if (painter.width <= constraints.maxWidth) {
-        return SizedBox(
-          height: lineHeight,
-          width: double.infinity,
-          child: Center(
-            child: Text(
-              text,
-              style: style,
-              maxLines: 1,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        );
-      }
-
-      return SizedBox(
-        height: lineHeight,
-        width: double.infinity,
-        child: Marquee(
-          text: text,
-          style: style,
-          scrollAxis: Axis.horizontal,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          blankSpace: 28,
-          velocity: 28,
-          pauseAfterRound: const Duration(milliseconds: 900),
-          startPadding: 6,
-          accelerationDuration: const Duration(milliseconds: 400),
-          decelerationDuration: const Duration(milliseconds: 400),
-          showFadingOnlyWhenScrolling: true,
-          fadingEdgeStartFraction: 0.08,
-          fadingEdgeEndFraction: 0.08,
-        ),
-      );
-    },
+  return SizedBox(
+    height: lineHeight,
+    width: double.infinity,
+    child: Marquee(
+      text: text,
+      style: style,
+      scrollAxis: Axis.horizontal,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      blankSpace: 28,
+      velocity: 28,
+      pauseAfterRound: const Duration(milliseconds: 900),
+      startPadding: 6,
+      accelerationDuration: const Duration(milliseconds: 400),
+      decelerationDuration: const Duration(milliseconds: 400),
+      showFadingOnlyWhenScrolling: true,
+      fadingEdgeStartFraction: 0.08,
+      fadingEdgeEndFraction: 0.08,
+    ),
   );
 }
 

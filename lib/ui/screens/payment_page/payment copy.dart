@@ -2360,15 +2360,11 @@ class _PaymentPageState extends State<PaymentPage> {
   // Getters for conditional payment options visibility and method selection
   // ─────────────────────────────────────────────────────────────────────────
 
-  bool get _canShowPaymentOptionsByStatus {
-    // Normal flow + large order (freight pending): payment options hide karo
-    if (_hasPendingFreightQuote && !_isPayLater) return false;
-
-    return _isPayLater ||
-        _orderData == null ||
-        _orderPaymentStatus == 'partial' ||
-        _orderPaymentStatus == 'unpaid';
-  }
+  bool get _canShowPaymentOptionsByStatus =>
+      _isPayLater ||
+      _orderData == null ||
+      _orderPaymentStatus == 'partial' ||
+      _orderPaymentStatus == 'unpaid';
 
   bool get _canShowAlternativePaymentMethods =>
       _isPayLater || (_manualOrderByAdmin == 0 && _isTradeUser == 0);
@@ -3180,11 +3176,9 @@ class _PaymentPageState extends State<PaymentPage> {
                   strokeWidth: 2,
                 ),
               )
-            : Text(
-                (_hasPendingFreightQuote && !_isPayLater)
-                    ? 'CONFIRM ORDER'
-                    : 'PAY NOW',
-                style: const TextStyle(
+            : const Text(
+                'PAY NOW',
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),

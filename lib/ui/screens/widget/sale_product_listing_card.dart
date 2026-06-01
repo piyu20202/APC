@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:marquee/marquee.dart';
 import '../detail_view/detail_view.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/cart_service.dart';
@@ -7,7 +8,6 @@ import '../../../data/services/cart_payload_builder.dart';
 import '../../../services/storage_service.dart';
 import '../../../services/navigation_service.dart';
 import 'cart_feedback_overlay.dart';
-
 
 class SaleProductListingCard extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -27,6 +27,11 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
   Widget build(BuildContext context) {
     final product = widget.product;
     final isOnSale = _hasStrikePrice(product) || product['onSale'] == true;
+    final saleLabel =
+        (product['onsale_line'] is String &&
+            product['onsale_line'].toString().trim().isNotEmpty)
+        ? product['onsale_line'].toString().trim()
+        : 'SALE';
 
     return GestureDetector(
       onTap: () {
@@ -65,10 +70,9 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
                 children: [
                   if (isOnSale)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
+                      width: 80,
+                      height: 22,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(6),
@@ -81,13 +85,25 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
                           ),
                         ],
                       ),
-                      child: const Text(
-                        'SALE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                          letterSpacing: 0.5,
+                      child: Center(
+                        child: Marquee(
+                          text: saleLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
+                          scrollAxis: Axis.horizontal,
+                          blankSpace: 30,
+                          velocity: 24,
+                          startPadding: 0,
+                          accelerationDuration: const Duration(
+                            milliseconds: 300,
+                          ),
+                          decelerationDuration: const Duration(
+                            milliseconds: 300,
+                          ),
                         ),
                       ),
                     )
@@ -154,15 +170,15 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
                           ),
                         ),
                       ),
-                  // Shipping Labels
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    child: _buildShippingLabels(product),
-                  ),
-                ],
+                    // Shipping Labels
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: _buildShippingLabels(product),
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
             // Product Details
             Padding(
@@ -267,8 +283,7 @@ class _SaleProductListingCardState extends State<SaleProductListingCard> {
                               ),
                             )
                           : GestureDetector(
-                              onTap:
-                                  (_isQuickAdding || _isOutOfStock(product))
+                              onTap: (_isQuickAdding || _isOutOfStock(product))
                                   ? null
                                   : () => _handleQuickAdd(context),
                               child: Container(
@@ -412,9 +427,11 @@ bool _isOutOfStock(Map<String, dynamic> product) {
 }
 
 Widget _buildShippingLabels(Map<String, dynamic> product) {
-  final showFreight = product['show_freight_cost_icon'] == 1 ||
+  final showFreight =
+      product['show_freight_cost_icon'] == 1 ||
       product['show_freight_cost_icon'] == '1';
-  final showFreeShipping = product['show_free_shipping_icon'] == 1 ||
+  final showFreeShipping =
+      product['show_free_shipping_icon'] == 1 ||
       product['show_free_shipping_icon'] == '1';
 
   if (!showFreight && !showFreeShipping) return const SizedBox.shrink();
@@ -573,9 +590,8 @@ Widget _imageFallback() {
     child: Image.asset(
       'assets/images/no_image.png',
       fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => Center(
-        child: Icon(Icons.image, color: Colors.grey[400], size: 40),
-      ),
+      errorBuilder: (context, error, stackTrace) =>
+          Center(child: Icon(Icons.image, color: Colors.grey[400], size: 40)),
     ),
   );
 }
