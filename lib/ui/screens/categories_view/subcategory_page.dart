@@ -48,7 +48,9 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No internet connection. Please try again.')),
+          const SnackBar(
+            content: Text('No internet connection. Please try again.'),
+          ),
         );
       }
       return;
@@ -62,7 +64,9 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to refresh categories. Please try again.')),
+          const SnackBar(
+            content: Text('Unable to refresh categories. Please try again.'),
+          ),
         );
       }
     } finally {
@@ -180,13 +184,17 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 64,
         title: Text(
           _categoryData?.name ?? widget.categoryName,
           style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 18,
+            height: 1.2,
           ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
         backgroundColor: const Color(0xFFF2F0EF),
         iconTheme: const IconThemeData(color: Colors.black),
@@ -430,6 +438,8 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
                           Expanded(
                             child: Text(
                               subcategory.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.clip,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -510,6 +520,8 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
               child: Center(
                 child: Text(
                   child.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.clip,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 14,
@@ -551,6 +563,8 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
                       Expanded(
                         child: Text(
                           child.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.clip,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -684,6 +698,8 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
                 Expanded(
                   child: Text(
                     childSub.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.clip,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

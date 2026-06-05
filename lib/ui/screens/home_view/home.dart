@@ -855,7 +855,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     // Adaptive grid parameters
     final bool isTablet = screenWidth > 600;
     final bool isSmall = screenWidth < 360;
-    final int crossAxisCount = isTablet ? 4 : 3;
+    // Force categories grid to 2 columns on Home page as requested
+    final int crossAxisCount = 2;
 
     // Relative padding and spacing
     final horizontalPadding = (screenWidth * 0.04).clamp(12.0, 20.0);
@@ -1047,11 +1048,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8F8F8),
+                        color: const Color(0xFFFFFFFF),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withValues(alpha: 0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             spreadRadius: 1,
                             blurRadius: 3,
                             offset: const Offset(0, 2),
@@ -1112,13 +1113,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: screenWidth * 0.01,
-                              vertical: isSmall ? 4 : 6,
+                              vertical: isSmall ? 4 : 2,
                             ),
                             child: Text(
                               category.name,
                               textAlign: TextAlign.center,
                               maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
+                              overflow: TextOverflow.visible,
                               style: TextStyle(
                                 fontSize: labelFontSize,
                                 fontWeight: FontWeight.w600,
@@ -1167,7 +1169,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : SizedBox(
-                  height: 290,
+                  height: 320,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: itemCount,
@@ -1182,7 +1184,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                   'Latest product — description coming soon.',
                             );
                         return SizedBox(
-                          width: 180,
+                          width: MediaQuery.of(context).size.width * 0.47,
                           child: Padding(
                             padding: const EdgeInsets.only(right: 12),
                             child: ListingProductCard(product: mapped),
@@ -1338,10 +1340,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final saleProducts = homeProvider.saleProducts;
         final isLoading = homeProvider.isLoadingSaleProducts;
         final double sectionHeight = isLoading
-            ? 290
+            ? 320
             : saleProducts.isEmpty
             ? 90
-            : 290;
+            : 320;
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -1390,7 +1392,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                     'On sale — description coming soon.',
                               );
                           return SizedBox(
-                            width: 180,
+                            width: MediaQuery.of(context).size.width * 0.47,
                             child: Padding(
                               padding: const EdgeInsets.only(right: 12),
                               child: ListingProductCard(product: mapped),

@@ -13,10 +13,8 @@ class ProductCard extends StatefulWidget {
   final double? width;
   final double? height;
   final EdgeInsets? margin;
-
   /// Custom image height (default 120). Used e.g. on search page for larger images.
   final double? imageHeight;
-
   /// Custom image background color (default grey). Use Colors.white for white background.
   final Color? imageBackgroundColor;
 
@@ -94,99 +92,99 @@ class _ProductCardState extends State<ProductCard> {
                         child: SizedBox(
                           width: double.infinity,
                           height: imgH,
-                          child: _isOutOfStock(product)
-                              ? ColorFiltered(
-                                  colorFilter: ColorFilter.mode(
-                                    Colors.grey,
-                                    BlendMode.saturation,
-                                  ),
-                                  child: Opacity(
-                                    opacity: 0.6,
-                                    child: _buildProductImage(product, imgH),
-                                  ),
-                                )
-                              : _buildProductImage(product, imgH),
-                        ),
-                      ),
+                      child: _isOutOfStock(product)
+                          ? ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                Colors.grey,
+                                BlendMode.saturation,
+                              ),
+                              child: Opacity(
+                                opacity: 0.6,
+                                child: _buildProductImage(product, imgH),
+                              ),
+                            )
+                          : _buildProductImage(product, imgH),
+                    ),
+                  ),
 
-                      if (_shouldShowPrice(product) && _hasStrikePrice(product))
-                        Positioned(
-                          top: 12,
-                          left: -14,
-                          child: Transform.rotate(
-                            angle: -0.785398, // -45 degrees in radians
-                            child: Container(
-                              width: 60,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.1),
-                                    spreadRadius: 0.5,
-                                    blurRadius: 1,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
+                  if (_hasStrikePrice(product))
+                    Positioned(
+                      top: 12,
+                      left: -14,
+                      child: Transform.rotate(
+                        angle: -0.785398, // -45 degrees in radians
+                        child: Container(
+                          width: 60,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                spreadRadius: 0.5,
+                                blurRadius: 1,
+                                offset: const Offset(0, 1),
                               ),
-                              child: const Center(
-                                child: Text(
-                                  'SALE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 9,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ),
+                            ],
                           ),
-                        ),
-
-                      // Out of Stock Badge
-                      if (_isOutOfStock(product))
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Text(
-                              'Out of Stock',
+                          child: const Center(
+                            child: Text(
+                              'SALE',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
+                                fontSize: 9,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
                         ),
-
-                      // Shipping Labels (Freight / Free Shipping)
-                      Positioned(
-                        bottom: 8,
-                        left: 8,
-                        child: _buildShippingLabels(product),
                       ),
-                    ],
+                    ),
+
+                  // Out of Stock Badge
+                  if (_isOutOfStock(product))
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'Out of Stock',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Shipping Labels (Freight / Free Shipping)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: _buildShippingLabels(product),
                   ),
-                );
-              },
-            ),
+                ],
+              ),
+            );
+          },
+        ),
 
             // Product Details
             Padding(
@@ -233,10 +231,7 @@ class _ProductCardState extends State<ProductCard> {
                   const SizedBox(height: 2),
                   // Fixed-height Description (2 lines) - Reduce height slightly when strike price exists
                   SizedBox(
-                    height:
-                        _shouldShowPrice(product) && _hasStrikePrice(product)
-                        ? 50
-                        : 42,
+                    height: _hasStrikePrice(product) ? 50 : 42,
                     child: Text(
                       product['description'] ?? '',
                       style: TextStyle(
@@ -262,14 +257,8 @@ class _ProductCardState extends State<ProductCard> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               SizedBox(
-                                height:
-                                    _shouldShowPrice(product) &&
-                                        _hasStrikePrice(product)
-                                    ? 16
-                                    : 0,
-                                child:
-                                    _shouldShowPrice(product) &&
-                                        _hasStrikePrice(product)
+                                height: _hasStrikePrice(product) ? 16 : 0,
+                                child: _hasStrikePrice(product)
                                     ? Text(
                                         _formatPrice(
                                           product['previous_price'] ??
@@ -286,85 +275,77 @@ class _ProductCardState extends State<ProductCard> {
                                       )
                                     : const SizedBox.shrink(),
                               ),
-                              _shouldShowPrice(product)
-                                  ? Text(
-                                      _formatPrice(
-                                        product['price'] ??
-                                            product['currentPrice'] ??
-                                            '',
-                                      ),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    )
-                                  : const SizedBox.shrink(),
+                              Text(
+                                _formatPrice(
+                                  product['price'] ??
+                                      product['currentPrice'] ??
+                                      '',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // Respect show_add_to_cart flag from API (default: show)
-                        _shouldShowAddToCart(product)
-                            ? (_isOutOfStock(product)
-                                  ? Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[400],
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.shopping_cart,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                      ),
-                                    )
-                                  : GestureDetector(
-                                      onTap:
-                                          (_isQuickAdding ||
-                                              _isOutOfStock(product))
-                                          ? null
-                                          : () => _handleQuickAdd(context),
-                                      child: Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: _isOutOfStock(product)
-                                              ? Colors.grey[400]
-                                              : const Color(0xFF151D51),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: _isQuickAdding
-                                              ? const SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child: CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                          Color
-                                                        >(Colors.white),
+                        _isOutOfStock(product)
+                            ? Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[400],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.shopping_cart,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              )
+                            : GestureDetector(
+                                onTap:
+                                    (_isQuickAdding || _isOutOfStock(product))
+                                    ? null
+                                    : () => _handleQuickAdd(context),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: _isOutOfStock(product)
+                                        ? Colors.grey[400]
+                                        : const Color(0xFF151D51),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: _isQuickAdding
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
                                                   ),
-                                                )
-                                              : Icon(
-                                                  _isOutOfStock(product)
-                                                      ? Icons.block
-                                                      : Icons.shopping_cart,
-                                                  color: Colors.white,
-                                                  size: 20,
-                                                ),
-                                        ),
-                                      ),
-                                    ))
-                            : const SizedBox(width: 36, height: 36),
+                                            ),
+                                          )
+                                        : Icon(
+                                            _isOutOfStock(product)
+                                                ? Icons.block
+                                                : Icons.shopping_cart,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                  ),
+                                ),
+                              ),
                       ],
                     ),
                   ),
@@ -473,24 +454,6 @@ bool _hasStrikePrice(Map<String, dynamic> product) {
   return prev > 0 && prev > price;
 }
 
-bool _shouldShowPrice(Map<String, dynamic> product) {
-  final v = product['show_price'];
-  if (v == null) return true; // default: show price
-  if (v is int) return v == 1;
-  if (v is bool) return v;
-  final s = v.toString().toLowerCase();
-  return s == '1' || s == 'true';
-}
-
-bool _shouldShowAddToCart(Map<String, dynamic> product) {
-  final v = product['show_add_to_cart'];
-  if (v == null) return true; // default: show add-to-cart
-  if (v is int) return v == 1;
-  if (v is bool) return v;
-  final s = v.toString().toLowerCase();
-  return s == '1' || s == 'true';
-}
-
 bool _isOutOfStock(Map<String, dynamic> product) {
   final outOfStock = product['out_of_stock'];
   if (outOfStock == null) return false;
@@ -503,11 +466,9 @@ bool _isOutOfStock(Map<String, dynamic> product) {
 }
 
 Widget _buildShippingLabels(Map<String, dynamic> product) {
-  final showFreight =
-      product['show_freight_cost_icon'] == 1 ||
+  final showFreight = product['show_freight_cost_icon'] == 1 ||
       product['show_freight_cost_icon'] == '1';
-  final showFreeShipping =
-      product['show_free_shipping_icon'] == 1 ||
+  final showFreeShipping = product['show_free_shipping_icon'] == 1 ||
       product['show_free_shipping_icon'] == '1';
 
   if (!showFreight && !showFreeShipping) return const SizedBox.shrink();
@@ -657,11 +618,8 @@ Widget _buildProductImage(Map<String, dynamic> product, [double height = 120]) {
     width: double.infinity,
     height: height,
     fit: BoxFit.contain,
-    errorBuilder: (context, error, stackTrace) => SizedBox(
-      width: double.infinity,
-      height: height,
-      child: _imageFallback(),
-    ),
+    errorBuilder: (context, error, stackTrace) =>
+        SizedBox(width: double.infinity, height: height, child: _imageFallback()),
   );
 }
 
@@ -671,8 +629,9 @@ Widget _imageFallback() {
     child: Image.asset(
       'assets/images/no_image.png',
       fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) =>
-          Center(child: Icon(Icons.image, color: Colors.grey[400], size: 40)),
+      errorBuilder: (context, error, stackTrace) => Center(
+        child: Icon(Icons.image, color: Colors.grey[400], size: 40),
+      ),
     ),
   );
 }

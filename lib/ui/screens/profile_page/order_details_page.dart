@@ -82,6 +82,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     }
   }
 
+  /// Empty when API value is null/missing (Customer Company, Country, etc.).
+  String _displayValueOrEmpty(dynamic value) {
+    if (value == null) return '';
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return '';
+    return text;
+  }
+
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return 'N/A';
     try {
@@ -163,6 +171,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final shippingType = (_orderData?['shipping'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    final isPickupShipping = shippingType == 'pickup';
+    final isShipToShipping = shippingType == 'shipto';
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -217,10 +232,20 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     _buildCustomerInfoCard(),
                     const SizedBox(height: 16),
 
+                    // Pickup Location Card (only for pickup shipping)
+                    if (isPickupShipping &&
+                        (_orderData!['pickup_location']?.toString().isNotEmpty ??
+                            false))
+                      _buildPickupLocationCard(),
+                    if (isPickupShipping &&
+                        (_orderData!['pickup_location']?.toString().isNotEmpty ??
+                            false))
+                      const SizedBox(height: 16),
+
                     // Shipping Info Card
-                    if (_orderData!['shipping'] == 'shipto')
+                    if (isShipToShipping)
                       _buildShippingInfoCard(),
-                    if (_orderData!['shipping'] == 'shipto')
+                    if (isShipToShipping)
                       const SizedBox(height: 16),
 
                     // Cart Items Card
@@ -378,12 +403,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               '#${(order['invoice_number'] ?? 'N/A').toString()}',
             ),
             _buildInfoRow('Shipping Method', _shippingMethodLabel()),
-            if (shippingType == 'pickup' &&
-                (order['pickup_location']?.toString().isNotEmpty ?? false))
-              _buildInfoRow(
-                'Pickup Location',
-                order['pickup_location'] ?? 'N/A',
-              ),
             _buildInfoRow('Payment Method', order['payment_method'] ?? 'N/A'),
             _buildInfoRow('Payment Status', order['payment_status'] ?? 'N/A'),
             if (order['order_note'] != null &&
@@ -446,7 +465,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Customer Information',
+            'Billing Information',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -459,18 +478,28 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           if (_orderData!['customer_phone'] != null &&
               _orderData!['customer_phone'].toString().isNotEmpty)
             _buildInfoRow('Phone', _orderData!['customer_phone']),
-          _buildInfoRow('Company', _orderData!['customer_company'] ?? 'N/A'),
+          _buildInfoRow(
+            'Company',
+            _displayValueOrEmpty(_orderData!['customer_company']),
+          ),
           _buildInfoRow('Address', _orderData!['customer_address'] ?? 'N/A'),
           _buildInfoRow('City', _orderData!['customer_city'] ?? 'N/A'),
           _buildInfoRow('State', _orderData!['customer_state'] ?? 'N/A'),
           _buildInfoRow('Zip', _orderData!['customer_zip'] ?? 'N/A'),
-          _buildInfoRow('Country', _orderData!['customer_country'] ?? 'N/A'),
+          _buildInfoRow(
+            'Country',
+            _displayValueOrEmpty(_orderData!['customer_country']).isEmpty
+                ? 'AU'
+                : _displayValueOrEmpty(_orderData!['customer_country']),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildShippingInfoCard() {
+    final shippingType = (_orderData!['shipping'] ?? '').toString().trim();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -509,8 +538,45 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             _buildInfoRow('Zip', _orderData!['shipping_zip']),
           if (_orderData!['shipping_country'] != null)
             _buildInfoRow('Country', _orderData!['shipping_country']),
-          if (_orderData!['pickup_location'] != null)
+          if (shippingType == 'pickup' &&
+              (_orderData!['pickup_location']?.toString().isNotEmpty ?? false))
             _buildInfoRow('Pickup Location', _orderData!['pickup_location']),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPickupLocationCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Pickup Location',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A365D),
+            ),
+          ),
+          const Divider(height: 24),
+          _buildInfoRow(
+            'Pickup location',
+            _orderData!['pickup_location']?.toString() ?? '',
+          ),
         ],
       ),
     );
@@ -1126,10 +1192,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TrackingInfoPage(
-          heading: heading,
-          info: info,
-        ),
+        builder: (_) => TrackingInfoPage(heading: heading, info: info),
       ),
     );
   }
@@ -1154,14 +1217,17 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
       // PayLater Case: (My Orders Payment Flow)
       final shippingPayload = {
-        'order_id': widget.orderId.toString(), // Pass as String to match Postman
+        'order_id': widget.orderId
+            .toString(), // Pass as String to match Postman
         'postcode': "",
         'code': "",
         'shipping_type_method': "",
         'old_cart': "",
       };
 
-      debugPrint('PAY_NOW: Calling shipping endpoint. Payload: ${jsonEncode(shippingPayload)}');
+      debugPrint(
+        'PAY_NOW: Calling shipping endpoint. Payload: ${jsonEncode(shippingPayload)}',
+      );
       // Use GET with JSON content type so body is sent as JSON (not form-encoded).
       // Laravel's foreach() fails if body is form-encoded or null.
       final shippingResponse = await ApiClient.get(
@@ -1196,7 +1262,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       final double totalWithoutGst = _safeParseAmount(
         shippingResponse['total_without_gst'],
       );
-      
+
       final orderSource =
           _orderData?['order_source']?.toString().toLowerCase() ?? '';
       final specialDiscount = (orderSource == 'mobile')

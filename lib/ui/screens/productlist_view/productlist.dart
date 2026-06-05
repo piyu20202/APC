@@ -249,6 +249,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
             'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
             'show_freight_cost_icon': p.showFreightCostIcon,
             'show_free_shipping_icon': p.showFreeShippingIcon,
+            'show_price': p.showPrice,
+            'show_add_to_cart': p.showAddToCart,
             'out_of_stock': p.outOfStock,
             'onsale_line': p.onSaleLine,
             'display_features': displayFeaturesList, // Passed to listing cards
@@ -331,6 +333,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
             'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
             'show_freight_cost_icon': p.showFreightCostIcon,
             'show_free_shipping_icon': p.showFreeShippingIcon,
+            'show_price': p.showPrice,
+            'show_add_to_cart': p.showAddToCart,
             'out_of_stock': p.outOfStock,
             'onsale_line': p.onSaleLine,
             'display_features': displayFeaturesList,

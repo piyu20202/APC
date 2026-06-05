@@ -53,7 +53,6 @@ class _DetailViewState extends State<DetailView> {
   bool _isLoading = true;
   String? _errorMessage;
   bool _isAddingToCart = false;
-  bool _isPriceUpdating = false; // shows a brief loader while price recalculates
 
   // Settings state
   SettingsModel? _settings;
@@ -62,39 +61,13 @@ class _DetailViewState extends State<DetailView> {
   int kitQuantity = 1;
 
   final Map<int, int> _selectedQtyForCustomise = {};
-
-  // Multi-upgrade selection state:
-  // Each upgrade product tracks independently:
-  //   _upgradeMainSelected[upgradeProductId] = true  → main product is selected
-  //   _selectedSubProductIndex[upgradeProductId] = N → sub-product N is selected
-  //                                                    (-1 = no sub selected)
-  // An upgrade product can have EITHER its main product selected OR a sub-product,
-  // but not both (mutual exclusion within the same upgrade product row).
-  // Different upgrade product rows are fully independent.
-  final Map<int, bool> _upgradeMainSelected = {};
-  // upgradeProductId -> subProductIndex (-1 means no sub selected)
-  final Map<int, int> _selectedSubProductIndex = {};
-
+  int _selectedUpgradeIndex = -1;
+  final Map<int, int> _selectedSubProductIndex =
+      {}; // upgradeProductId -> subProductIndex (-1 means main product selected)
   List<bool> _addOnSelections = [];
   List<int> _addOnQuantities = [];
   bool _hasUserManuallySelectedUpgrade =
       false; // Track if user manually selected upgrade
-
-  // ---------------------------------------------------------------------------
-  // Compatibility shim: CartPayloadBuilder and other helpers still reference
-  // _selectedUpgradeIndex. We keep it as a computed property pointing to the
-  // first selected upgrade product index for backwards compat. When all
-  // upgrades are fully decoupled from CartPayloadBuilder this can be removed.
-  // ---------------------------------------------------------------------------
-  int get _selectedUpgradeIndex {
-    for (int i = 0; i < _upgradeProducts.length; i++) {
-      final id = _upgradeProducts[i].id;
-      if (_upgradeMainSelected[id] == true) return i;
-      final subIdx = _selectedSubProductIndex[id] ?? -1;
-      if (subIdx >= 0) return i;
-    }
-    return -1;
-  }
 
   bool get _isKitProduct => (_product?.isKIT?.toLowerCase() ?? '') == 'yes';
 
@@ -245,23 +218,6 @@ class _DetailViewState extends State<DetailView> {
   double _calculateFinalPrice() =>
       _createPayloadBuilder()?.calculateFinalPrice() ?? 0.0;
 
-  /// Shows a brief spinner on the price display while the widget tree settles
-  /// after an upgrade selection change. Call this instead of plain setState
-  /// whenever a selection that affects price is toggled.
-  void _triggerPriceUpdate(VoidCallback stateChange) {
-    setState(() {
-      _isPriceUpdating = true;
-      stateChange();
-    });
-    // One post-frame callback is enough — the price is already correct by then,
-    // we just need the spinner to render for at least one visible frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _isPriceUpdating = false);
-      }
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -331,17 +287,15 @@ class _DetailViewState extends State<DetailView> {
             }),
           );
 
-        // Default state: ALL upgrade products start with their main product
-        // selected. Each upgrade product row is fully independent — the user can
-        // select main OR one of its sub-products, but not both.
-        _upgradeMainSelected.clear();
-        _selectedSubProductIndex.clear();
-        for (final up in detailResponse.upgradeProducts) {
-          _upgradeMainSelected[up.id] = true; // main product selected by default
-          _selectedSubProductIndex[up.id] = -1; // no sub-product selected
+        // Pre-select first upgrade product by default (if upgrades exist)
+        _selectedUpgradeIndex = detailResponse.upgradeProducts.isNotEmpty
+            ? 0
+            : -1;
+        if (_selectedUpgradeIndex == 0 &&
+            detailResponse.upgradeProducts.isNotEmpty) {
+          _selectedSubProductIndex[detailResponse.upgradeProducts[0].id] = -1;
+          _hasUserManuallySelectedUpgrade = true; // Mark as selected by default
         }
-        _hasUserManuallySelectedUpgrade =
-            detailResponse.upgradeProducts.isNotEmpty;
         _addOnSelections = List<bool>.filled(
           detailResponse.addonProducts.length,
           false,
@@ -906,24 +860,14 @@ class _DetailViewState extends State<DetailView> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (_isPriceUpdating)
-                              SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.orange[700],
-                                ),
-                              )
-                            else
-                              Text(
-                                '\$${_formatCurrency(_calculateFinalPrice())}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
+                            Text(
+                              '\$${_formatCurrency(_calculateFinalPrice())}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
                               ),
+                            ),
                             const SizedBox(width: 8),
                             // Add to Cart Button (disabled when product not loaded / error)
                             GestureDetector(
@@ -1095,13 +1039,10 @@ class _DetailViewState extends State<DetailView> {
           ],
         ),
       ),
-      body: Stack(
-        children: [
-          // ── Main page content ──────────────────────────────────────────────
-          // Always built so the Scaffold layout is stable; the overlay sits on
-          // top while the API call is in flight.
-          if (_errorMessage != null)
-            Center(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1146,10 +1087,9 @@ class _DetailViewState extends State<DetailView> {
                 ],
               ),
             )
-          else if (_product == null && !_isLoading)
-            const Center(child: Text('Product not found'))
-          else if (_product != null)
-            SingleChildScrollView(
+          : _product == null
+          ? const Center(child: Text('Product not found'))
+          : SingleChildScrollView(
               controller: _scrollController,
               physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 0),
@@ -1183,38 +1123,6 @@ class _DetailViewState extends State<DetailView> {
                 ],
               ),
             ),
-
-          // ── Loading overlay ────────────────────────────────────────────────
-          // A soft translucent white sheet covers the entire page while the API
-          // call is in flight. Sits above content so layout doesn't jump.
-          if (_isLoading)
-            Positioned.fill(
-              child: Container(
-                color: Colors.white.withValues(alpha: 0.82),
-                child: const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Color(0xFF151D51),
-                      ),
-                      SizedBox(height: 14),
-                      Text(
-                        'Loading product...',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF151D51),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
@@ -2142,24 +2050,17 @@ class _DetailViewState extends State<DetailView> {
     return upgradeProduct.name;
   }
 
-  /// Gets a unified selection key for the current upgrade selection (compat shim).
+  /// Gets a unified selection key for the current upgrade selection
   String? get _currentUpgradeSelectionKey {
-    final idx = _selectedUpgradeIndex;
-    if (idx < 0 || idx >= _upgradeProducts.length) return null;
-    return _upgradeSelectionKeyFor(_upgradeProducts[idx].id, idx);
-  }
-
-  /// Returns the radio groupValue for the upgrade product at [index] with [id].
-  /// - 'main_N'   → main product of row N is selected
-  /// - 'sub_N_M'  → sub-product M of row N is selected
-  /// - null       → nothing selected in this row
-  String? _upgradeSelectionKeyFor(int upgradeProductId, int index) {
-    if (_upgradeMainSelected[upgradeProductId] == true) {
-      return 'main_$index';
+    if (_selectedUpgradeIndex < 0 ||
+        _selectedUpgradeIndex >= _upgradeProducts.length) {
+      return null;
     }
-    final subIdx = _selectedSubProductIndex[upgradeProductId] ?? -1;
-    if (subIdx >= 0) return 'sub_${index}_$subIdx';
-    return null;
+    final item = _upgradeProducts[_selectedUpgradeIndex];
+    final subIndex = _selectedSubProductIndex[item.id] ?? -1;
+    return subIndex >= 0
+        ? 'sub_${_selectedUpgradeIndex}_$subIndex'
+        : 'main_$_selectedUpgradeIndex';
   }
 
   Widget _buildKitIncludes() {
@@ -2528,7 +2429,7 @@ class _DetailViewState extends State<DetailView> {
     int selectedSubIndex,
   ) {
     final imageUrl = _resolveImageUrl(item.photo);
-    final isSelected = _upgradeMainSelected[item.id] == true;
+    final isSelected = _selectedUpgradeIndex == index && selectedSubIndex == -1;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -2546,20 +2447,19 @@ class _DetailViewState extends State<DetailView> {
         children: [
           Radio<String>(
             value: 'main_$index',
-            // Each upgrade product has its own radio group (keyed by product id),
-            // so rows are independent — selecting main here doesn't affect others.
-            groupValue: _upgradeSelectionKeyFor(item.id, index),
+            groupValue: _currentUpgradeSelectionKey,
             activeColor: Colors.blue,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             onChanged: item.outOfStock == 1
                 ? null
                 : (value) {
-                    _triggerPriceUpdate(() {
-                      // Select main product → deselect any sub-product for this row
-                      _upgradeMainSelected[item.id] = true;
+                    setState(() {
+                      _selectedUpgradeIndex = index;
                       _selectedSubProductIndex[item.id] = -1;
-                      _hasUserManuallySelectedUpgrade = true;
+                      _hasUserManuallySelectedUpgrade =
+                          true; // Mark as manually selected
+                      // Price will update automatically via _calculateFinalPrice()
                     });
                   },
           ),
@@ -2714,9 +2614,8 @@ class _DetailViewState extends State<DetailView> {
     int selectedSubIndex,
   ) {
     final imageUrl = _resolveImageUrl(subProduct.photo);
-    // Sub-product is selected when its own row's sub-index matches
     final isSelected =
-        (_selectedSubProductIndex[parentItem.id] ?? -1) == subIndex;
+        _selectedUpgradeIndex == parentIndex && selectedSubIndex == subIndex;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10, left: 24),
@@ -2734,19 +2633,19 @@ class _DetailViewState extends State<DetailView> {
         children: [
           Radio<String>(
             value: 'sub_${parentIndex}_$subIndex',
-            // Scoped to the parent upgrade product's own group — independent of other rows
-            groupValue: _upgradeSelectionKeyFor(parentItem.id, parentIndex),
+            groupValue: _currentUpgradeSelectionKey,
             activeColor: Colors.blue,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             onChanged: subProduct.outOfStock == 1
                 ? null
                 : (value) {
-                    _triggerPriceUpdate(() {
-                      // Selecting a sub-product deselects the main product for this row
-                      _upgradeMainSelected[parentItem.id] = false;
+                    setState(() {
+                      _selectedUpgradeIndex = parentIndex;
                       _selectedSubProductIndex[parentItem.id] = subIndex;
-                      _hasUserManuallySelectedUpgrade = true;
+                      _hasUserManuallySelectedUpgrade =
+                          true; // Mark as manually selected
+                      // Price will update automatically via _calculateFinalPrice()
                     });
                   },
           ),
@@ -2979,12 +2878,13 @@ class _DetailViewState extends State<DetailView> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              // Out-of-stock: muted grey only — no strikethrough
-                              // so the title stays fully readable
                               color: inStock
                                   ? const Color(0xFF151D51)
                                   : Colors.grey,
                               height: 1.35,
+                              decoration: inStock
+                                  ? null
+                                  : TextDecoration.lineThrough,
                             ),
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,

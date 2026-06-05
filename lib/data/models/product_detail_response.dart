@@ -22,6 +22,29 @@ double _asDouble(dynamic value) {
   return double.tryParse(value.toString()) ?? 0;
 }
 
+double _parseMoney(dynamic value) {
+  if (value == null) return 0;
+  if (value is num) return value.toDouble();
+  final cleaned = value.toString().trim().replaceAll(RegExp(r'[^0-9.-]'), '');
+  return double.tryParse(cleaned) ?? 0;
+}
+
+bool _parseAddonInStock(Map<String, dynamic> json) {
+  final inStock = json['in_stock'];
+  if (inStock != null) {
+    if (inStock is bool) return inStock;
+    if (inStock is num) return inStock == 1;
+    final normalized = inStock.toString().trim().toLowerCase();
+    if (normalized == 'yes' || normalized == '1' || normalized == 'true') {
+      return true;
+    }
+    if (normalized == 'no' || normalized == '0' || normalized == 'false') {
+      return false;
+    }
+  }
+  return _asInt(json['out_of_stock']) == 0;
+}
+
 bool _asBool(dynamic value) {
   if (value == null) return false;
   if (value is bool) return value;
@@ -286,7 +309,12 @@ class AddonProduct {
   final String photo;
   final String? details;
   final String upgradeShortDescription;
+  final int maxQuantity;
   final double unitPrice;
+  final double addonCurrentPrice;
+  final double addonPreviousPrice;
+  final double savePrice;
+  final bool isInStock;
   final double? originalPrice;
   final int outOfStock;
 
@@ -299,22 +327,42 @@ class AddonProduct {
     required this.photo,
     this.details,
     required this.upgradeShortDescription,
+    required this.maxQuantity,
     required this.unitPrice,
+    required this.addonCurrentPrice,
+    required this.addonPreviousPrice,
+    required this.savePrice,
+    required this.isInStock,
     this.originalPrice,
     required this.outOfStock,
   });
 
   factory AddonProduct.fromJson(Map<String, dynamic> json) {
+    final addonCurrent = _parseMoney(
+      json['addonCurrentPrice'] ?? json['addon_current_price'],
+    );
+    final fallbackPrice = _parseMoney(json['price'] ?? json['unitPrice']);
+    final currentPrice = addonCurrent > 0 ? addonCurrent : fallbackPrice;
+
     return AddonProduct(
       id: _asInt(json['id']),
-      mainId: _asInt(json['mainId']),
-      kitProductId: _asInt(json['kitProductId']),
+      mainId: _asInt(json['kitMainId'] ?? json['mainId']),
+      kitProductId: _asInt(json['productId'] ?? json['kitProductId']),
       name: _asString(json['name']),
       sku: _asString(json['sku']),
       photo: _asString(json['photo']),
       details: json['details']?.toString(),
-      upgradeShortDescription: _asString(json['upgradeShortDescription']),
-      unitPrice: _asDouble(json['price'] ?? json['unitPrice']),
+      upgradeShortDescription: _asString(
+        json['upgradeShortDescription'] ?? json['short_description'],
+      ),
+      maxQuantity: _asInt(json['maxQuantity'] ?? json['max_quantity'] ?? 1),
+      unitPrice: currentPrice,
+      addonCurrentPrice: currentPrice,
+      addonPreviousPrice: _parseMoney(
+        json['addonPreviousPrice'] ?? json['addon_previous_price'],
+      ),
+      savePrice: _parseMoney(json['savePrice'] ?? json['save_price']),
+      isInStock: _parseAddonInStock(json),
       originalPrice: json['previous_price'] != null
           ? _asDouble(json['previous_price'])
           : null,

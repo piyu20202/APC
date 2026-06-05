@@ -79,7 +79,7 @@ class CartPayloadBuilder {
         selectedAddOns.add({
           'id': item.id,
           'qty': qty,
-          'price': item.unitPrice,
+          'price': item.addonCurrentPrice,
         });
       }
     }
@@ -117,7 +117,7 @@ class CartPayloadBuilder {
       if (i < addOnSelections.length && addOnSelections[i]) {
         final item = addonProducts[i];
         final qty = i < addOnQuantities.length ? addOnQuantities[i] : 1;
-        total += qty * item.unitPrice;
+        total += qty * item.addonCurrentPrice;
       }
     }
     return total;

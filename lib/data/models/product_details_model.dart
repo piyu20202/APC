@@ -102,6 +102,9 @@ class ProductDetailsModel {
   final String slugUrl;
   final int showFreightCostIcon;
   final int showFreeShippingIcon;
+  final int? showPrice;
+  final int? showAddToCart;
+  final String? onSaleLine;
 
   ProductDetailsModel({
     required this.id,
@@ -207,6 +210,9 @@ class ProductDetailsModel {
     required this.slugUrl,
     required this.showFreightCostIcon,
     required this.showFreeShippingIcon,
+    this.showPrice,
+    this.showAddToCart,
+    this.onSaleLine,
   });
 
   factory ProductDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -351,6 +357,13 @@ class ProductDetailsModel {
       slugUrl: parseString(json['slug_url']),
       showFreightCostIcon: parseInt(json['show_freight_cost_icon']),
       showFreeShippingIcon: parseInt(json['show_free_shipping_icon']),
+      showPrice: json['show_price'] == null
+          ? null
+          : parseInt(json['show_price']),
+      showAddToCart: json['show_add_to_cart'] == null
+          ? null
+          : parseInt(json['show_add_to_cart']),
+      onSaleLine: json['onsale_line']?.toString(),
     );
   }
 
@@ -459,6 +472,9 @@ class ProductDetailsModel {
       'slug_url': slugUrl,
       'show_freight_cost_icon': showFreightCostIcon,
       'show_free_shipping_icon': showFreeShippingIcon,
+      'show_price': showPrice,
+      'show_add_to_cart': showAddToCart,
+      'onsale_line': onSaleLine,
     };
   }
 }

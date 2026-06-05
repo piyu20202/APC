@@ -506,6 +506,8 @@ class LatestProduct {
   final String? shortDescription;
   final int showFreightCostIcon;
   final int showFreeShippingIcon;
+  final int showPrice;
+  final int showAddToCart;
   final String? onSaleLine;
 
   LatestProduct({
@@ -529,6 +531,8 @@ class LatestProduct {
     this.shortDescription,
     this.showFreightCostIcon = 0,
     this.showFreeShippingIcon = 0,
+    this.showPrice = 1,
+    this.showAddToCart = 1,
     this.onSaleLine,
   });
 
@@ -574,6 +578,12 @@ class LatestProduct {
           ? json['show_free_shipping_icon'] as int
           : int.tryParse(json['show_free_shipping_icon']?.toString() ?? '') ??
                 0,
+      showPrice: json['show_price'] is int
+          ? json['show_price'] as int
+          : int.tryParse(json['show_price']?.toString() ?? '') ?? 1,
+      showAddToCart: json['show_add_to_cart'] is int
+          ? json['show_add_to_cart'] as int
+          : int.tryParse(json['show_add_to_cart']?.toString() ?? '') ?? 1,
       onSaleLine: json['onsale_line']?.toString(),
     );
   }
@@ -600,6 +610,8 @@ class LatestProduct {
       'short_description': shortDescription,
       'show_freight_cost_icon': showFreightCostIcon,
       'show_free_shipping_icon': showFreeShippingIcon,
+      'show_price': showPrice,
+      'show_add_to_cart': showAddToCart,
       'onsale_line': onSaleLine,
     };
   }

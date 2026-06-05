@@ -98,6 +98,8 @@ class ProductCardMapper {
       'out_of_stock': product.outOfStock,
       'show_freight_cost_icon': product.showFreightCostIcon,
       'show_free_shipping_icon': product.showFreeShippingIcon,
+      'show_price': product.showPrice,
+      'show_add_to_cart': product.showAddToCart,
     };
   }
 

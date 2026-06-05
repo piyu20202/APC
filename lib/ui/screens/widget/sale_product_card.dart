@@ -249,7 +249,7 @@ class _SaleProductCardState extends State<SaleProductCard> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               // Strike-through price (only if on sale)
-                              if (isOnSale)
+                              if (isOnSale && _shouldShowPrice(product))
                                 Text(
                                   _formatPrice(
                                     product['previous_price'] ??
@@ -263,77 +263,85 @@ class _SaleProductCardState extends State<SaleProductCard> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                              Text(
-                                _formatPrice(
-                                  product['price'] ??
-                                      product['currentPrice'] ??
-                                      '',
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              _shouldShowPrice(product)
+                                  ? Text(
+                                      _formatPrice(
+                                        product['price'] ??
+                                            product['currentPrice'] ??
+                                            '',
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : const SizedBox.shrink(),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _isOutOfStock(product)
-                            ? Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[400],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.shopping_cart,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                ),
-                              )
-                            : GestureDetector(
-                                onTap:
-                                    (_isQuickAdding || _isOutOfStock(product))
-                                    ? null
-                                    : () => _handleQuickAdd(context),
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: _isOutOfStock(product)
-                                        ? Colors.grey[400]
-                                        : const Color(0xFF151D51),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Center(
-                                    child: _isQuickAdding
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                    Colors.white,
-                                                  ),
-                                            ),
-                                          )
-                                        : Icon(
-                                            _isOutOfStock(product)
-                                                ? Icons.block
-                                                : Icons.shopping_cart,
-                                            color: Colors.white,
-                                            size: 20,
+                        // Respect show_add_to_cart flag (default: show)
+                        _shouldShowAddToCart(product)
+                            ? (_isOutOfStock(product)
+                                  ? Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[400],
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.shopping_cart,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    )
+                                  : GestureDetector(
+                                      onTap:
+                                          (_isQuickAdding ||
+                                              _isOutOfStock(product))
+                                          ? null
+                                          : () => _handleQuickAdd(context),
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: _isOutOfStock(product)
+                                              ? Colors.grey[400]
+                                              : const Color(0xFF151D51),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                  ),
-                                ),
-                              ),
+                                        ),
+                                        child: Center(
+                                          child: _isQuickAdding
+                                              ? const SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
+                                                  ),
+                                                )
+                                              : Icon(
+                                                  _isOutOfStock(product)
+                                                      ? Icons.block
+                                                      : Icons.shopping_cart,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                        ),
+                                      ),
+                                    ))
+                            : const SizedBox(width: 36, height: 36),
                       ],
                     ),
                   ),
@@ -430,6 +438,24 @@ bool _hasStrikePrice(Map<String, dynamic> product) {
   final prev = _readNum(product['previous_price'] ?? product['originalPrice']);
   final price = _readNum(product['price'] ?? product['currentPrice']);
   return prev > 0 && prev > price;
+}
+
+bool _shouldShowPrice(Map<String, dynamic> product) {
+  final v = product['show_price'];
+  if (v == null) return true;
+  if (v is int) return v == 1;
+  if (v is bool) return v;
+  final s = v.toString().toLowerCase();
+  return s == '1' || s == 'true';
+}
+
+bool _shouldShowAddToCart(Map<String, dynamic> product) {
+  final v = product['show_add_to_cart'];
+  if (v == null) return true;
+  if (v is int) return v == 1;
+  if (v is bool) return v;
+  final s = v.toString().toLowerCase();
+  return s == '1' || s == 'true';
 }
 
 bool _isOutOfStock(Map<String, dynamic> product) {
