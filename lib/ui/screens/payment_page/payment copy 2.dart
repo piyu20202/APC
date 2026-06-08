@@ -2612,51 +2612,11 @@ class _PaymentPageState extends State<PaymentPage> {
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_hasPendingFreightQuote && !_isPayLater) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8E1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFFCC02)),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: Color(0xFFF9A825),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'By clicking request freight quote a team member will update your online quote within one business day with the freight delivery cost. The updated Quote can be viewed though your online accounts "My Orders" section',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF5D4037),
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                      _canShowPaymentOptionsByStatus
-                          ? (effectivePaymentMethod == 'PayPal'
-                                ? _buildPayPalButton()
-                                : _buildSubmitButton())
-                          : _buildSubmitButton(),
-                    ],
-                  ),
+                  child: _canShowPaymentOptionsByStatus
+                      ? (effectivePaymentMethod == 'PayPal'
+                            ? _buildPayPalButton()
+                            : _buildSubmitButton())
+                      : _buildSubmitButton(),
                 ),
               ),
       ),
@@ -3222,7 +3182,7 @@ class _PaymentPageState extends State<PaymentPage> {
               )
             : Text(
                 (_hasPendingFreightQuote && !_isPayLater)
-                    ? 'REQUEST FREIGHT QUOTE'
+                    ? 'CONFIRM ORDER'
                     : 'PAY NOW',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
