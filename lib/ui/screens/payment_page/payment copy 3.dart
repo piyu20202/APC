@@ -2595,7 +2595,6 @@ class _PaymentPageState extends State<PaymentPage> {
       },
       child: Scaffold(
         backgroundColor: Colors.grey[50],
-        resizeToAvoidBottomInset: true,
         appBar: AppBar(
           backgroundColor: const Color(0xFFF8F8F8),
           elevation: 0,
@@ -2698,12 +2697,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     onRefresh: _onPullToRefreshPricing,
                     child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(
-                        16.0,
-                        16.0,
-                        16.0,
-                        100.0,
-                      ),
+                      padding: const EdgeInsets.all(16.0),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -3368,16 +3362,15 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Widget _buildSubmitButton() {
     final isBusy = _isProcessing || _isPaymentProcessing;
-    return SizedBox(
-      height: 56,
-      width: double.infinity,
+    return Container(
+      height: 60,
+      alignment: Alignment.center,
       child: ElevatedButton(
         onPressed: isBusy ? null : _submitButtonAction(),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 56),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
           shape: const StadiumBorder(),
           elevation: 2,
         ),
@@ -3404,16 +3397,15 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Widget _buildPayPalButton() {
-    return SizedBox(
-      height: 56,
-      width: double.infinity,
+    return Container(
+      height: 60,
+      alignment: Alignment.center,
       child: ElevatedButton(
         onPressed: _isProcessing ? null : _handlePayPalPayment,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 56),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
           shape: const StadiumBorder(),
           elevation: 2,
         ),

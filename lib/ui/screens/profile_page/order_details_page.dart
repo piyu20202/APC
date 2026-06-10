@@ -65,9 +65,31 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+        // If the error indicates an authentication problem, prompt the user to log out and log back in.
+        if (e.message.toLowerCase().contains('unauthorized')) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Session Expired'),
+              content: const Text('Your session may have expired or your credentials are invalid. Please log out and log in again.'),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    // Clear stored login data and navigate to the login screen.
+                    await StorageService.clearLoginData();
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  },
+                  child: const Text('Logout'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          );
+        }
       }
     } catch (e) {
       setState(() {
