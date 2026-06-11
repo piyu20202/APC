@@ -116,6 +116,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
   final _formKey = GlobalKey<FormState>();
 
+  // Scroll controller for auto-scroll to card form + PAY NOW visibility
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _cardFormKey = GlobalKey();
+
   // PayPal config cache
   Map<String, dynamic>? _paypalConfig;
 
@@ -320,6 +324,7 @@ class _PaymentPageState extends State<PaymentPage> {
     _expiryFocus.dispose();
     _cvvFocus.dispose();
     _cardholderNameFocus.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -2697,6 +2702,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 : RefreshIndicator(
                     onRefresh: _onPullToRefreshPricing,
                     child: SingleChildScrollView(
+                      controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(
                         16.0,
@@ -2856,8 +2862,20 @@ class _PaymentPageState extends State<PaymentPage> {
 
             // 1. Credit Card — hamesha dikhega
             GestureDetector(
-              onTap: () =>
-                  setState(() => _selectedPaymentMethod = 'Credit Card'),
+              onTap: () {
+                setState(() => _selectedPaymentMethod = 'Credit Card');
+                // Auto-scroll to card form after frame renders
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_cardFormKey.currentContext != null) {
+                    Scrollable.ensureVisible(
+                      _cardFormKey.currentContext!,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeInOut,
+                      alignment: 0.0,
+                    );
+                  }
+                });
+              },
               child: _paymentOptionRow(
                 'Credit Card',
                 Icons.credit_card,
@@ -3442,17 +3460,8 @@ class _PaymentPageState extends State<PaymentPage> {
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
       child: Container(
+        key: _cardFormKey, // scroll target for auto-scroll
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'CARD DETAILS',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -3540,7 +3549,19 @@ class _PaymentPageState extends State<PaymentPage> {
                     maxLength: 4,
                     obscureText: true,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: () => FocusScope.of(context).unfocus(),
+                    onSubmitted: () {
+                      FocusScope.of(context).unfocus();
+                      // After keyboard dismisses, scroll to bottom so PAY NOW button is visible
+                      Future.delayed(const Duration(milliseconds: 350), () {
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(
+                            _scrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      });
+                    },
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Required';
                       if (v.length < 3) return 'Invalid';
