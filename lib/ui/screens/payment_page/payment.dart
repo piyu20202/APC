@@ -161,6 +161,22 @@ class _PaymentPageState extends State<PaymentPage> {
     _setupInitialUI();
     _loadPayPalConfig();
     _initializeGooglePay();
+
+    // Scroll to bottom when CVV loses focus (covers both Done button & tap-outside)
+    // 600ms delay gives iOS keyboard enough time to fully dismiss before scroll
+    _cvvFocus.addListener(() {
+      if (!_cvvFocus.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
   }
 
   /// Populate initial UI values from navigation arguments to avoid showing $0.00
@@ -3552,20 +3568,10 @@ class _PaymentPageState extends State<PaymentPage> {
                     hint: 'CVV',
                     keyboardType: TextInputType.number,
                     maxLength: 4,
-                    obscureText: true,
+                    obscureText: false,
                     textInputAction: TextInputAction.done,
                     onSubmitted: () {
                       FocusScope.of(context).unfocus();
-                      // After keyboard dismisses, scroll to bottom so PAY NOW button is visible
-                      Future.delayed(const Duration(milliseconds: 350), () {
-                        if (_scrollController.hasClients) {
-                          _scrollController.animateTo(
-                            _scrollController.position.maxScrollExtent,
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      });
                     },
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Required';
