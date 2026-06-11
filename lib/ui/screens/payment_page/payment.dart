@@ -3462,6 +3462,11 @@ class _PaymentPageState extends State<PaymentPage> {
       child: Container(
         key: _cardFormKey, // scroll target for auto-scroll
         padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Card Details',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
