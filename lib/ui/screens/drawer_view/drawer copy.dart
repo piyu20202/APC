@@ -15,7 +15,6 @@ import '../../../core/utils/logger.dart';
 import '../webview_view/webview_page.dart';
 import '../../../services/navigation_service.dart';
 import '../../../services/custom_menu_service.dart';
-import '../../widgets/content_loading_overlay.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -361,21 +360,15 @@ class _AppDrawerState extends State<AppDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<HomepageProvider>(
-      builder: (context, homeProvider, _) {
-        final showLoadingOverlay = homeProvider.shouldShowLoadingOverlay;
-
-        return Drawer(
-          child: Stack(
-            children: [
-              Container(
-                color: const Color(0xFFF8F8F8),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
-                        children: [
+    return Drawer(
+      child: Container(
+        color: const Color(0xFFF8F8F8),
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
+                children: [
             SizedBox(
               height: 60,
               child: DrawerHeader(
@@ -420,10 +413,6 @@ class _AppDrawerState extends State<AppDrawer> {
             // Dynamic Categories from API
             Consumer<HomepageProvider>(
               builder: (context, homeProvider, _) {
-                if (homeProvider.shouldShowLoadingOverlay) {
-                  return const SizedBox.shrink();
-                }
-
                 final categories = List<Category>.from(homeProvider.categories)
                   ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
@@ -439,6 +428,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     return Column(
                       children: [
                         _buildItem(
+                          icon: _getIconForCategory(category),
                           imageUrl: category.photo,
                           title: category.name,
                           onTap: () => _navigateWithCategory(category),
@@ -452,11 +442,13 @@ class _AppDrawerState extends State<AppDrawer> {
             ),
 
             _buildItem(
+              icon: Icons.menu_book,
               title: 'Installation Manuals',
               onTap: () => _navigateByCategoryId(14, 'Installation Manuals'),
             ),
             _buildSeparator(),
             _buildItem(
+              icon: Icons.add_circle_outline,
               title: '+ see all categories',
               onTap: () {
                 Navigator.pop(context);
@@ -471,15 +463,10 @@ class _AppDrawerState extends State<AppDrawer> {
                 ],
               ),
             ),
-                    _buildVersionFooter(),
-                  ],
-                ),
-              ),
-              if (showLoadingOverlay) const ContentLoadingOverlay(),
-            ],
-          ),
-        );
-      },
+            _buildVersionFooter(),
+          ],
+        ),
+      ),
     );
   }
 
@@ -500,39 +487,86 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
+  IconData _getIconForCategory(Category category) {
+    final slug = category.slug?.toLowerCase() ?? '';
+    final name = category.name.toLowerCase();
+
+    if (slug.contains('automation') || name.contains('automation')) {
+      return Icons.settings_input_component;
+    }
+    if (slug.contains('fencing') || name.contains('fencing') || name.contains('hardware')) {
+      return Icons.home_repair_service;
+    }
+    if (slug.contains('brushless') || name.contains('brushless')) {
+      return Icons.electric_bolt;
+    }
+    if (slug.contains('premium') || name.contains('premium')) {
+      return Icons.handyman;
+    }
+    if (slug.contains('combo') || name.contains('combo')) {
+      return Icons.auto_awesome_mosaic;
+    }
+    if (slug.contains('gates-gate-frames') || name.contains('frames')) {
+      return Icons.door_sliding;
+    }
+    if (slug.contains('custom') || name.contains('custom')) {
+      return Icons.build_circle;
+    }
+    if (slug.contains('boom') || name.contains('boom')) {
+      return Icons.traffic;
+    }
+    if (slug.contains('intercom') || name.contains('intercom') || name.contains('surveillance')) {
+      return Icons.videocam;
+    }
+    if (slug.contains('remote') || name.contains('remote')) {
+      return Icons.settings_remote;
+    }
+    if (slug.contains('access') || name.contains('access')) {
+      return Icons.security;
+    }
+    if (slug.contains('parts') || name.contains('parts') || name.contains('cable') || name.contains('power')) {
+      return Icons.power;
+    }
+    if (slug.contains('solar') || name.contains('solar')) {
+      return Icons.solar_power;
+    }
+
+    return Icons.category; // Default icon
+  }
+
   Widget _buildItem({
+    IconData? icon,
     String? imageUrl,
     required String title,
     required VoidCallback onTap,
   }) {
     final bool isSelected = _selectedTitle == title;
-
-    Widget? leading;
+    
+    Widget leading;
     if (imageUrl != null && imageUrl.isNotEmpty) {
-      leading = SizedBox(
+      leading = Container(
         width: 24,
         height: 24,
+        color: Colors.transparent,
         child: CachedNetworkImage(
           imageUrl: imageUrl,
           fit: BoxFit.contain,
-          placeholder: (context, url) => const SizedBox(
-            width: 24,
-            height: 24,
-            child: Center(
-              child: SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
+          placeholder: (context, url) => Icon(
+            icon ?? Icons.category,
+            size: 24,
+            color: isSelected ? Colors.black : const Color(0xFF101010),
           ),
-          errorWidget: (context, url, error) => Image.asset(
-            'assets/images/no_image.png',
-            width: 24,
-            height: 24,
-            fit: BoxFit.contain,
+          errorWidget: (context, url, error) => Icon(
+            icon ?? Icons.category,
+            size: 24,
+            color: isSelected ? Colors.black : const Color(0xFF101010),
           ),
         ),
+      );
+    } else {
+      leading = Icon(
+        icon ?? Icons.category,
+        color: isSelected ? Colors.black : const Color(0xFF101010),
       );
     }
 

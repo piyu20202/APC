@@ -26,6 +26,7 @@ import 'package:flutter/foundation.dart' hide Category;
 import '../../../services/route_observer.dart';
 import '../webview_view/webview_page.dart';
 import '../../../services/custom_menu_service.dart';
+import '../../widgets/content_loading_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSearchTap;
@@ -400,8 +401,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final cartCount = widget.cartCount;
-    return Scaffold(
-      drawer: const AppDrawer(),
+    return Consumer<HomepageProvider>(
+      builder: (context, homeProvider, _) {
+        final showLoadingOverlay = homeProvider.shouldShowLoadingOverlay;
+
+        return Scaffold(
+          drawer: const AppDrawer(),
+          drawerEnableOpenDragGesture: !showLoadingOverlay,
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F8F8),
         elevation: 0,
@@ -472,14 +478,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         ],
       ),
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: RefreshIndicator.adaptive(
-          onRefresh: _onRefreshHome,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      body: Stack(
+        children: [
+          SafeArea(
+            child: RefreshIndicator.adaptive(
+              onRefresh: _onRefreshHome,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 const SizedBox(height: 12),
 
                 // Search and Cart Bar
@@ -608,11 +616,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 _buildCollectionsSection(),
 
                 const SizedBox(height: 20),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+          if (showLoadingOverlay) const ContentLoadingOverlay(),
+        ],
       ),
+        );
+      },
     );
   }
 

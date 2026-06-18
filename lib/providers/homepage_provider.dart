@@ -23,6 +23,15 @@ class HomepageProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingLatestProducts => _isLoadingLatestProducts;
   bool get isLoadingSaleProducts => _isLoadingSaleProducts;
+
+  /// True while any homepage API request is in flight.
+  bool get isAnyHomeDataLoading =>
+      _isLoading || _isLoadingLatestProducts || _isLoadingSaleProducts;
+
+  /// Show blocking overlay until initial server data is available.
+  bool get shouldShowLoadingOverlay =>
+      isAnyHomeDataLoading ||
+      (_homepageData == null && _errorMessage == null);
   String? get errorMessage => _errorMessage;
   models.HomepageModel? get homepageData => _homepageData;
   List<models.LatestProduct> get latestProducts => _latestProducts;

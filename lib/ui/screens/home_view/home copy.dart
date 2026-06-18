@@ -863,16 +863,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     final gridSpacing = (screenWidth * 0.03).clamp(8.0, 16.0);
 
     // Dynamic height calculation for childAspectRatio
-    // We target a square image area + space for full text (up to 3.5 lines to prevent clipping)
+    // We target a square image area + space for full text (up to 3 lines to prevent clipping)
     final itemWidth =
         (screenWidth -
             (horizontalPadding * 2) -
             (gridSpacing * (crossAxisCount - 1))) /
         crossAxisCount;
     final double labelFontSize = (screenWidth * 0.032).clamp(10.0, 13.0);
-    // Height for text area: Support up to 2 lines of text (maxLines:2) + vertical padding
+    // Height for text area: Support up to 4 lines of text + vertical padding
     final double textAreaHeight =
-        (labelFontSize * 1.2 * 2) + (isSmall ? 10 : 14);
+        (labelFontSize * 1.3 * 4) + (isSmall ? 14 : 20);
     final itemHeight = itemWidth + textAreaHeight;
     final childAspectRatio = itemWidth / itemHeight;
 
@@ -1061,71 +1061,71 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Image section with AspectRatio to ensure proportional scaling
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(12),
-                                topRight: Radius.circular(12),
-                              ),
-                              child: AspectRatio(
-                                aspectRatio: 1.0,
-                                child:
-                                    category.image != null &&
-                                        category.image!.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: category.image!,
+                          // Image section with fixed AspectRatio
+                          ClipRRect(
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              topRight: Radius.circular(12),
+                            ),
+                            child: AspectRatio(
+                              aspectRatio: 1.0,
+                              child:
+                                  category.image != null &&
+                                      category.image!.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: category.image!,
+                                      width: double.infinity,
+                                      fit: BoxFit.contain, // Scale proportional
+                                      placeholder: (context, url) => Container(
                                         width: double.infinity,
-                                        fit: BoxFit
-                                            .contain, // Scale proportional
-                                        placeholder: (context, url) =>
-                                            Container(
-                                              width: double.infinity,
-                                              color: Colors.grey[200],
-                                              child: const Center(
-                                                child: SizedBox(
-                                                  width: 24,
-                                                  height: 24,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
-                                                ),
-                                              ),
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
                                             ),
-                                        errorWidget: (context, url, error) =>
-                                            Image.asset(
-                                              'assets/images/no_image.png',
-                                              width: double.infinity,
-                                              fit: BoxFit.contain,
-                                            ),
-                                      )
-                                    : Image.asset(
-                                        'assets/images/no_image.png',
-                                        width: double.infinity,
-                                        fit: BoxFit.contain,
+                                          ),
+                                        ),
                                       ),
-                              ),
+                                      errorWidget: (context, url, error) =>
+                                          Image.asset(
+                                            'assets/images/no_image.png',
+                                            width: double.infinity,
+                                            fit: BoxFit.contain,
+                                          ),
+                                    )
+                                  : Image.asset(
+                                      'assets/images/no_image.png',
+                                      width: double.infinity,
+                                      fit: BoxFit.contain,
+                                    ),
                             ),
                           ),
-                          // Category name at the bottom - height ensured by childAspectRatio
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: screenWidth * 0.01,
-                              vertical: isSmall ? 4 : 2,
-                            ),
-                            child: Text(
-                              category.name,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              softWrap: true,
-                              overflow: TextOverflow.visible,
-                              style: TextStyle(
-                                fontSize: labelFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF151D51),
-                                height: 1.2,
+                          // Category name - grows to fit full text
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: screenWidth * 0.02,
+                                vertical: isSmall ? 5 : 7,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  category.name,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 4,
+                                  softWrap: true,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: labelFontSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF151D51),
+                                    height: 1.3,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

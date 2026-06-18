@@ -21,6 +21,7 @@ import 'package:apcproject/core/exceptions/api_exception.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:apcproject/ui/screens/payment_page/payment_failure.dart';
 import 'package:apcproject/ui/screens/payment_page/payment_webview.dart';
+import 'package:apcproject/ui/screens/profile_page/myorder.dart';
 
 class _ShippingBreakdown {
   const _ShippingBreakdown({
@@ -1505,12 +1506,13 @@ class _PaymentPageState extends State<PaymentPage> {
 
     dynamic pickupLocationId = '';
     if (shipping == 'pickup') {
-      final pickupLocation = checkoutData['pickup_location'] as String?;
-      if (pickupLocation == '53 Cochranes Road, Moorabbin, VIC 3189') {
-        pickupLocationId = 1;
-      } else if (pickupLocation ==
-          'Unit 2, 2 Commercial Dr, Shailer Park QLD 4128') {
-        pickupLocationId = 2;
+      final raw = checkoutData['pickup_location'];
+      if (raw != null && raw.toString().isNotEmpty) {
+        if (raw is int) {
+          pickupLocationId = raw;
+        } else {
+          pickupLocationId = int.tryParse(raw.toString()) ?? '';
+        }
       }
     }
 
@@ -2020,7 +2022,6 @@ class _PaymentPageState extends State<PaymentPage> {
             amount: _amount ?? 0.0,
             currency: _currency ?? 'AUD',
             orderRef: base64Encode(utf8.encode(_orderId?.toString() ?? '')),
-            backendBaseUrl: 'https://www.gurgaonit.com/apc_production_dev',
             onPaymentResult: (res) {
               // Callback fires when JS calls window.PayPalResult.postMessage(...)
               debugPrint('PayPal JS SDK result callback: $res');
@@ -2032,39 +2033,39 @@ class _PaymentPageState extends State<PaymentPage> {
       debugPrint('PayPal WebView dismissed. Result: $result');
 
       if (result == null || result['status'] == 'cancelled') {
-        debugPrint('PayPal: Cancelled or dismissed by user.');
-        return; // Stay on payment page — user can try again
+        debugPrint(
+          'PayPal: Cancelled or dismissed by user (X button / back press). Navigating to MyOrders.',
+        );
+        if (mounted) setState(() => _isProcessing = false);
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MyOrdersPage()),
+          );
+        }
+        return;
       }
 
       // ── Step 3: Handle success from JS SDK ────────────────────────────────
       if (result['status'] == 'COMPLETED') {
         if (mounted) setState(() => _isProcessing = true);
 
+        final String? paymentSource = result['source']?.toString();
+        final bool isUrlRedirect = paymentSource == 'url_redirect';
+
+        debugPrint(
+          'PayPal COMPLETED. source=$paymentSource, order#=$_orderNumber',
+        );
+
         // ── Step 4: Finalise on server ────────────────────────────────────
-        // JS SDK already captured on Laravel side via /api/paypal/orders/{id}/capture
-        // We just need to update order status and navigate to success.
-        try {
-          final orderId = result['orderId']?.toString() ?? '';
+        // URL redirect ka matlab: Laravel ne server-side payment already capture
+        // kar liya hai — Flutter se dobara processPayPal() call karne ki zaroorat
+        // nahi, warna empty token ki wajah se 400 error aata hai.
+        // JS SDK postMessage se aaya ho tab hi processPayPal() call karo.
+        if (isUrlRedirect) {
+          // Laravel already handled capture — directly success navigate karo
           debugPrint(
-            'PayPal COMPLETED. orderId=$orderId, order#=$_orderNumber',
+            'PayPal: URL redirect detected. Skipping processPayPal() — Laravel already captured.',
           );
-
-          // Optional: notify your own backend about the capture result
-          // (if Laravel PayPalController hasn't already handled it via JS SDK)
-          final serverResponse = await _paymentService.processPayPal(
-            orderNumber: _orderNumber!,
-            orderId: _orderId!,
-            amount: _amount!,
-            currency: _currency ?? 'AUD',
-            paymentResult: {
-              'status': 'COMPLETED',
-              'orderId': orderId,
-              'paymentId': orderId,
-              'paymentID': orderId,
-              'payerID': '',
-            },
-          );
-
           if (!_isPayLater) {
             await StorageService.clearCartData();
             await StorageService.clearPaymentCartSnapshot();
@@ -2073,19 +2074,55 @@ class _PaymentPageState extends State<PaymentPage> {
           await StorageService.clearCheckoutData();
 
           if (mounted) {
-            _navigateToOrderSuccess({...result, ...serverResponse}, 'PayPal');
+            _navigateToOrderSuccess({
+              ...result,
+              'orderNumber': _orderNumber,
+            }, 'PayPal');
           }
-        } catch (e) {
-          debugPrint('PayPal server finalisation error: $e');
-          if (mounted) {
-            Fluttertoast.showToast(
-              msg:
-                  'Payment received but verification failed. Order: #$_orderNumber. Contact support.',
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
-              toastLength: Toast.LENGTH_LONG,
+        } else {
+          // JS SDK postMessage se aaya — normal server finalisation flow
+          try {
+            final orderId = result['orderId']?.toString() ?? '';
+            debugPrint(
+              'PayPal JS SDK flow. orderId=$orderId, order#=$_orderNumber',
             );
-            _navigateToPaymentFailure(orderNumber: _orderNumber);
+
+            final serverResponse = await _paymentService.processPayPal(
+              orderNumber: _orderNumber!,
+              orderId: _orderId!,
+              amount: _amount!,
+              currency: _currency ?? 'AUD',
+              paymentResult: {
+                'status': 'COMPLETED',
+                'orderId': orderId,
+                'paymentId': orderId,
+                'paymentID': orderId,
+                'payerID': result['payerID']?.toString() ?? '',
+              },
+            );
+
+            if (!_isPayLater) {
+              await StorageService.clearCartData();
+              await StorageService.clearPaymentCartSnapshot();
+            }
+            await StorageService.clearOrderData();
+            await StorageService.clearCheckoutData();
+
+            if (mounted) {
+              _navigateToOrderSuccess({...result, ...serverResponse}, 'PayPal');
+            }
+          } catch (e) {
+            debugPrint('PayPal server finalisation error: $e');
+            if (mounted) {
+              Fluttertoast.showToast(
+                msg:
+                    'Payment received but verification failed. Order: #$_orderNumber. Contact support.',
+                backgroundColor: Colors.red,
+                textColor: Colors.white,
+                toastLength: Toast.LENGTH_LONG,
+              );
+              _navigateToPaymentFailure(orderNumber: _orderNumber);
+            }
           }
         }
       } else if (result['status'] == 'ERROR') {
@@ -2559,7 +2596,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
   String get _effectiveSelectedPaymentMethod {
     final method = _selectedPaymentMethod.trim();
-    if (method.isEmpty) return 'Credit Card';
+
+    // Default: PayPal selected (Credit Card / Google Pay UI hidden — PayPal-only flow)
+    if (method.isEmpty) {
+      return _canShowAlternativePaymentMethods ? 'PayPal' : 'Credit Card';
+    }
 
     final isAlternativeMethod =
         method == 'PayPal' || method == 'Google Pay' || method == 'Apple Pay';
@@ -2855,7 +2896,8 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Widget _buildPaymentMethodSection() {
-    final bool isIOS = Platform.isIOS;
+    // ignore: unused_local_variable
+    final bool isIOS = Platform.isIOS; // kept for future Apple Pay re-enable
     final effectivePaymentMethod = _effectiveSelectedPaymentMethod;
 
     // Payment options sirf tab dikhein jab Partial ya Unpaid ho
@@ -2876,28 +2918,32 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
             const SizedBox(height: 16),
 
-            // 1. Credit Card — hamesha dikhega
-            GestureDetector(
-              onTap: () {
-                setState(() => _selectedPaymentMethod = 'Credit Card');
-                // Auto-scroll to card form after frame renders
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (_cardFormKey.currentContext != null) {
-                    Scrollable.ensureVisible(
-                      _cardFormKey.currentContext!,
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOut,
-                      alignment: 0.0,
-                    );
-                  }
-                });
-              },
-              child: _paymentOptionRow(
-                'Credit Card',
-                Icons.credit_card,
-                effectivePaymentMethod == 'Credit Card',
+            // 1. Credit Card — sirf restricted case me dikhega
+            // (jab PayPal allowed nahi hai e.g. trade user / admin order).
+            // Normal flow me Credit Card option hidden hai — PayPal-only.
+            if (!_canShowAlternativePaymentMethods) ...[
+              GestureDetector(
+                onTap: () {
+                  setState(() => _selectedPaymentMethod = 'Credit Card');
+                  // Auto-scroll to card form after frame renders
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_cardFormKey.currentContext != null) {
+                      Scrollable.ensureVisible(
+                        _cardFormKey.currentContext!,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                        alignment: 0.0,
+                      );
+                    }
+                  });
+                },
+                child: _paymentOptionRow(
+                  'Credit Card',
+                  Icons.credit_card,
+                  effectivePaymentMethod == 'Credit Card',
+                ),
               ),
-            ),
+            ],
 
             // Info banner when alternative methods are restricted
             if (!_canShowAlternativePaymentMethods) ...[
@@ -2937,8 +2983,8 @@ class _PaymentPageState extends State<PaymentPage> {
             ],
             const SizedBox(height: 12),
 
-            // 2. PayPal + Google/Apple Pay —
-            // sirf jab manual_order_by_admin == 0 AND is_trade_user == 0
+            // 2. PayPal — sirf option jo by default dikhta hai aur pre-selected hai.
+            // Google Pay row hata diya gaya hai (UI se hidden, by request).
             if (_canShowAlternativePaymentMethods) ...[
               GestureDetector(
                 onTap: () => setState(() => _selectedPaymentMethod = 'PayPal'),
@@ -2949,6 +2995,9 @@ class _PaymentPageState extends State<PaymentPage> {
                   fallbackAsset: 'assets/images/paypal.png',
                 ),
               ),
+              // Google Pay UI hidden — by request (point 1).
+              // Backend/Google Pay logic untouched; sirf option row remove kiya gaya.
+              /*
               if (!kIsWeb) ...[
                 const SizedBox(height: 12),
                 GestureDetector(
@@ -2969,7 +3018,6 @@ class _PaymentPageState extends State<PaymentPage> {
                         : null,
                   ),
                 ),
-                /*
                 if (!kIsWeb && isIOS) ...[
                   const SizedBox(height: 12),
                   _paymentOptionRow(
@@ -2979,8 +3027,8 @@ class _PaymentPageState extends State<PaymentPage> {
                     isEnabled: false,
                   ),
                 ],
-                */
               ],
+              */
             ],
           ],
         ),

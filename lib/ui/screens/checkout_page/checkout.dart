@@ -5,6 +5,9 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:apcproject/services/storage_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../data/models/user_model.dart';
+import '../../../data/models/settings_model.dart';
+import '../../../data/services/settings_service.dart';
+import '../../../core/utils/logger.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -34,7 +37,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // Shipping method
   String _shippingMethod = 'Ship to Address';
-  String? _selectedPickupLocation;
+  int? _selectedPickupLocationId;
+  List<PickupLocation> _pickupLocations = [];
 
   // Login status
   bool _isLoggedIn = false;
@@ -117,9 +121,38 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _prefillFromUserProfile(user);
     }
 
+    await _loadPickupLocations();
+
     setState(() {
       _isLoadingUserData = false;
     });
+  }
+
+  Future<void> _loadPickupLocations() async {
+    try {
+      var settings = await StorageService.getSettings();
+      if (settings == null || settings.pickupLocations.isEmpty) {
+        settings = await SettingsService().getSettings();
+        await StorageService.saveSettings(settings);
+      }
+
+      if (!mounted) return;
+      _pickupLocations = settings.pickupLocations
+          .where((location) => location.status == 1)
+          .toList();
+    } catch (e) {
+      Logger.error('Failed to load pickup locations', e);
+    }
+  }
+
+  String? _selectedPickupLocationLabel() {
+    if (_selectedPickupLocationId == null) return null;
+    for (final location in _pickupLocations) {
+      if (location.id == _selectedPickupLocationId) {
+        return location.location;
+      }
+    }
+    return null;
   }
 
   @override
@@ -256,7 +289,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 setState(() {
                   _shippingMethod = value!;
                   if (_shippingMethod == 'Ship to Address') {
-                    _selectedPickupLocation = null;
+                    _selectedPickupLocationId = null;
                   }
                 });
               },
@@ -268,28 +301,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 12),
-              RadioListTile<String>(
-                title: const Text('53 Cochranes Road, Moorabbin, VIC 3189'),
-                value: '53 Cochranes Road, Moorabbin, VIC 3189',
-                groupValue: _selectedPickupLocation,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPickupLocation = value;
-                  });
-                },
-              ),
-              RadioListTile<String>(
-                title: const Text(
-                  'Unit 2, 2 Commercial Dr, Shailer Park QLD 4128',
+              if (_pickupLocations.isEmpty)
+                Text(
+                  'Pickup locations are not available right now. Please try again later.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                )
+              else
+                ..._pickupLocations.map(
+                  (location) => RadioListTile<int>(
+                    title: Text(location.location),
+                    value: location.id,
+                    groupValue: _selectedPickupLocationId,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPickupLocationId = value;
+                      });
+                    },
+                  ),
                 ),
-                value: 'Unit 2, 2 Commercial Dr, Shailer Park QLD 4128',
-                groupValue: _selectedPickupLocation,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPickupLocation = value;
-                  });
-                },
-              ),
             ],
           ],
         ),
@@ -344,8 +373,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                 ),
             ] else if (_shippingMethod == 'Pickup' &&
-                _selectedPickupLocation != null) ...[
-              _buildDetailRow('Pickup Location', _selectedPickupLocation!),
+                _selectedPickupLocationLabel() != null) ...[
+              _buildDetailRow(
+                'Pickup Location',
+                _selectedPickupLocationLabel()!,
+              ),
             ] else if (_shippingMethod == 'Pickup') ...[
               Text(
                 'Select pickup location above',
@@ -714,6 +746,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
             : () async {
                 // Validate form
                 if (_formKey.currentState!.validate()) {
+                  if (_shippingMethod == 'Pickup' &&
+                      _selectedPickupLocationId == null) {
+                    Fluttertoast.showToast(
+                      msg: 'Please select a pickup location',
+                      toastLength: Toast.LENGTH_SHORT,
+                    );
+                    return;
+                  }
+
                   // Double-check user is logged in (defensive check)
                   final authProvider = Provider.of<AuthProvider>(
                     context,
@@ -736,7 +777,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     // Save checkout form data (no account creation needed for mobile)
                     final checkoutData = {
                       'shipping_method': _shippingMethod,
-                      'pickup_location': _selectedPickupLocation,
+                      'pickup_location': _selectedPickupLocationId,
+                      'pickup_location_label': _selectedPickupLocationLabel(),
                       'name': _nameController.text.trim(),
                       'email': _emailController.text.trim(),
                       'mobile': _mobileController.text.trim(),

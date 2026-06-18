@@ -147,54 +147,43 @@ class _PaymentWebViewState extends State<PaymentWebView> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      // Android hardware back button press par bhi consistent 'cancelled'
-      // result milega — jaisa X button deta hai. Isse payment.dart me
-      // dono cases (X press / back press) same code path se MyOrders
-      // par navigate honge.
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        _popWithResult({'status': 'cancelled'});
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF003087),
-          foregroundColor: Colors.white,
-          title: const Text(
-            'Secure Payment',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () {
-              _popWithResult({'status': 'cancelled'});
-            },
-          ),
-          actions: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(14),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF003087),
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Secure Payment',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            _popWithResult({'status': 'cancelled'});
+          },
+        ),
+        actions: [
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
                 ),
               ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            WebViewWidget(controller: _controller),
-            if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(color: Color(0xFF003087)),
-              ),
-          ],
-        ),
+            ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(color: Color(0xFF003087)),
+            ),
+        ],
       ),
     );
   }

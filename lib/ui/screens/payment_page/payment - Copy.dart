@@ -20,6 +20,7 @@ import 'package:apcproject/data/models/payment_config_model.dart';
 import 'package:apcproject/core/exceptions/api_exception.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:apcproject/ui/screens/payment_page/payment_failure.dart';
+import 'package:apcproject/ui/screens/payment_page/payment_webview.dart';
 
 class _ShippingBreakdown {
   const _ShippingBreakdown({
@@ -115,6 +116,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
   final _formKey = GlobalKey<FormState>();
 
+  // Scroll controller for auto-scroll to card form + PAY NOW visibility
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _cardFormKey = GlobalKey();
+
   // PayPal config cache
   Map<String, dynamic>? _paypalConfig;
 
@@ -156,6 +161,22 @@ class _PaymentPageState extends State<PaymentPage> {
     _setupInitialUI();
     _loadPayPalConfig();
     _initializeGooglePay();
+
+    // Scroll to bottom when CVV loses focus (covers both Done button & tap-outside)
+    // 600ms delay gives iOS keyboard enough time to fully dismiss before scroll
+    _cvvFocus.addListener(() {
+      if (!_cvvFocus.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
   }
 
   /// Populate initial UI values from navigation arguments to avoid showing $0.00
@@ -319,6 +340,7 @@ class _PaymentPageState extends State<PaymentPage> {
     _expiryFocus.dispose();
     _cvvFocus.dispose();
     _cardholderNameFocus.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -1483,12 +1505,13 @@ class _PaymentPageState extends State<PaymentPage> {
 
     dynamic pickupLocationId = '';
     if (shipping == 'pickup') {
-      final pickupLocation = checkoutData['pickup_location'] as String?;
-      if (pickupLocation == '53 Cochranes Road, Moorabbin, VIC 3189') {
-        pickupLocationId = 1;
-      } else if (pickupLocation ==
-          'Unit 2, 2 Commercial Dr, Shailer Park QLD 4128') {
-        pickupLocationId = 2;
+      final raw = checkoutData['pickup_location'];
+      if (raw != null && raw.toString().isNotEmpty) {
+        if (raw is int) {
+          pickupLocationId = raw;
+        } else {
+          pickupLocationId = int.tryParse(raw.toString()) ?? '';
+        }
       }
     }
 
@@ -1724,6 +1747,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   /// Handle PayPal payment
+  /*
   Future<void> _handlePayPalPayment() async {
     if (_isProcessing) return;
 
@@ -1931,6 +1955,194 @@ class _PaymentPageState extends State<PaymentPage> {
       }
     }
   }
+  */
+
+  /* new updated method for paypal */
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // REPLACEMENT FOR _handlePayPalPayment() in payment.dart
+  //
+  // OLD approach: Flutter calls PayPal REST API directly, opens approval URL
+  //               in _PayPalWebViewScreen.
+  //
+  // NEW approach (SDD §4): Flutter opens Laravel's /payment page in WebView.
+  //               Laravel hosts the full PayPal JS SDK page.
+  //               Result comes back via PayPalResult JavaScript channel.
+  //
+  // REQUIRED: import 'package:apcproject/ui/screens/payment_page/payment_webview.dart';
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Handle PayPal payment — JS SDK WebView approach (SDD §4)
+  Future<void> _handlePayPalPayment() async {
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      // ── Step 1: Ensure order is created on server (Normal Flow only) ──────
+      if (!_isPayLater &&
+          !_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        debugPrint(
+          'PayPal (JS SDK): Creating order via store-order API first...',
+        );
+        final response = await _createOrderForDirectPayment();
+        if (response == null) {
+          if (mounted) setState(() => _isProcessing = false);
+          return;
+        }
+        if (response['process_payment'] == 0 &&
+            response['show_order_success'] == 1) {
+          _navigateToOrderSuccess(response, 'PayPal');
+          return;
+        }
+        debugPrint(
+          'Order created: $_orderNumber. Opening PayPal JS SDK page...',
+        );
+      } else if (_isFromMyOrdersPayment &&
+          (_orderId == null || _orderNumber == null)) {
+        throw Exception(
+          'Order details not found. Please try again from the My Orders screen.',
+        );
+      }
+
+      if (!mounted) return;
+      setState(
+        () => _isProcessing = false,
+      ); // release lock while WebView is open
+
+      // ── Step 2: Open Laravel payment page in WebView ──────────────────────
+      // Laravel hosts /payment?amount=X&currency=AUD&ref=ORDER_NUMBER
+      // The page loads PayPal JS SDK and posts result via window.PayPalResult
+      final Map<String, dynamic>?
+      result = await Navigator.of(context).push<Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder: (_) => PaymentWebView(
+            amount: _amount ?? 0.0,
+            currency: _currency ?? 'AUD',
+            orderRef: base64Encode(utf8.encode(_orderId?.toString() ?? '')),
+            onPaymentResult: (res) {
+              // Callback fires when JS calls window.PayPalResult.postMessage(...)
+              debugPrint('PayPal JS SDK result callback: $res');
+            },
+          ),
+        ),
+      );
+
+      debugPrint('PayPal WebView dismissed. Result: $result');
+
+      if (result == null || result['status'] == 'cancelled') {
+        debugPrint('PayPal: Cancelled or dismissed by user.');
+        return; // Stay on payment page — user can try again
+      }
+
+      // ── Step 3: Handle success from JS SDK ────────────────────────────────
+      if (result['status'] == 'COMPLETED') {
+        if (mounted) setState(() => _isProcessing = true);
+
+        final String? paymentSource = result['source']?.toString();
+        final bool isUrlRedirect = paymentSource == 'url_redirect';
+
+        debugPrint(
+          'PayPal COMPLETED. source=$paymentSource, order#=$_orderNumber',
+        );
+
+        // ── Step 4: Finalise on server ────────────────────────────────────
+        // URL redirect ka matlab: Laravel ne server-side payment already capture
+        // kar liya hai — Flutter se dobara processPayPal() call karne ki zaroorat
+        // nahi, warna empty token ki wajah se 400 error aata hai.
+        // JS SDK postMessage se aaya ho tab hi processPayPal() call karo.
+        if (isUrlRedirect) {
+          // Laravel already handled capture — directly success navigate karo
+          debugPrint(
+            'PayPal: URL redirect detected. Skipping processPayPal() — Laravel already captured.',
+          );
+          if (!_isPayLater) {
+            await StorageService.clearCartData();
+            await StorageService.clearPaymentCartSnapshot();
+          }
+          await StorageService.clearOrderData();
+          await StorageService.clearCheckoutData();
+
+          if (mounted) {
+            _navigateToOrderSuccess({
+              ...result,
+              'orderNumber': _orderNumber,
+            }, 'PayPal');
+          }
+        } else {
+          // JS SDK postMessage se aaya — normal server finalisation flow
+          try {
+            final orderId = result['orderId']?.toString() ?? '';
+            debugPrint(
+              'PayPal JS SDK flow. orderId=$orderId, order#=$_orderNumber',
+            );
+
+            final serverResponse = await _paymentService.processPayPal(
+              orderNumber: _orderNumber!,
+              orderId: _orderId!,
+              amount: _amount!,
+              currency: _currency ?? 'AUD',
+              paymentResult: {
+                'status': 'COMPLETED',
+                'orderId': orderId,
+                'paymentId': orderId,
+                'paymentID': orderId,
+                'payerID': result['payerID']?.toString() ?? '',
+              },
+            );
+
+            if (!_isPayLater) {
+              await StorageService.clearCartData();
+              await StorageService.clearPaymentCartSnapshot();
+            }
+            await StorageService.clearOrderData();
+            await StorageService.clearCheckoutData();
+
+            if (mounted) {
+              _navigateToOrderSuccess({...result, ...serverResponse}, 'PayPal');
+            }
+          } catch (e) {
+            debugPrint('PayPal server finalisation error: $e');
+            if (mounted) {
+              Fluttertoast.showToast(
+                msg:
+                    'Payment received but verification failed. Order: #$_orderNumber. Contact support.',
+                backgroundColor: Colors.red,
+                textColor: Colors.white,
+                toastLength: Toast.LENGTH_LONG,
+              );
+              _navigateToPaymentFailure(orderNumber: _orderNumber);
+            }
+          }
+        }
+      } else if (result['status'] == 'ERROR') {
+        final errMsg = result['error']?.toString() ?? 'Payment failed.';
+        debugPrint('PayPal ERROR: $errMsg');
+        if (mounted) {
+          Fluttertoast.showToast(
+            msg: errMsg,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
+          _navigateToPaymentFailure();
+        }
+      }
+    } catch (e) {
+      debugPrint('PayPal Error: $e');
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: e.toString().replaceAll('Exception: ', ''),
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  /* --------------------------method code end here --------------------------------*/
 
   // ─────────────────────────────────────────────────────────────────────────
   // COUPON MANAGEMENT
@@ -2360,11 +2572,15 @@ class _PaymentPageState extends State<PaymentPage> {
   // Getters for conditional payment options visibility and method selection
   // ─────────────────────────────────────────────────────────────────────────
 
-  bool get _canShowPaymentOptionsByStatus =>
-      _isPayLater ||
-      _orderData == null ||
-      _orderPaymentStatus == 'partial' ||
-      _orderPaymentStatus == 'unpaid';
+  bool get _canShowPaymentOptionsByStatus {
+    // Normal flow + large order (freight pending): payment options hide karo
+    if (_hasPendingFreightQuote && !_isPayLater) return false;
+
+    return _isPayLater ||
+        _orderData == null ||
+        _orderPaymentStatus == 'partial' ||
+        _orderPaymentStatus == 'unpaid';
+  }
 
   bool get _canShowAlternativePaymentMethods =>
       _isPayLater || (_manualOrderByAdmin == 0 && _isTradeUser == 0);
@@ -2428,6 +2644,7 @@ class _PaymentPageState extends State<PaymentPage> {
       },
       child: Scaffold(
         backgroundColor: Colors.grey[50],
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
           backgroundColor: const Color(0xFFF8F8F8),
           elevation: 0,
@@ -2529,8 +2746,14 @@ class _PaymentPageState extends State<PaymentPage> {
                 : RefreshIndicator(
                     onRefresh: _onPullToRefreshPricing,
                     child: SingleChildScrollView(
+                      controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.fromLTRB(
+                        16.0,
+                        16.0,
+                        16.0,
+                        100.0,
+                      ),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -2608,11 +2831,51 @@ class _PaymentPageState extends State<PaymentPage> {
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  child: _canShowPaymentOptionsByStatus
-                      ? (effectivePaymentMethod == 'PayPal'
-                            ? _buildPayPalButton()
-                            : _buildSubmitButton())
-                      : _buildSubmitButton(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_hasPendingFreightQuote && !_isPayLater) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFFCC02)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Color(0xFFF9A825),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'By clicking request freight quote a team member will update your online quote within one business day with the freight delivery cost. The updated Quote can be viewed though your online accounts "My Orders" section',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF5D4037),
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      _canShowPaymentOptionsByStatus
+                          ? (effectivePaymentMethod == 'PayPal'
+                                ? _buildPayPalButton()
+                                : _buildSubmitButton())
+                          : _buildSubmitButton(),
+                    ],
+                  ),
                 ),
               ),
       ),
@@ -2643,8 +2906,20 @@ class _PaymentPageState extends State<PaymentPage> {
 
             // 1. Credit Card — hamesha dikhega
             GestureDetector(
-              onTap: () =>
-                  setState(() => _selectedPaymentMethod = 'Credit Card'),
+              onTap: () {
+                setState(() => _selectedPaymentMethod = 'Credit Card');
+                // Auto-scroll to card form after frame renders
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_cardFormKey.currentContext != null) {
+                    Scrollable.ensureVisible(
+                      _cardFormKey.currentContext!,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeInOut,
+                      alignment: 0.0,
+                    );
+                  }
+                });
+              },
               child: _paymentOptionRow(
                 'Credit Card',
                 Icons.credit_card,
@@ -3155,15 +3430,16 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Widget _buildSubmitButton() {
     final isBusy = _isProcessing || _isPaymentProcessing;
-    return Container(
-      height: 60,
-      alignment: Alignment.center,
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
       child: ElevatedButton(
         onPressed: isBusy ? null : _submitButtonAction(),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
+          minimumSize: const Size(double.infinity, 56),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
           shape: const StadiumBorder(),
           elevation: 2,
         ),
@@ -3176,9 +3452,11 @@ class _PaymentPageState extends State<PaymentPage> {
                   strokeWidth: 2,
                 ),
               )
-            : const Text(
-                'PAY NOW',
-                style: TextStyle(
+            : Text(
+                (_hasPendingFreightQuote && !_isPayLater)
+                    ? 'REQUEST FREIGHT QUOTE'
+                    : 'PAY NOW',
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
@@ -3188,15 +3466,16 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Widget _buildPayPalButton() {
-    return Container(
-      height: 60,
-      alignment: Alignment.center,
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
       child: ElevatedButton(
         onPressed: _isProcessing ? null : _handlePayPalPayment,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF002e5b),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 95),
+          minimumSize: const Size(double.infinity, 56),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
           shape: const StadiumBorder(),
           elevation: 2,
         ),
@@ -3225,17 +3504,13 @@ class _PaymentPageState extends State<PaymentPage> {
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
       child: Container(
+        key: _cardFormKey, // scroll target for auto-scroll
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'CARD DETAILS',
+            Text(
+              'Card Details',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -3321,9 +3596,11 @@ class _PaymentPageState extends State<PaymentPage> {
                     hint: 'CVV',
                     keyboardType: TextInputType.number,
                     maxLength: 4,
-                    obscureText: true,
+                    obscureText: false,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: () => FocusScope.of(context).unfocus(),
+                    onSubmitted: () {
+                      FocusScope.of(context).unfocus();
+                    },
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Required';
                       if (v.length < 3) return 'Invalid';
@@ -3472,6 +3749,7 @@ class _ExpiryDateFormatter extends TextInputFormatter {
 // instead of relying on flutter_paypal's buggy onSuccess callback.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/*
 class _PayPalWebViewScreen extends StatefulWidget {
   final String approvalUrl;
   final String returnUrl;
@@ -3487,7 +3765,8 @@ class _PayPalWebViewScreen extends StatefulWidget {
   State<_PayPalWebViewScreen> createState() => _PayPalWebViewScreenState();
 }
 
-class _PayPalWebViewScreenState extends State<_PayPalWebViewScreen> {
+class _PayPalWebViewScreenState extends State<_PayPalWebViewScreen> 
+{
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasPopped = false;
@@ -3573,7 +3852,7 @@ class _PayPalWebViewScreenState extends State<_PayPalWebViewScreen> {
         backgroundColor: const Color(0xFF003087),
         foregroundColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.close'),
           onPressed: () {
             if (!_hasPopped) {
               _hasPopped = true;
@@ -3594,3 +3873,4 @@ class _PayPalWebViewScreenState extends State<_PayPalWebViewScreen> {
     );
   }
 }
+*/
