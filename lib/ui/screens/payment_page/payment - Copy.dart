@@ -21,6 +21,7 @@ import 'package:apcproject/core/exceptions/api_exception.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:apcproject/ui/screens/payment_page/payment_failure.dart';
 import 'package:apcproject/ui/screens/payment_page/payment_webview.dart';
+import 'package:apcproject/ui/screens/profile_page/myorder.dart';
 
 class _ShippingBreakdown {
   const _ShippingBreakdown({
@@ -2032,8 +2033,16 @@ class _PaymentPageState extends State<PaymentPage> {
       debugPrint('PayPal WebView dismissed. Result: $result');
 
       if (result == null || result['status'] == 'cancelled') {
-        debugPrint('PayPal: Cancelled or dismissed by user.');
-        return; // Stay on payment page — user can try again
+        debugPrint(
+          'PayPal: Cancelled or dismissed by user (X button / back press). Navigating to MyOrders.',
+        );
+        if (mounted) setState(() => _isProcessing = false);
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MyOrdersPage()),
+          );
+        }
+        return;
       }
 
       // ── Step 3: Handle success from JS SDK ────────────────────────────────
@@ -2587,7 +2596,11 @@ class _PaymentPageState extends State<PaymentPage> {
 
   String get _effectiveSelectedPaymentMethod {
     final method = _selectedPaymentMethod.trim();
-    if (method.isEmpty) return 'Credit Card';
+
+    // Default: PayPal selected (Credit Card / Google Pay UI hidden — PayPal-only flow)
+    if (method.isEmpty) {
+      return _canShowAlternativePaymentMethods ? 'PayPal' : 'Credit Card';
+    }
 
     final isAlternativeMethod =
         method == 'PayPal' || method == 'Google Pay' || method == 'Apple Pay';
@@ -2883,7 +2896,8 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Widget _buildPaymentMethodSection() {
-    final bool isIOS = Platform.isIOS;
+    // ignore: unused_local_variable
+    final bool isIOS = Platform.isIOS; // kept for future Apple Pay re-enable
     final effectivePaymentMethod = _effectiveSelectedPaymentMethod;
 
     // Payment options sirf tab dikhein jab Partial ya Unpaid ho
@@ -2904,28 +2918,32 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
             const SizedBox(height: 16),
 
-            // 1. Credit Card — hamesha dikhega
-            GestureDetector(
-              onTap: () {
-                setState(() => _selectedPaymentMethod = 'Credit Card');
-                // Auto-scroll to card form after frame renders
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (_cardFormKey.currentContext != null) {
-                    Scrollable.ensureVisible(
-                      _cardFormKey.currentContext!,
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOut,
-                      alignment: 0.0,
-                    );
-                  }
-                });
-              },
-              child: _paymentOptionRow(
-                'Credit Card',
-                Icons.credit_card,
-                effectivePaymentMethod == 'Credit Card',
+            // 1. Credit Card — sirf restricted case me dikhega
+            // (jab PayPal allowed nahi hai e.g. trade user / admin order).
+            // Normal flow me Credit Card option hidden hai — PayPal-only.
+            if (!_canShowAlternativePaymentMethods) ...[
+              GestureDetector(
+                onTap: () {
+                  setState(() => _selectedPaymentMethod = 'Credit Card');
+                  // Auto-scroll to card form after frame renders
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_cardFormKey.currentContext != null) {
+                      Scrollable.ensureVisible(
+                        _cardFormKey.currentContext!,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                        alignment: 0.0,
+                      );
+                    }
+                  });
+                },
+                child: _paymentOptionRow(
+                  'Credit Card',
+                  Icons.credit_card,
+                  effectivePaymentMethod == 'Credit Card',
+                ),
               ),
-            ),
+            ],
 
             // Info banner when alternative methods are restricted
             if (!_canShowAlternativePaymentMethods) ...[
@@ -2965,8 +2983,8 @@ class _PaymentPageState extends State<PaymentPage> {
             ],
             const SizedBox(height: 12),
 
-            // 2. PayPal + Google/Apple Pay —
-            // sirf jab manual_order_by_admin == 0 AND is_trade_user == 0
+            // 2. PayPal — sirf option jo by default dikhta hai aur pre-selected hai.
+            // Google Pay row hata diya gaya hai (UI se hidden, by request).
             if (_canShowAlternativePaymentMethods) ...[
               GestureDetector(
                 onTap: () => setState(() => _selectedPaymentMethod = 'PayPal'),
@@ -2977,6 +2995,9 @@ class _PaymentPageState extends State<PaymentPage> {
                   fallbackAsset: 'assets/images/paypal.png',
                 ),
               ),
+              // Google Pay UI hidden — by request (point 1).
+              // Backend/Google Pay logic untouched; sirf option row remove kiya gaya.
+              /*
               if (!kIsWeb) ...[
                 const SizedBox(height: 12),
                 GestureDetector(
@@ -2997,7 +3018,6 @@ class _PaymentPageState extends State<PaymentPage> {
                         : null,
                   ),
                 ),
-                /*
                 if (!kIsWeb && isIOS) ...[
                   const SizedBox(height: 12),
                   _paymentOptionRow(
@@ -3007,8 +3027,8 @@ class _PaymentPageState extends State<PaymentPage> {
                     isEnabled: false,
                   ),
                 ],
-                */
               ],
+              */
             ],
           ],
         ),

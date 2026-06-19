@@ -2905,6 +2905,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
     if (!canShowPayments) return const SizedBox.shrink();
 
+    // PayPal-only flow: tile hidden hai, section dikhane ki zarurat nahi
+    if (_canShowAlternativePaymentMethods) return const SizedBox.shrink();
+
     return Card(
       color: Colors.white,
       child: Padding(
