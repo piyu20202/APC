@@ -5,7 +5,6 @@ import '../drawer_view/drawer.dart';
 import '../widget/listing_product_card.dart';
 import '../productlist_view/sale_products.dart';
 import '../productlist_view/productlist.dart';
-import '../signup_view/trader_upgrade_flow.dart';
 import '../../../services/user_role_service.dart';
 import '../../../services/storage_service.dart';
 // import '../../../data/services/settings_service.dart'; // Not using API call for now
@@ -429,53 +428,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         titleSpacing: 0,
         centerTitle: false,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          // Trader upgrade button (only for non-traders)
-          if (!_isTrader)
-            Padding(
-              padding: const EdgeInsets.only(right: 8, left: 4),
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const TraderUpgradeFlow(isExistingUser: true),
-                      ),
-                    ).then((_) => _checkTraderStatus());
-                  },
-                  icon: const Icon(
-                    Icons.business,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                  label: const Text(
-                    'Become Trade User',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade600,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
       backgroundColor: Colors.grey[50],
       body: Stack(

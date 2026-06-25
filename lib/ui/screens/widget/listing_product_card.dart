@@ -126,87 +126,69 @@ class _ListingProductCardState extends State<ListingProductCard> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(5),
                 ),
-                child: Stack(
+                child: Column(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(5),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: _isOutOfStock(product)
-                            ? ColorFiltered(
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.grey,
-                                  BlendMode.saturation,
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(5),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: double.infinity,
+                              child: _isOutOfStock(product)
+                                  ? ColorFiltered(
+                                      colorFilter: const ColorFilter.mode(
+                                        Colors.grey,
+                                        BlendMode.saturation,
+                                      ),
+                                      child: Opacity(
+                                        opacity: 0.6,
+                                        child: _buildProductImage(product),
+                                      ),
+                                    )
+                                  : _buildProductImage(product),
+                            ),
+                          ),
+                          if (_shouldShowSaleTopBanner(product))
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(5),
+                                    topRight: Radius.circular(5),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.15),
+                                      blurRadius: 2,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
                                 ),
-                                child: Opacity(
-                                  opacity: 0.6,
-                                  child: _buildProductImage(product),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
                                 ),
-                              )
-                            : _buildProductImage(product),
+                                child: _buildSaleTopBannerLabel(
+                                  _saleLabel(product),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    if (_shouldShowSaleTopBanner(product))
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(5),
-                              topRight: Radius.circular(5),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 2,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          child: _buildSaleTopBannerLabel(
-                            _saleLabel(product),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-
                     if (_isOutOfStock(product))
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(5),
-                            boxShadow: [
-                              BoxShadow(
-                                // FIX 5: withOpacity -> withValues
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 3,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: const Text(
-                            'Out of Stock',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: _buildOutOfStockBadge(fontSize: 9),
                         ),
                       ),
                   ],
@@ -683,101 +665,81 @@ class _ProductListCardState extends State<ProductListCard> {
             children: [
               SizedBox(
                 width: 120,
-                child: Stack(
+                child: Column(
                   children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
-                      child: Container(
-                        color: Colors.white,
-                        child: SizedBox(
-                          width: 120,
-                          height: double.infinity,
-                          child: outOfStock
-                              ? ColorFiltered(
-                                  colorFilter: const ColorFilter.mode(
-                                    Colors.grey,
-                                    BlendMode.saturation,
-                                  ),
-                                  child: Opacity(
-                                    opacity: 0.6,
-                                    child: _buildProductImage(product),
-                                  ),
-                                )
-                              : _buildProductImage(product),
-                        ),
-                      ),
-                    ),
-                    if (_shouldShowSaleTopBanner(product))
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.red,
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          ClipRRect(
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(12),
+                              bottomLeft: Radius.circular(12),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 2,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
-                          ),
-                          child: _buildSaleTopBannerLabel(
-                            _saleLabel(product),
-                            fontSize: 9,
-                          ),
-                        ),
-                      ),
-                    // FIX 1: Added missing `if (outOfStock)` check and correct
-                    // `Positioned(` opening that was absent in the original
-                    if (outOfStock)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(5),
-                            boxShadow: [
-                              BoxShadow(
-                                // FIX 5: withOpacity -> withValues
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 3,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: const Text(
-                            'Out of Stock',
-                            style: TextStyle(
+                            child: Container(
                               color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
+                              child: SizedBox(
+                                width: 120,
+                                height: double.infinity,
+                                child: outOfStock
+                                    ? ColorFiltered(
+                                        colorFilter: const ColorFilter.mode(
+                                          Colors.grey,
+                                          BlendMode.saturation,
+                                        ),
+                                        child: Opacity(
+                                          opacity: 0.6,
+                                          child: _buildProductImage(product),
+                                        ),
+                                      )
+                                    : _buildProductImage(product),
+                              ),
                             ),
                           ),
+                          if (_shouldShowSaleTopBanner(product))
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.15),
+                                      blurRadius: 2,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 4,
+                                ),
+                                child: _buildSaleTopBannerLabel(
+                                  _saleLabel(product),
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: _buildShippingLabels(product),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (outOfStock)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: _buildOutOfStockBadge(fontSize: 8),
                         ),
                       ),
-                    // FIX 2: Removed duplicate _buildShippingLabels — kept only one
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      child: _buildShippingLabels(product),
-                    ),
                   ],
                 ),
               ),
@@ -1195,6 +1157,31 @@ bool _isOutOfStock(Map<String, dynamic> product) {
     return outOfStock == '1' || outOfStock.toLowerCase() == 'true';
   }
   return false;
+}
+
+Widget _buildOutOfStockBadge({double fontSize = 9}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+    decoration: BoxDecoration(
+      color: Colors.red,
+      borderRadius: BorderRadius.circular(5),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.2),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    ),
+    child: Text(
+      'Out of Stock',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
 }
 
 Widget _buildShippingLabels(Map<String, dynamic> product) {

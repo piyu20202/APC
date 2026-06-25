@@ -12,18 +12,24 @@ class SettingsModel {
   factory SettingsModel.fromJson(Map<String, dynamic> json) {
     return SettingsModel(
       generalSettings: GeneralSettings.fromJson(
-        json['general_settings'] as Map<String, dynamic>,
+        _asMap(json['general_settings']),
       ),
       pageSettings: PageSettings.fromJson(
-        json['page_settings'] as Map<String, dynamic>,
+        _asMap(json['page_settings']),
       ),
-      pickupLocations: (json['pickup_locations'] as List<dynamic>)
+      pickupLocations: (json['pickup_locations'] as List<dynamic>? ?? [])
           .map(
             (location) =>
-                PickupLocation.fromJson(location as Map<String, dynamic>),
+                PickupLocation.fromJson(_asMap(location)),
           )
           .toList(),
     );
+  }
+
+  static Map<String, dynamic> _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return {};
   }
 
   Map<String, dynamic> toJson() {
@@ -47,6 +53,7 @@ class GeneralSettings {
   final int freeShippingThreshold;
   final double minFreeShippingCost;
   final String freeShippingStatus;
+  final String tradeUserProductContent;
 
   GeneralSettings({
     required this.logo,
@@ -58,6 +65,7 @@ class GeneralSettings {
     required this.freeShippingThreshold,
     required this.minFreeShippingCost,
     required this.freeShippingStatus,
+    required this.tradeUserProductContent,
   });
 
   factory GeneralSettings.fromJson(Map<String, dynamic> json) {
@@ -96,7 +104,13 @@ class GeneralSettings {
       ),
       freeShippingStatus:
           json['free_shipping_status']?.toString().toLowerCase() ?? 'no',
+      tradeUserProductContent: _parseString(json['trade_user_product_content']),
     );
+  }
+
+  static String _parseString(dynamic value) {
+    if (value == null) return '';
+    return value.toString().trim();
   }
 
   Map<String, dynamic> toJson() {
@@ -110,6 +124,7 @@ class GeneralSettings {
       'free_shipping_threshold': freeShippingThreshold,
       'min_free_shipping_cost': minFreeShippingCost,
       'free_shipping_status': freeShippingStatus,
+      'trade_user_product_content': tradeUserProductContent,
     };
   }
 }

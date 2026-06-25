@@ -170,9 +170,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   label: 'Manuals',
                 ),
                 const BottomNavigationBarItem(
-                  icon: Icon(Icons.phone_outlined),
-                  activeIcon: Icon(Icons.phone),
-                  label: 'Call Us',
+                  icon: Icon(Icons.contact_mail_outlined),
+                  activeIcon: Icon(Icons.contact_mail),
+                  label: 'Contact Us',
                 ),
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline),

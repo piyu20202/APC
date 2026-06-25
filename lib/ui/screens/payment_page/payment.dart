@@ -1388,6 +1388,9 @@ class _PaymentPageState extends State<PaymentPage> {
               grandTotalAfter: _amount,
             );
             _isCouponApplied = _couponCode != null && _couponCode!.isNotEmpty;
+            if (_isCouponApplied) {
+              _couponController.text = _couponCode!;
+            }
           });
         }
       }
@@ -2210,6 +2213,7 @@ class _PaymentPageState extends State<PaymentPage> {
           _couponOfferSubtitle = couponDetails['subtitle'] as String;
           _couponDiscount = couponDetails['discount'] as double;
           _isCouponApplied = true;
+          _couponController.text = _couponCode ?? code;
         });
       }
 
@@ -3222,32 +3226,54 @@ class _PaymentPageState extends State<PaymentPage> {
               Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
-                      onTap: _showCouponsModal,
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: AbsorbPointer(
-                          absorbing: true,
-                          child: TextField(
-                            controller: _couponController,
-                            decoration: InputDecoration(
-                              hintText: 'Enter promo code',
-                              hintStyle: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 14,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              border: InputBorder.none,
-                            ),
-                            style: const TextStyle(fontSize: 14),
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: TextField(
+                        controller: _couponController,
+                        readOnly: hasAppliedCoupon ||
+                            _isUpdatingCoupon ||
+                            _isProcessing,
+                        enabled: !hasAppliedCoupon &&
+                            !_isUpdatingCoupon &&
+                            !_isProcessing,
+                        textCapitalization: TextCapitalization.characters,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: hasAppliedCoupon ||
+                                _isUpdatingCoupon ||
+                                _isProcessing
+                            ? null
+                            : (_) => _applyPromoCode(),
+                        decoration: InputDecoration(
+                          hintText: 'Enter promo code',
+                          hintStyle: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 14,
                           ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          border: InputBorder.none,
+                          suffixIcon: hasAppliedCoupon
+                              ? null
+                              : IconButton(
+                                  onPressed: (_isLoadingCoupons ||
+                                          _isProcessing ||
+                                          _isUpdatingCoupon)
+                                      ? null
+                                      : _showCouponsModal,
+                                  icon: const Icon(
+                                    Icons.local_offer_outlined,
+                                    size: 20,
+                                    color: Color(0xFF151D51),
+                                  ),
+                                  tooltip: 'Browse offers',
+                                ),
                         ),
+                        style: const TextStyle(fontSize: 14),
                       ),
                     ),
                   ),

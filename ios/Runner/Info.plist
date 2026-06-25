@@ -52,6 +52,8 @@
 			<string>http</string>
 			<string>tel</string>
 			<string>mailto</string>
+			<string>youtube</string>
+			<string>vnd.youtube</string>
 		</array>
 		<key>NSAppTransportSecurity</key>
 		<dict>

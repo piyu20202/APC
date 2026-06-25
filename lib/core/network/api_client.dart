@@ -160,6 +160,46 @@ class ApiClient {
     }
   }
 
+  /// Multipart POST for file uploads.
+  static Future<Map<String, dynamic>> postMultipart({
+    required String endpoint,
+    Map<String, String>? fields,
+    List<http.MultipartFile>? files,
+    bool requireAuth = false,
+  }) async {
+    try {
+      final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
+      final request = http.MultipartRequest('POST', url);
+
+      if (requireAuth) {
+        final bearerToken = await StorageService.getBearerToken();
+        if (bearerToken != null) {
+          request.headers['Authorization'] = bearerToken;
+        }
+      }
+
+      request.headers['Accept'] = 'application/json';
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      if (files != null) {
+        request.files.addAll(files);
+      }
+
+      final streamedResponse = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response, endpoint);
+    } on ApiException {
+      rethrow;
+    } on http.ClientException catch (e) {
+      throw ApiException(message: 'Network error: ${e.message}');
+    } on Exception catch (e) {
+      throw ApiException(message: 'Request failed: ${e.toString()}');
+    }
+  }
+
   /// Handle API response
   static Map<String, dynamic> _handleResponse(http.Response response, String endpoint) {
     final statusCode = response.statusCode;

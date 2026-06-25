@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/exceptions/api_exception.dart';
 import '../../../services/storage_service.dart';
+import '../detail_view/detail_view.dart';
 import 'tracking_info_page.dart';
 
 class OrderDetailsPage extends StatefulWidget {
@@ -175,6 +176,20 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     if (value == null) return 0;
     if (value is int) return value;
     return int.tryParse(value.toString()) ?? 0;
+  }
+
+  void _openProductDetail(Map<String, dynamic>? product) {
+    if (product == null) return;
+
+    final productId = _safeInt(product['id']);
+    if (productId <= 0) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailView(productId: productId),
+      ),
+    );
   }
 
   Color _getStatusColor(String? status) {
@@ -649,6 +664,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     final productName = product?['name'] ?? 'Unknown Product';
     final productSku = product?['sku'] ?? '';
     final productPhoto = product?['photo'] ?? '';
+    final productId = _safeInt(product?['id']);
+    final canOpenProduct = productId > 0;
     final isKit = item['isKIT'] == 'yes' || item['isKIT'] == true;
     final kitDetails = item['kitCustomiseDetails'] is Map<String, dynamic>
         ? item['kitCustomiseDetails'] as Map<String, dynamic>
@@ -669,24 +686,28 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Product Image
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: productPhoto.isNotEmpty
-                      ? Image.network(
-                          'https://www.gurgaonit.com/apc_production_dev/assets/images/products/$productPhoto',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(Icons.image, color: Colors.grey[400]);
-                          },
-                        )
-                      : Icon(Icons.image, color: Colors.grey[400]),
+              InkWell(
+                onTap: canOpenProduct ? () => _openProductDetail(product) : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: productPhoto.isNotEmpty
+                        ? Image.network(
+                            'https://www.gurgaonit.com/apc_production_dev/assets/images/products/$productPhoto',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(Icons.image, color: Colors.grey[400]);
+                            },
+                          )
+                        : Icon(Icons.image, color: Colors.grey[400]),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -695,15 +716,25 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      productName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    InkWell(
+                      onTap: canOpenProduct
+                          ? () => _openProductDetail(product)
+                          : null,
+                      child: Text(
+                        productName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: canOpenProduct
+                              ? const Color(0xFF151D51)
+                              : Colors.black,
+                          decoration: canOpenProduct
+                              ? TextDecoration.underline
+                              : TextDecoration.none,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     if (productSku.isNotEmpty) ...[
                       const SizedBox(height: 4),

@@ -108,6 +108,9 @@ class ApiEndpoints {
   // Manuals endpoint
   static const String manuals = '/user/manuals';
 
+  // Contact form (Get More Info)
+  static const String contactSubmit = '/user/contact/submit';
+
   // Add more endpoints here as needed
   // static const String register = '/register';
   // static const String forgotPassword = '/forgot-password';
