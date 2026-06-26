@@ -1,0 +1,162 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../services/storage_service.dart';
+
+class CallUsPage extends StatefulWidget {
+  final Future<void> Function() onCallTap;
+
+  const CallUsPage({super.key, required this.onCallTap});
+
+  @override
+  State<CallUsPage> createState() => _CallUsPageState();
+}
+
+class _CallUsPageState extends State<CallUsPage> {
+  String _phoneNumber = '';
+  String _email = '';
+  String _contactTitle = '';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContactDetails();
+  }
+
+  Future<void> _loadContactDetails() async {
+    final settings = await StorageService.getSettings();
+    if (!mounted) return;
+
+    setState(() {
+      _phoneNumber = settings?.pageSettings.phone.trim() ?? '';
+      _email = settings?.pageSettings.email.trim() ?? '';
+      _contactTitle = settings?.pageSettings.contactTitle.trim() ?? '';
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _launchEmail() async {
+    if (_email.isEmpty) return;
+
+    final uri = Uri(scheme: 'mailto', path: _email);
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open email app')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final hasPhone = _phoneNumber.isNotEmpty;
+    final hasEmail = _email.isNotEmpty;
+    final title = _contactTitle.isNotEmpty ? _contactTitle : 'Contact Us';
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 12),
+            const Icon(Icons.support_agent, size: 48, color: Color(0xFF151D51)),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Request a quote via phone or email:',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 28),
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Email',
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: hasEmail ? _launchEmail : null,
+                      child: Text(
+                        hasEmail ? _email : 'Not available',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: hasEmail
+                              ? const Color(0xFF151D51)
+                              : Colors.black87,
+                          decoration: hasEmail
+                              ? TextDecoration.underline
+                              : TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Support Number',
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      hasPhone ? _phoneNumber : 'Not available',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: hasPhone ? widget.onCallTap : null,
+              icon: const Icon(Icons.phone),
+              label: const Text('Call Now'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF151D51),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

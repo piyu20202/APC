@@ -106,15 +106,13 @@ class _SignupScreenState extends State<SignupScreen> {
                     horizontal: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: _selectedUserType == 'regular'
-                        ? const Color(0xFF151D51)
-                        : Colors.white,
+                    color: const Color(0xFF151D51),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: _selectedUserType == 'regular'
-                          ? const Color(0xFF151D51)
+                          ? Colors.white
                           : Colors.grey.shade300,
-                      width: 1.5,
+                      width: _selectedUserType == 'regular' ? 2.5 : 1.5,
                     ),
                   ),
                   child: Row(
@@ -124,7 +122,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         Icons.person,
                         color: _selectedUserType == 'regular'
                             ? Colors.white
-                            : const Color(0xFF151D51),
+                            : Colors.white70,
                         size: 16,
                       ),
                       const SizedBox(width: 6),
@@ -133,7 +131,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         style: TextStyle(
                           color: _selectedUserType == 'regular'
                               ? Colors.white
-                              : const Color(0xFF151D51),
+                              : Colors.white70,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -157,15 +155,13 @@ class _SignupScreenState extends State<SignupScreen> {
                     horizontal: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: _selectedUserType == 'trader'
-                        ? Colors.yellow
-                        : Colors.white,
+                    color: Colors.yellow,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: _selectedUserType == 'trader'
-                          ? Colors.yellow
+                          ? const Color(0xFF151D51)
                           : Colors.grey.shade300,
-                      width: 1.5,
+                      width: _selectedUserType == 'trader' ? 2.5 : 1.5,
                     ),
                   ),
                   child: Row(
@@ -175,7 +171,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         Icons.business,
                         color: _selectedUserType == 'trader'
                             ? Colors.black
-                            : const Color(0xFF151D51),
+                            : Colors.black54,
                         size: 16,
                       ),
                       const SizedBox(width: 6),
@@ -184,7 +180,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         style: TextStyle(
                           color: _selectedUserType == 'trader'
                               ? Colors.black
-                              : const Color(0xFF151D51),
+                              : Colors.black54,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
