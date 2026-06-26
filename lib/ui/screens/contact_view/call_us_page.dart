@@ -70,6 +70,8 @@ class _CallUsPageState extends State<CallUsPage>
     with SingleTickerProviderStateMixin {
   List<PickupLocation> _locations = [];
   String _phoneNumber = '';
+  String _email = '';
+  String _contactTitle = 'Contact Us';
   bool _isLoading = true;
   TabController? _tabController;
 
@@ -103,12 +105,34 @@ class _CallUsPageState extends State<CallUsPage>
     setState(() {
       _locations = locs;
       _phoneNumber = settings?.pageSettings.phone.trim() ?? '';
+      _email = settings?.pageSettings.email.trim() ?? '';
+      _contactTitle =
+          settings?.pageSettings.contactTitle.trim().isNotEmpty == true
+          ? settings!.pageSettings.contactTitle.trim()
+          : 'Contact Us';
       _isLoading = false;
     });
   }
 
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      title: Text(
+        _contactTitle,
+        style: const TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
+      ),
+      backgroundColor: _appBarColor,
+      elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.black),
+    );
+  }
+
   Widget _buildCallUsHeader() {
     final hasPhone = _phoneNumber.isNotEmpty;
+    final hasEmail = _email.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
@@ -120,12 +144,6 @@ class _CallUsPageState extends State<CallUsPage>
             'Call Us',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Need help? Our support team is available to assist you.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.black87),
           ),
           const SizedBox(height: 28),
           Container(
@@ -145,10 +163,27 @@ class _CallUsPageState extends State<CallUsPage>
             child: Column(
               children: [
                 const Text(
-                  'Support Number',
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                  'Request a quote via phone or email.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: hasEmail ? () => _launchEmail(_email) : null,
+                  child: Text(
+                    hasEmail ? _email : 'Not available',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: hasEmail ? _brand : Colors.black87,
+                      decoration: hasEmail
+                          ? TextDecoration.underline
+                          : TextDecoration.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   hasPhone ? _phoneNumber : 'Not available',
                   textAlign: TextAlign.center,
@@ -241,6 +276,7 @@ class _CallUsPageState extends State<CallUsPage>
     if (_isLoading) {
       return Scaffold(
         drawer: const AppDrawer(),
+        appBar: _buildAppBar(),
         backgroundColor: Colors.grey[50],
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -249,22 +285,19 @@ class _CallUsPageState extends State<CallUsPage>
     if (_locations.isEmpty) {
       return Scaffold(
         drawer: const AppDrawer(),
+        appBar: _buildAppBar(),
         backgroundColor: Colors.grey[50],
-        body: SafeArea(
-          child: SingleChildScrollView(child: _buildCallUsHeader()),
-        ),
+        body: SingleChildScrollView(child: _buildCallUsHeader()),
       );
     }
 
     return Scaffold(
       drawer: const AppDrawer(),
+      appBar: _buildAppBar(),
       backgroundColor: Colors.grey[50],
       body: Column(
         children: [
-          SafeArea(
-            bottom: false,
-            child: _buildCallUsHeader(),
-          ),
+          _buildCallUsHeader(),
           Material(
             color: _appBarColor,
             child: TabBar(
