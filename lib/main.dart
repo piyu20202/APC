@@ -64,7 +64,11 @@ class MyApp extends StatelessWidget {
             final tabIndex = (args is Map && args['tabIndex'] is int)
                 ? args['tabIndex'] as int
                 : 0;
-            return MainNavigationScreen(initialTabIndex: tabIndex);
+            final openDrawer = args is Map && args['openDrawer'] == true;
+            return MainNavigationScreen(
+              initialTabIndex: tabIndex,
+              openDrawer: openDrawer,
+            );
           },
           '/signin': (context) => const SigninScreen(),
           '/signup': (context) => const SignupScreen(),

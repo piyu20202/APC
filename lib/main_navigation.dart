@@ -5,7 +5,6 @@ import 'ui/screens/home_view/home.dart';
 import 'ui/screens/cart_view/cart.dart';
 import 'ui/screens/profile_page/profile_view.dart';
 import 'ui/screens/search_view/search.dart';
-import 'ui/screens/manuals/manuals_menu.dart';
 import 'ui/screens/contact_view/call_us_page.dart';
 import 'services/user_role_service.dart';
 import 'services/navigation_service.dart';
@@ -14,8 +13,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final int initialTabIndex;
+  final bool openDrawer;
 
-  const MainNavigationScreen({super.key, this.initialTabIndex = 0});
+  const MainNavigationScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.openDrawer = false,
+  });
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
@@ -29,7 +33,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialTabIndex.clamp(0, 5);
+    _selectedIndex = widget.initialTabIndex.clamp(0, 4);
     NavigationService.instance.registerTabController(_onItemTapped);
     NavigationService.instance.registerCartCountRefresher(_loadCartCount);
     _checkTraderStatus();
@@ -165,11 +169,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   label: 'Cart',
                 ),
                 const BottomNavigationBarItem(
-                  icon: Icon(Icons.help_outline),
-                  activeIcon: Icon(Icons.help),
-                  label: 'Manuals',
-                ),
-                const BottomNavigationBarItem(
                   icon: Icon(Icons.contact_mail_outlined),
                   activeIcon: Icon(Icons.contact_mail),
                   label: 'Contact Us',
@@ -193,10 +192,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         onSearchTap: () => _onItemTapped(1),
         cartCount: _cartCount,
         isActive: _selectedIndex == 0,
+        initialOpenDrawer: widget.openDrawer,
       ),
       const SearchScreen(),
       const CartPage(),
-      const ManualsMenuPage(),
       CallUsPage(onCallTap: _makePhoneCall),
       const ProfileView(),
     ];

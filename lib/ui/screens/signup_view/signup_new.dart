@@ -47,11 +47,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     'assets/images/logo.png',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
-                      return Icon(
-                        Icons.image,
-                        size: 80,
-                        color: Colors.grey,
-                      );
+                      return Icon(Icons.image, size: 80, color: Colors.grey);
                     },
                   ),
                 ),
@@ -80,10 +76,10 @@ class _SignupScreenState extends State<SignupScreen> {
               _selectedUserType == 'trader'
                   ? const TradeWelcomePage()
                   : const RegularUserSignup(),
-              ],
-            ),
+            ],
           ),
         ),
+      ),
     );
   }
 
@@ -155,7 +151,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     horizontal: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.yellow,
+                    color: const Color(0xFFFFBF00),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: _selectedUserType == 'trader'

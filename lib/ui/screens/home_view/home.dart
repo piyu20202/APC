@@ -31,12 +31,14 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onSearchTap;
   final int cartCount;
   final bool isActive;
+  final bool initialOpenDrawer;
 
   const HomeScreen({
     super.key,
     this.onSearchTap,
     this.cartCount = 0,
     this.isActive = true,
+    this.initialOpenDrawer = false,
   });
 
   @override
@@ -74,6 +76,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   // Track whether this route is visible (not covered by another route)
   bool _isRouteVisible = true;
 
+  int _drawerSelectionResetNonce = 0;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -103,6 +107,20 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     // Returned back to Home.
     _isRouteVisible = true;
     _syncTimers();
+    _reopenDrawerIfNeeded();
+  }
+
+  void _reopenDrawerIfNeeded() {
+    if (!NavigationService.instance.takeDrawerReopenOnReturn()) return;
+
+    setState(() {
+      _drawerSelectionResetNonce++;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scaffold.of(context).openDrawer();
+    });
   }
 
   void _syncTimers() {
@@ -209,6 +227,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void initState() {
     super.initState();
     debugPrint('HomeScreen initState called');
+
+    if (widget.initialOpenDrawer) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Scaffold.of(context).openDrawer();
+      });
+    }
+
     // Timers are controlled via _syncTimers() so they pause when Home isn't visible.
     _checkTraderStatus();
     _fetchSettings();
@@ -405,177 +431,175 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final showLoadingOverlay = homeProvider.shouldShowLoadingOverlay;
 
         return Scaffold(
-          drawer: const AppDrawer(),
+          drawer: AppDrawer(selectionResetNonce: _drawerSelectionResetNonce),
           drawerEnableOpenDragGesture: !showLoadingOverlay,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F8F8),
-        elevation: 0,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Home',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-              overflow: TextOverflow.visible,
+          appBar: AppBar(
+            backgroundColor: const Color(0xFFF8F8F8),
+            elevation: 0,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Home',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.visible,
+                ),
+                if (_isTrader) ...[
+                  const SizedBox(width: 8),
+                  _buildTradeBadge(),
+                ],
+              ],
             ),
-            if (_isTrader) ...[const SizedBox(width: 8), _buildTradeBadge()],
-          ],
-        ),
-        titleSpacing: 0,
-        centerTitle: false,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      backgroundColor: Colors.grey[50],
-      body: Stack(
-        children: [
-          SafeArea(
-            child: RefreshIndicator.adaptive(
-              onRefresh: _onRefreshHome,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                const SizedBox(height: 12),
+            titleSpacing: 0,
+            centerTitle: false,
+            iconTheme: const IconThemeData(color: Colors.black),
+          ),
+          backgroundColor: Colors.grey[50],
+          body: Stack(
+            children: [
+              SafeArea(
+                child: RefreshIndicator.adaptive(
+                  onRefresh: _onRefreshHome,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
 
-                // Search and Cart Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      // Search Bar
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            NavigationService.instance.switchToTab(1);
-                          },
-                          child: Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 12),
-                                Icon(
-                                  Icons.search,
-                                  color: Colors.grey[600],
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Search products...',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      // Cart Icon
-                      GestureDetector(
-                        onTap: () {
-                          NavigationService.instance.switchToTab(
-                            2,
-                          ); // Cart is now at index 2 (after removing wishlist)
-                        },
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Icon(
-                                Icons.shopping_cart,
-                                color: Colors.grey[600],
-                                size: 20,
-                              ),
-                            ),
-                            if (cartCount > 0)
-                              Positioned(
-                                top: -2,
-                                right: -2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '$cartCount',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                        // Search and Cart Bar
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              // Search Bar
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    NavigationService.instance.switchToTab(1);
+                                  },
+                                  child: Container(
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const SizedBox(width: 12),
+                                        Icon(
+                                          Icons.search,
+                                          color: Colors.grey[600],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Search products...',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
                               ),
-                          ],
+
+                              const SizedBox(width: 12),
+
+                              // Cart Icon
+                              GestureDetector(
+                                onTap: () {
+                                  NavigationService.instance.switchToTab(
+                                    2,
+                                  ); // Cart is now at index 2 (after removing wishlist)
+                                },
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Icon(
+                                        Icons.shopping_cart,
+                                        color: Colors.grey[600],
+                                        size: 20,
+                                      ),
+                                    ),
+                                    if (cartCount > 0)
+                                      Positioned(
+                                        top: -2,
+                                        right: -2,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Text(
+                                            '$cartCount',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(height: 16),
+
+                        // Banner Section
+                        _buildBannerSection(),
+
+                        const SizedBox(height: 20),
+
+                        // Categories Section
+                        _buildCategoriesSection(),
+
+                        const SizedBox(height: 20),
+
+                        // Latest Products Section
+                        _buildLatestProductsSection(),
+
+                        const SizedBox(height: 20),
+
+                        // Banner below Latest Products
+                        _buildMidBanner(),
+
+                        const SizedBox(height: 20),
+
+                        // Sale Products Section
+                        _buildSaleProductsSection(),
+
+                        const SizedBox(height: 20),
+
+                        // Collections Section
+                        _buildCollectionsSection(),
+
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
-
-                const SizedBox(height: 16),
-
-                // Banner Section
-                _buildBannerSection(),
-
-                const SizedBox(height: 20),
-
-                // Categories Section
-                _buildCategoriesSection(),
-
-                const SizedBox(height: 20),
-
-                // Latest Products Section
-                _buildLatestProductsSection(),
-
-                const SizedBox(height: 20),
-
-                // Banner below Latest Products
-                _buildMidBanner(),
-
-                const SizedBox(height: 20),
-
-                // Sale Products Section
-                _buildSaleProductsSection(),
-
-                const SizedBox(height: 20),
-
-                // Services Section
-                _buildServicesSection(),
-
-                const SizedBox(height: 20),
-
-                // Collections Section
-                _buildCollectionsSection(),
-
-                const SizedBox(height: 20),
-                  ],
-                ),
               ),
-            ),
+              if (showLoadingOverlay) const ContentLoadingOverlay(),
+            ],
           ),
-          if (showLoadingOverlay) const ContentLoadingOverlay(),
-        ],
-      ),
         );
       },
     );
@@ -699,21 +723,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                     ),
                                   ),
                                 ),
-                                // Overlay for better text readability
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                        colors: [
-                                          Colors.black.withValues(alpha: 0.4),
-                                          Colors.transparent,
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                           );
@@ -755,21 +764,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                               ),
                                             );
                                           },
-                                    ),
-                                  ),
-                                ),
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                        colors: [
-                                          Colors.black.withValues(alpha: 0.6),
-                                          Colors.transparent,
-                                          Colors.transparent,
-                                        ],
-                                      ),
                                     ),
                                   ),
                                 ),

@@ -576,7 +576,7 @@ class _DetailViewState extends State<DetailView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.orange,
+          color: const Color(0xFFFFBF00),
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Row(
@@ -926,6 +926,18 @@ class _DetailViewState extends State<DetailView> {
                     ),
                   if (_isKitProduct && _isProductLoaded)
                     Divider(height: 1, color: Colors.grey[200]),
+                  // Get More Info (fixed)
+                  if (_isProductLoaded)
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+                      color: Colors.white,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _buildGetMoreInfoButton(),
+                      ),
+                    ),
+                  if (_isProductLoaded)
+                    Divider(height: 1, color: Colors.grey[200]),
                   // Action Bar (fixed)
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -1121,14 +1133,14 @@ class _DetailViewState extends State<DetailView> {
                                             !_isProductLoaded ||
                                                 (_product?.outOfStock ?? 0) == 1
                                             ? Colors.grey[400]
-                                            : Colors.orange,
+                                            : const Color(0xFFFFBF00),
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: !_isProductLoaded
                                           ? const Text(
                                               'Add',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color: Colors.black,
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -1151,7 +1163,7 @@ class _DetailViewState extends State<DetailView> {
                                                 valueColor:
                                                     AlwaysStoppedAnimation<
                                                       Color
-                                                    >(Colors.white),
+                                                    >(Colors.black),
                                               ),
                                             )
                                           : const Row(
@@ -1159,14 +1171,14 @@ class _DetailViewState extends State<DetailView> {
                                               children: [
                                                 Icon(
                                                   Icons.shopping_cart,
-                                                  color: Colors.white,
+                                                  color: Colors.black,
                                                   size: 14,
                                                 ),
                                                 SizedBox(width: 4),
                                                 Text(
                                                   'Add',
                                                   style: TextStyle(
-                                                    color: Colors.white,
+                                                    color: Colors.black,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -1612,11 +1624,6 @@ class _DetailViewState extends State<DetailView> {
                   ),
               ],
             ),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: _buildGetMoreInfoButton(),
           ),
           const SizedBox(height: 16),
           // Indicator Dots

@@ -5,8 +5,7 @@ import '../../../data/models/settings_model.dart';
 import '../../../services/storage_service.dart';
 import '../drawer_view/drawer.dart';
 
-const _moorabbinAddress =
-    '53 cochranes rd, moorabbin vic 3189, australia';
+const _moorabbinAddress = '53 cochranes rd, moorabbin vic 3189, australia';
 const _brisbaneAddress = 'unit 2/2 commercial dr, shailer park qld 4128';
 const _perthAddress = '1/562 ranford rd, forrestdale wa 6112';
 
@@ -42,6 +41,14 @@ String _decodeHtmlEntities(String value) {
 bool _isIframeHtml(String value) {
   final lower = value.trim().toLowerCase();
   return lower.contains('<iframe');
+}
+
+String _formatPhoneDisplay(String phone) {
+  final parenIndex = phone.indexOf('(');
+  if (parenIndex > 0) {
+    return '${phone.substring(0, parenIndex).trim()}\n${phone.substring(parenIndex).trim()}';
+  }
+  return phone;
 }
 
 String? _extractIframeSrc(String value) {
@@ -118,10 +125,11 @@ class _CallUsPageState extends State<CallUsPage>
     return AppBar(
       title: Text(
         _contactTitle,
+        overflow: TextOverflow.visible,
         style: const TextStyle(
           color: Colors.black,
-          fontWeight: FontWeight.bold,
           fontSize: 20,
+          fontWeight: FontWeight.bold,
         ),
       ),
       backgroundColor: _appBarColor,
@@ -185,11 +193,14 @@ class _CallUsPageState extends State<CallUsPage>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  hasPhone ? _phoneNumber : 'Not available',
+                  hasPhone
+                      ? _formatPhoneDisplay(_phoneNumber)
+                      : 'Not available',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -199,9 +210,7 @@ class _CallUsPageState extends State<CallUsPage>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: hasPhone
-                  ? () => _callPhone(_phoneNumber)
-                  : null,
+              onPressed: hasPhone ? () => _callPhone(_phoneNumber) : null,
               icon: const Icon(Icons.phone),
               label: const Text(
                 'Call Now',
@@ -218,12 +227,6 @@ class _CallUsPageState extends State<CallUsPage>
                 elevation: 0,
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'If calling is unavailable on this device, the phone number is shown above.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.black45),
           ),
         ],
       ),
@@ -295,45 +298,71 @@ class _CallUsPageState extends State<CallUsPage>
       drawer: const AppDrawer(),
       appBar: _buildAppBar(),
       backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          _buildCallUsHeader(),
-          Material(
-            color: _appBarColor,
-            child: TabBar(
-              controller: _tabController!,
-              isScrollable: _locations.length > 3,
-              indicatorColor: _accent,
-              indicatorWeight: 2.5,
-              labelColor: _brand,
-              unselectedLabelColor: Colors.black54,
-              labelStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverToBoxAdapter(child: _buildCallUsHeader()),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyTabBarDelegate(
+              TabBar(
+                controller: _tabController!,
+                isScrollable: _locations.length > 3,
+                indicatorColor: _accent,
+                indicatorWeight: 2.5,
+                labelColor: _brand,
+                unselectedLabelColor: Colors.black54,
+                labelStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+                tabs: _locations
+                    .map((l) => Tab(text: l.warehouseCode))
+                    .toList(),
               ),
-              tabs: _locations.map((l) => Tab(text: l.warehouseCode)).toList(),
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController!,
-              children: _locations
-                  .map(
-                    (loc) => _LocationTab(
-                      location: loc,
-                      onEmailSales: () => _launchEmail(loc.salesEmail),
-                      onEmailSupport: () => _launchEmail(loc.supportEmail),
-                      onOpenMaps: () => _openMaps(loc),
-                    ),
-                  )
-                  .toList(),
             ),
           ),
         ],
+        body: TabBarView(
+          controller: _tabController!,
+          children: _locations
+              .map(
+                (loc) => _LocationTab(
+                  location: loc,
+                  onEmailSales: () => _launchEmail(loc.salesEmail),
+                  onEmailSupport: () => _launchEmail(loc.supportEmail),
+                  onOpenMaps: () => _openMaps(loc),
+                ),
+              )
+              .toList(),
+        ),
       ),
     );
   }
+}
+
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+
+  const _StickyTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(color: const Color(0xFFF8F8F8), child: tabBar);
+  }
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate oldDelegate) => false;
 }
 
 class _LocationTab extends StatelessWidget {
@@ -360,113 +389,121 @@ class _LocationTab extends StatelessWidget {
     final hasSales = location.salesEmail.isNotEmpty;
     final hasSupport = location.supportEmail.isNotEmpty;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      child: Column(
-        children: [
-          // ── Top info row: address + phone ─────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _InfoCard(
-                  icon: Icons.location_on_outlined,
-                  label: 'Address',
-                  value: hasAddress ? location.location : 'Not available',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _InfoCard(
-                  icon: Icons.phone_outlined,
-                  label: 'Call Us',
-                  value: phone.isNotEmpty ? phone : 'Not available',
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // ── Email cards ───────────────────────────────────────────────
-          if (hasSales)
-            _EmailRow(
-              icon: Icons.email_outlined,
-              label: 'Product Info & Orders',
-              email: location.salesEmail,
-              onTap: onEmailSales,
-            ),
-          if (hasSales) const SizedBox(height: 8),
-          if (hasSupport)
-            _EmailRow(
-              icon: Icons.headset_mic_outlined,
-              label: 'Technical Queries & Support',
-              email: location.supportEmail,
-              onTap: onEmailSupport,
-            ),
-
-          const SizedBox(height: 10),
-
-          // ── Open in Maps ──────────────────────────────────────────────
-          if (hasAddress)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: Colors.grey,
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            child: Column(
+              children: [
+                // ── Top info row: address + phone ─────────────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: _InfoCard(
+                        icon: Icons.location_on_outlined,
+                        label: 'Address',
+                        value: hasAddress ? location.location : 'Not available',
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          location.location,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF444444),
-                            height: 1.4,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _InfoCard(
+                        icon: Icons.phone_outlined,
+                        label: 'Call Us',
+                        value: phone.isNotEmpty
+                            ? _formatPhoneDisplay(phone)
+                            : 'Not available',
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // ── Email cards ───────────────────────────────────────────────
+                if (hasSales)
+                  _EmailRow(
+                    icon: Icons.email_outlined,
+                    label: 'Product Info & Orders',
+                    email: location.salesEmail,
+                    onTap: onEmailSales,
+                  ),
+                if (hasSales) const SizedBox(height: 8),
+                if (hasSupport)
+                  _EmailRow(
+                    icon: Icons.headset_mic_outlined,
+                    label: 'Technical Queries & Support',
+                    email: location.supportEmail,
+                    onTap: onEmailSupport,
+                  ),
+
+                const SizedBox(height: 10),
+
+                // ── Open in Maps ──────────────────────────────────────────────
+                if (hasAddress)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_outlined,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                location.location,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF444444),
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: onOpenMaps,
+                          icon: const Icon(Icons.map_outlined, size: 18),
+                          label: const Text(
+                            'Open in Maps',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _brand,
+                            side: const BorderSide(color: _brand),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: onOpenMaps,
-                    icon: const Icon(Icons.map_outlined, size: 18),
-                    label: const Text(
-                      'Open in Maps',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _brand,
-                      side: const BorderSide(color: _brand),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+
+                const SizedBox(height: 10),
+
+                // ── Trading Hours ─────────────────────────────────────────────
+                _TradingHoursCard(location: location),
+              ],
             ),
-
-          const SizedBox(height: 10),
-
-          // ── Trading Hours ─────────────────────────────────────────────
-          _TradingHoursCard(location: location),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -484,8 +521,8 @@ class _InfoCard extends StatelessWidget {
     required this.value,
   });
 
-  static const Color _accentLight = Color(0xFFFFF3D6);
-  static const Color _accent = Color(0xFFF5A623);
+  static const Color _accentLight = Color(0xFFFFF9CC);
+  static const Color _accent = Color(0xFFFFBF00);
   static const Color _brand = Color(0xFF151D51);
 
   @override
@@ -545,8 +582,8 @@ class _EmailRow extends StatelessWidget {
     required this.onTap,
   });
 
-  static const Color _accentLight = Color(0xFFFFF3D6);
-  static const Color _accent = Color(0xFFF5A623);
+  static const Color _accentLight = Color(0xFFFFF9CC);
+  static const Color _accent = Color(0xFFFFBF00);
 
   @override
   Widget build(BuildContext context) {
@@ -614,14 +651,16 @@ class _TradingHoursCard extends StatelessWidget {
 
   const _TradingHoursCard({required this.location});
 
-  static const Color _accent = Color(0xFFF5A623);
+  static const Color _accent = Color(0xFFFFBF00);
   static const Color _brand = Color(0xFF151D51);
 
   List<(String, String, bool)> _buildHours() {
     final normalizedAddress = location.location.trim().toLowerCase();
     final isPerthLocation =
         normalizedAddress.contains('1/562 ranford rd, forrestdale wa 6112') ||
-        normalizedAddress.contains('unit 1, 562 ranford road, forrestdale wa 6112') ||
+        normalizedAddress.contains(
+          'unit 1, 562 ranford road, forrestdale wa 6112',
+        ) ||
         (normalizedAddress.contains('forrestdale') &&
             (normalizedAddress.contains('ranford rd') ||
                 normalizedAddress.contains('ranford road')));

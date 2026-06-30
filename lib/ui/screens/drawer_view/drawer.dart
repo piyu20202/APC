@@ -16,9 +16,12 @@ import '../webview_view/webview_page.dart';
 import '../../../services/navigation_service.dart';
 import '../../../services/custom_menu_service.dart';
 import '../../widgets/content_loading_overlay.dart';
+import '../manuals/manuals_menu.dart';
 
 class AppDrawer extends StatefulWidget {
-  const AppDrawer({super.key});
+  final int selectionResetNonce;
+
+  const AppDrawer({super.key, this.selectionResetNonce = 0});
 
   @override
   State<AppDrawer> createState() => _AppDrawerState();
@@ -33,6 +36,17 @@ class _AppDrawerState extends State<AppDrawer> {
   void initState() {
     super.initState();
     _loadAppVersion();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectionResetNonce != oldWidget.selectionResetNonce &&
+        _selectedTitle != null) {
+      setState(() {
+        _selectedTitle = null;
+      });
+    }
   }
 
   Future<void> _loadAppVersion() async {
@@ -54,9 +68,7 @@ class _AppDrawerState extends State<AppDrawer> {
     }
 
     try {
-      return homepageData.categories.firstWhere(
-        (cat) => cat.slug == slug,
-      );
+      return homepageData.categories.firstWhere((cat) => cat.slug == slug);
     } catch (e) {
       Logger.warning('Category slug "$slug" not found in homepage data');
       return null;
@@ -98,8 +110,6 @@ class _AppDrawerState extends State<AppDrawer> {
   /// to slug lookup + normal routing. Use this for drawer items where you know
   /// the exact backend category ID.
   Future<void> _navigateByCategoryId(int categoryId, String displayName) async {
-    Navigator.pop(context); // Close drawer first
-
     // Step 1: Check custom_menus by ID (same logic as home page)
     final customMenu = await CustomMenuService.getMenuForCategory(categoryId);
     if (customMenu != null) {
@@ -107,7 +117,13 @@ class _AppDrawerState extends State<AppDrawer> {
         'Drawer custom_menus match for ID $categoryId: type=${customMenu.type}',
       );
       if (customMenu.isCustomNative) {
-        NavigationService.instance.switchToTab(3);
+        // Open Installation Manuals page
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ManualsMenuPage()),
+          );
+        }
         return;
       }
       if (customMenu.isForm && customMenu.url.isNotEmpty) {
@@ -115,10 +131,8 @@ class _AppDrawerState extends State<AppDrawer> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => WebViewPage(
-                url: customMenu.url,
-                title: displayName,
-              ),
+              builder: (context) =>
+                  WebViewPage(url: customMenu.url, title: displayName),
             ),
           );
         }
@@ -178,7 +192,12 @@ class _AppDrawerState extends State<AppDrawer> {
 
     // Handle Installation Manuals special navigation via name check (fallback)
     if (categoryName.toLowerCase().contains('installation manuals')) {
-      NavigationService.instance.switchToTab(3);
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ManualsMenuPage()),
+        );
+      }
       return;
     }
 
@@ -212,8 +231,13 @@ class _AppDrawerState extends State<AppDrawer> {
         'Drawer custom_menus match for ID ${category.id}: type=${customMenu.type}',
       );
       if (customMenu.isCustomNative) {
-        // type == "custom" → open native screen (e.g., Installation Manuals tab)
-        NavigationService.instance.switchToTab(3);
+        // type == "custom" → open native screen (e.g., Installation Manuals page)
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ManualsMenuPage()),
+          );
+        }
         return;
       }
       if (customMenu.isForm && customMenu.url.isNotEmpty) {
@@ -222,10 +246,8 @@ class _AppDrawerState extends State<AppDrawer> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => WebViewPage(
-                url: customMenu.url,
-                title: category.name,
-              ),
+              builder: (context) =>
+                  WebViewPage(url: customMenu.url, title: category.name),
             ),
           );
         }
@@ -376,101 +398,119 @@ class _AppDrawerState extends State<AppDrawer> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
                         children: [
-            SizedBox(
-              height: 60,
-              child: DrawerHeader(
-                margin: EdgeInsets.zero,
-                padding: const EdgeInsets.fromLTRB(20, 0, 16, 0),
-                decoration: const BoxDecoration(color: Color(0xFFF8F8F8)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CategoriesGridScreen(),
+                          SizedBox(
+                            height: 60,
+                            child: DrawerHeader(
+                              margin: EdgeInsets.zero,
+                              padding: const EdgeInsets.fromLTRB(20, 0, 16, 0),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF8F8F8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const CategoriesGridScreen(),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Categories',
+                                      style: TextStyle(
+                                        color: Color(0xFF101010),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.arrow_back,
+                                      color: Color(0xFF101010),
+                                    ),
+                                    onPressed: () => Navigator.pop(context),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      child: const Text(
-                        'Categories',
-                        style: TextStyle(
-                          color: Color(0xFF101010),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                          _buildSeparator(),
+
+                          // Dynamic Categories from API
+                          Consumer<HomepageProvider>(
+                            builder: (context, homeProvider, _) {
+                              if (homeProvider.shouldShowLoadingOverlay) {
+                                return const SizedBox.shrink();
+                              }
+
+                              final categories =
+                                  List<Category>.from(homeProvider.categories)
+                                    ..sort(
+                                      (a, b) => a.displayOrder.compareTo(
+                                        b.displayOrder,
+                                      ),
+                                    );
+
+                              // Filter out categories that are already handled as special items (if any)
+                              // For now, we'll show all categories from API.
+
+                              return Column(
+                                children: categories.map((category) {
+                                  // Check if this category should be skipped because it's handled separately
+                                  // e.g., if Installation Manuals is in the category list
+                                  if (category.id == 14)
+                                    return const SizedBox.shrink();
+
+                                  return Column(
+                                    children: [
+                                      _buildItem(
+                                        imageUrl: category.photo,
+                                        title: category.name,
+                                        onTap: () =>
+                                            _navigateWithCategory(category),
+                                      ),
+                                      _buildSeparator(),
+                                    ],
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+
+                          _buildItem(
+                            title: 'Installation Manuals',
+                            onTap: () => _navigateByCategoryId(
+                              14,
+                              'Installation Manuals',
+                            ),
+                          ),
+                          _buildSeparator(),
+                          _buildItem(
+                            title: '+ see all categories',
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const CategoriesGridScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Color(0xFF101010)),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            _buildSeparator(),
-
-            // Dynamic Categories from API
-            Consumer<HomepageProvider>(
-              builder: (context, homeProvider, _) {
-                if (homeProvider.shouldShowLoadingOverlay) {
-                  return const SizedBox.shrink();
-                }
-
-                final categories = List<Category>.from(homeProvider.categories)
-                  ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-
-                // Filter out categories that are already handled as special items (if any)
-                // For now, we'll show all categories from API.
-                
-                return Column(
-                  children: categories.map((category) {
-                    // Check if this category should be skipped because it's handled separately
-                    // e.g., if Installation Manuals is in the category list
-                    if (category.id == 14) return const SizedBox.shrink();
-
-                    return Column(
-                      children: [
-                        _buildItem(
-                          imageUrl: category.photo,
-                          title: category.name,
-                          onTap: () => _navigateWithCategory(category),
-                        ),
-                        _buildSeparator(),
-                      ],
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-
-            _buildItem(
-              title: 'Installation Manuals',
-              onTap: () => _navigateByCategoryId(14, 'Installation Manuals'),
-            ),
-            _buildSeparator(),
-            _buildItem(
-              title: '+ see all categories',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CategoriesGridScreen(),
-                  ),
-                );
-              },
-            ),
-                ],
-              ),
-            ),
                     _buildVersionFooter(),
                   ],
                 ),
@@ -491,10 +531,7 @@ class _AppDrawerState extends State<AppDrawer> {
         child: Text(
           _appVersion.isEmpty ? '' : 'Version $_appVersion',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 12,
-          ),
+          style: TextStyle(color: Colors.grey[600], fontSize: 12),
         ),
       ),
     );
@@ -560,6 +597,7 @@ class _AppDrawerState extends State<AppDrawer> {
           setState(() {
             _selectedTitle = title;
           });
+          NavigationService.instance.markDrawerMenuNavigation();
           onTap();
         },
       ),

@@ -8,7 +8,6 @@ import 'accountinfo.dart';
 import 'myorder.dart';
 import 'editprofile.dart';
 import 'resetpassword.dart';
-import '../signup_view/trader_upgrade_flow.dart';
 import '../../../screens/userdelete.dart';
 
 class ProfileView extends StatefulWidget {
@@ -67,106 +66,126 @@ class _ProfileViewState extends State<ProfileView> {
                 ],
 
                 // Profile Menu
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey[300]!),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        spreadRadius: 1,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
+                    final isGuest = !authProvider.isLoggedIn;
+                    return Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey[300]!),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withValues(alpha: 0.1),
+                            spreadRadius: 1,
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildMenuItem(
-                        context: context,
-                        title: 'Account Info',
-                        onTap: () {
-                          // Navigate to Account Info page
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AccountInfoPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildMenuItem(
-                        context: context,
-                        title: 'My Orders',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const MyOrdersPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildMenuItem(
-                        context: context,
-                        title: 'Edit Profile',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const EditProfilePage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildMenuItem(
-                        context: context,
-                        title: 'Reset Password',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ResetPasswordPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildMenuItem(
-                        context: context,
-                        title: 'Delete Account',
-                        isDestructive: true,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const UserDeletePage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      Consumer<AuthProvider>(
-                        builder: (context, authProvider, _) {
-                          final isGuest = !authProvider.isLoggedIn;
-                          return _buildMenuItem(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildMenuItem(
+                            context: context,
+                            title: 'Account Info',
+                            isDisabled: isGuest,
+                            onTap: isGuest
+                                ? () => _showGuestMessage()
+                                : () {
+                                    // Navigate to Account Info page
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const AccountInfoPage(),
+                                      ),
+                                    );
+                                  },
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
+                            context: context,
+                            title: 'My Orders',
+                            isDisabled: isGuest,
+                            onTap: isGuest
+                                ? () => _showGuestMessage()
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const MyOrdersPage(),
+                                      ),
+                                    );
+                                  },
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
+                            context: context,
+                            title: 'Edit Profile',
+                            isDisabled: isGuest,
+                            onTap: isGuest
+                                ? () => _showGuestMessage()
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const EditProfilePage(),
+                                      ),
+                                    );
+                                  },
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
+                            context: context,
+                            title: 'Reset Password',
+                            isDisabled: isGuest,
+                            onTap: isGuest
+                                ? () => _showGuestMessage()
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const ResetPasswordPage(),
+                                      ),
+                                    );
+                                  },
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
+                            context: context,
+                            title: 'Delete Account',
+                            isDestructive: true,
+                            isDisabled: isGuest,
+                            onTap: isGuest
+                                ? () => _showGuestMessage()
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const UserDeletePage(),
+                                      ),
+                                    );
+                                  },
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
                             context: context,
                             title: isGuest ? 'Logout as Guest' : 'Logout',
                             onTap: () {
                               _showLogoutDialog(context, isGuest: isGuest);
                             },
                             isDestructive: true,
-                          );
-                        },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 // Add bottom padding to prevent content from being cut off
                 SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
@@ -181,12 +200,15 @@ class _ProfileViewState extends State<ProfileView> {
   Widget _buildTraderUpgradeCard() {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const TraderUpgradeFlow(isExistingUser: true),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please logout from this account and apply to register as a Trade Account.',
+            ),
+            duration: Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
           ),
-        ).then((_) => _checkTraderStatus());
+        );
       },
       child: Container(
         width: double.infinity,
@@ -216,11 +238,7 @@ class _ProfileViewState extends State<ProfileView> {
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.business,
-                color: Colors.white,
-                size: 24,
-              ),
+              child: const Icon(Icons.business, color: Colors.white, size: 24),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -258,9 +276,10 @@ class _ProfileViewState extends State<ProfileView> {
     required String title,
     required VoidCallback onTap,
     bool isDestructive = false,
+    bool isDisabled = false,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: isDisabled ? null : onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: double.infinity,
@@ -270,7 +289,9 @@ class _ProfileViewState extends State<ProfileView> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
-            color: isDestructive ? Colors.red : const Color(0xFF151D51),
+            color: isDisabled
+                ? Colors.grey[400]
+                : (isDestructive ? Colors.red : const Color(0xFF151D51)),
           ),
         ),
       ),
@@ -293,13 +314,25 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
+  void _showGuestMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please login to access this feature'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showLogoutDialog(BuildContext context, {bool isGuest = false}) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         final title = isGuest ? 'Logout as Guest' : 'Logout';
-        final content =
-            isGuest ? 'Do you want to logout as guest?' : 'Do you want to logout?';
+        final content = isGuest
+            ? 'Do you want to logout as guest?'
+            : 'Do you want to logout?';
         return AlertDialog(
           title: Text(
             title,
@@ -308,10 +341,7 @@ class _ProfileViewState extends State<ProfileView> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: Text(
-            content,
-            style: const TextStyle(fontSize: 16),
-          ),
+          content: Text(content, style: const TextStyle(fontSize: 16)),
           actions: [
             Row(
               children: [

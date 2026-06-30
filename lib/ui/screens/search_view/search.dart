@@ -4,6 +4,7 @@ import '../widget/listing_product_card.dart';
 import '../../../data/repositories/homepage_repository.dart';
 import '../../../core/utils/logger.dart';
 import '../../../services/navigation_service.dart';
+import '../drawer_view/drawer.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -241,9 +242,10 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text(
-          'Search Products',
+          'Search',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,

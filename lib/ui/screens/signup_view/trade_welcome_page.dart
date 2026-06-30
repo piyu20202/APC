@@ -301,7 +301,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
                   _handleLoginButton();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.yellow,
+                  backgroundColor: const Color(0xFFFFBF00),
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -365,7 +365,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
   Future<void> _handleRegistrationButton() async {
     // Check if user is already logged in
     final isLoggedIn = await StorageService.isLoggedIn();
-    
+
     if (isLoggedIn) {
       // Show confirmation dialog
       final shouldLogout = await showDialog<bool>(
@@ -418,7 +418,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
       if (shouldLogout == true) {
         // Logout user
         await StorageService.clearLoginData();
-        
+
         // Navigate to registration page
         if (mounted) {
           Navigator.push(
@@ -433,9 +433,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
       // User is not logged in, directly navigate to registration
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => const RegisterTraderUserPage(),
-        ),
+        MaterialPageRoute(builder: (context) => const RegisterTraderUserPage()),
       );
     }
   }
@@ -443,7 +441,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
   Future<void> _handleLoginButton() async {
     // Check if user is already logged in
     final isLoggedIn = await StorageService.isLoggedIn();
-    
+
     if (isLoggedIn) {
       // Show confirmation dialog
       final shouldLogout = await showDialog<bool>(
@@ -496,7 +494,7 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
       if (shouldLogout == true) {
         // Logout user
         await StorageService.clearLoginData();
-        
+
         // Navigate to login page
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/signin');

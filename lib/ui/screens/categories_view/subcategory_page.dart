@@ -552,23 +552,24 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
               child: InkWell(
                 onTap: () => _toggleChildCategory(child.id),
                 borderRadius: BorderRadius.circular(12),
-                child: Padding(
+                  child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 14,
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      const SizedBox(width: 20),
                       Expanded(
                         child: Text(
                           child.name,
                           maxLines: 2,
                           overflow: TextOverflow.clip,
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white, // White text
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -577,7 +578,7 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
                             ? Icons.remove_circle_outline
                             : Icons.add_circle_outline,
                         size: 20,
-                        color: Colors.white, // White icon
+                        color: Colors.white,
                       ),
                     ],
                   ),
@@ -693,13 +694,14 @@ class _SubCategoryPageState extends State<SubCategoryPage> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                const SizedBox(width: 20),
                 Expanded(
                   child: Text(
                     childSub.name,
                     maxLines: 2,
                     overflow: TextOverflow.clip,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

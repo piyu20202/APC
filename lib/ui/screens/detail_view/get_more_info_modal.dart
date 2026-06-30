@@ -373,7 +373,6 @@ class _GetMoreInfoModalState extends State<GetMoreInfoModal> {
                         alignment: Alignment.centerLeft,
                         child: _buildCartStyleButton(
                           label: '+ Add Image',
-                          icon: Icons.add,
                           onTap: _addImageRow,
                         ),
                       ),

@@ -44,12 +44,12 @@ class _TraderBenefitsShowcaseState extends State<TraderBenefitsShowcase> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.orange.shade400, Colors.orange.shade600],
+          colors: [Color(0xFFFFBF00), Color(0xFFFFBF00)],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.3),
+            color: Color(0xFFFFBF00).withValues(alpha: 0.3),
             spreadRadius: 2,
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -192,7 +192,7 @@ class _TraderBenefitsShowcaseState extends State<TraderBenefitsShowcase> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      foregroundColor: Colors.orange.shade600,
+                      foregroundColor: const Color(0xFFFFBF00),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -276,7 +276,7 @@ class TraderBenefitsInfoScreen extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Colors.orange.shade400, Colors.orange.shade600],
+                  colors: [Color(0xFFFFBF00), Color(0xFFFFBF00)],
                 ),
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -611,7 +611,7 @@ class TraderBenefitsInfoScreen extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.orange.shade600,
+              color: const Color(0xFFFFBF00),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Center(

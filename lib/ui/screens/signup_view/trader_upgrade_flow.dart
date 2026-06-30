@@ -254,8 +254,8 @@ class _TraderUpgradeFlowState extends State<TraderUpgradeFlow> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade600,
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFFFFBF00),
+                  foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
