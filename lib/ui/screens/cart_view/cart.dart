@@ -4,7 +4,10 @@ import 'package:apcproject/data/services/cart_service.dart';
 import 'package:apcproject/services/storage_service.dart';
 import 'package:apcproject/services/navigation_service.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:provider/provider.dart';
 import '../../../core/network/network_checker.dart';
+import '../../../providers/auth_provider.dart';
 
 import '../drawer_view/drawer.dart';
 import '../widget/app_state_view.dart';
@@ -572,6 +575,20 @@ class _CartPageState extends State<CartPage> {
 
   Future<void> _handleCheckout() async {
     if (_isCheckoutSubmitting) {
+      return;
+    }
+
+    // Guest guard: block checkout before hitting the update-cart API or
+    // navigating to CheckoutPage. Cart data itself is not user-scoped
+    // (see StorageService._keyCartData) and is never cleared on login, so
+    // it will still be there once the user signs in and returns.
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      Fluttertoast.showToast(
+        msg: 'Please login to continue checkout',
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      Navigator.pushReplacementNamed(context, '/signin');
       return;
     }
 

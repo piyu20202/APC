@@ -22,6 +22,7 @@ class _SigninScreenState extends State<SigninScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isGuestLoading = false;
 
   @override
   void initState() {
@@ -39,15 +40,11 @@ class _SigninScreenState extends State<SigninScreen> {
 
       if (mounted) {
         if (success) {
-          // Check if settings already exist (first time login check)
-          final existingSettings = await StorageService.getSettings();
+          // Ensure settings are cached before entering the app so every
+          // tab (Home, Contact Us, etc.) sees populated data immediately —
+          // no-op if already cached.
+          await _ensureSettingsCached();
           if (!mounted) return;
-
-          if (existingSettings == null) {
-            // First time login - fetch settings from API
-            await _fetchSettingsFirstTime();
-            if (!mounted) return;
-          }
 
           // Get user name from the provider
           final userName = authProvider.currentUser?.name ?? 'User';
@@ -79,10 +76,36 @@ class _SigninScreenState extends State<SigninScreen> {
     }
   }
 
-  /// Fetch settings from API only on first login
+  /// "Continue as Guest" tap handler.
+  ///
+  /// Ensures settings are cached (same as the login path) before entering
+  /// the app, so tabs like Home/Contact Us don't race with an in-flight
+  /// settings fetch and show empty/"Not available" data.
+  Future<void> _handleContinueAsGuest() async {
+    if (_isGuestLoading) return;
+    setState(() => _isGuestLoading = true);
+    try {
+      await _ensureSettingsCached();
+    } finally {
+      if (mounted) setState(() => _isGuestLoading = false);
+    }
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/main');
+  }
+
+  /// Cache-first settings check: no-ops if settings already exist locally,
+  /// otherwise fetches and saves them (plus payment config) before the
+  /// caller proceeds into the app.
+  Future<void> _ensureSettingsCached() async {
+    final existingSettings = await StorageService.getSettings();
+    if (existingSettings != null) return;
+    await _fetchSettingsFirstTime();
+  }
+
+  /// Fetch settings from API (used when nothing is cached yet)
   Future<void> _fetchSettingsFirstTime() async {
     try {
-      Logger.info('First time login - fetching settings from API');
+      Logger.info('No cached settings found - fetching from API');
 
       final settingsService = SettingsService();
       final settings = await settingsService.getSettings();
@@ -95,9 +118,9 @@ class _SigninScreenState extends State<SigninScreen> {
 
       Logger.info('Settings fetched and saved successfully');
     } catch (e) {
-      Logger.error('Failed to fetch settings on first login', e);
-      // Don't block the login process if settings fetch fails
-      // Settings might be fetched later or user can continue without them
+      Logger.error('Failed to fetch settings', e);
+      // Don't block navigation if settings fetch fails.
+      // Home's own cache-first check will retry later if needed.
     }
   }
 
@@ -496,9 +519,9 @@ class _SigninScreenState extends State<SigninScreen> {
                     width: double.infinity,
                     height: 50,
                     child: TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/main');
-                      },
+                      onPressed: _isGuestLoading
+                          ? null
+                          : _handleContinueAsGuest,
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFF151D51),
                         shape: RoundedRectangleBorder(
@@ -506,13 +529,24 @@ class _SigninScreenState extends State<SigninScreen> {
                           side: const BorderSide(color: Color(0xFF151D51)),
                         ),
                       ),
-                      child: const Text(
-                        'Continue as Guest',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: _isGuestLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF151D51),
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Continue as Guest',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
 

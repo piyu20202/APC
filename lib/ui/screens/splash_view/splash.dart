@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:async';
 import '../../../providers/auth_provider.dart';
-import '../../../data/services/settings_service.dart';
-import '../../../data/services/payment_config_service.dart';
-import '../../../services/storage_service.dart';
-import '../../../core/utils/logger.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,44 +25,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // Fetch settings from API after splash screen
-    await _fetchSettings();
-
-    if (!mounted) return;
+    // Settings are now fetched once (cache-first) from the Home screen,
+    // regardless of how the user lands there (login or guest).
     if (restored && authProvider.isLoggedIn) {
       Navigator.pushReplacementNamed(context, '/main');
     } else {
       Navigator.pushReplacementNamed(context, '/signin');
-    }
-  }
-
-  /// Fetch settings from API right after splash screen
-  Future<void> _fetchSettings() async {
-    try {
-      // Check if settings already exist
-      final existingSettings = await StorageService.getSettings();
-
-      if (existingSettings != null) {
-        Logger.info('Settings already cached, skipping fetch');
-        return;
-      }
-
-      Logger.info('Fetching settings from API after splash screen');
-
-      final settingsService = SettingsService();
-      final settings = await settingsService.getSettings();
-
-      // Save settings to shared preferences
-      await StorageService.saveSettings(settings);
-
-      // Fetch and save payment configurations
-      await PaymentConfigService.fetchAndSaveConfig();
-
-      Logger.info('Settings fetched and saved successfully from splash screen');
-    } catch (e) {
-      Logger.error('Failed to fetch settings from splash screen', e);
-      // Don't block the navigation if settings fetch fails
-      // Settings can be fetched later or user can continue without them
     }
   }
 

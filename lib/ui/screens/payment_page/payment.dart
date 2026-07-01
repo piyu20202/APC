@@ -98,7 +98,6 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _isAwaitingFreight = false;
   String _selectedPaymentMethod = '';
   int _manualOrderByAdmin = 0;
-  int _isTradeUser = 0;
   String _orderPaymentStatus = '';
   double? _specialDiscount;
   String _orderSource = '';
@@ -1177,10 +1176,6 @@ class _PaymentPageState extends State<PaymentPage> {
           .toString()
           .toLowerCase();
 
-      // Retrieve trade user status from StorageService
-      final UserModel? currentUser = await StorageService.getUserData();
-      final int tradeUserFlag = currentUser?.isTradeUser ?? 0;
-
       final payAmount = _toDouble(order?['pay_amount']);
       final totalAmount = _toDouble(order?['total']);
       double amount = payAmount ?? totalAmount ?? 0.0;
@@ -1279,7 +1274,6 @@ class _PaymentPageState extends State<PaymentPage> {
       setState(() {
         _orderNumber = orderNumber;
         _orderId = orderId;
-        _isTradeUser = tradeUserFlag;
         _currency = 'AUD';
 
         // ONLY set these from local variables if they haven't been set by _refreshPricing already
@@ -2596,7 +2590,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   bool get _canShowAlternativePaymentMethods =>
-      _isPayLater || (_manualOrderByAdmin == 0 && _isTradeUser == 0);
+      _isPayLater || _manualOrderByAdmin == 0;
 
   String get _effectiveSelectedPaymentMethod {
     final method = _selectedPaymentMethod.trim();
@@ -2926,8 +2920,8 @@ class _PaymentPageState extends State<PaymentPage> {
             const SizedBox(height: 16),
 
             // 1. Credit Card — sirf restricted case me dikhega
-            // (jab PayPal allowed nahi hai e.g. trade user / admin order).
-            // Normal flow me Credit Card option hidden hai — PayPal-only.
+            // (jab PayPal allowed nahi hai e.g. admin order).
+            // Normal / trade flow me Credit Card option hidden hai — PayPal-only.
             if (!_canShowAlternativePaymentMethods) ...[
               GestureDetector(
                 onTap: () {
@@ -2975,9 +2969,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _manualOrderByAdmin != 0
-                            ? 'This order was created by admin. Only Credit Card payment is available.'
-                            : 'Only Credit Card payment is available for trade accounts.',
+                        'This order was created by admin. Only Credit Card payment is available.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF5D4037),

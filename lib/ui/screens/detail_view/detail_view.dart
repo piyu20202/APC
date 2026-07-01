@@ -5,6 +5,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:marquee/marquee.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/auth_provider.dart';
+import '../signin_view/signin.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/settings_service.dart';
 import '../../../data/services/cart_service.dart';
@@ -19,6 +22,7 @@ import '../../../services/storage_service.dart';
 import '../../../core/exceptions/api_exception.dart';
 import '../widget/cart_feedback_overlay.dart';
 import 'get_more_info_modal.dart';
+import '../../../core/utils/external_link_launcher.dart';
 
 class DetailView extends StatefulWidget {
   final int productId;
@@ -391,6 +395,17 @@ class _DetailViewState extends State<DetailView> {
       RegExp(r"\s*onclick='[^']*'", caseSensitive: false),
       '',
     );
+    // Font Awesome icon tags (<i class="fa ...">) never render (no icon font
+    // loaded), but they still occupy an inline box and add unwanted spacing.
+    html = html.replaceAll(
+      RegExp(r'<i\b[^>]*class="[^"]*\bfa\b[^"]*"[^>]*>\s*</i>', caseSensitive: false),
+      '',
+    );
+    // Collapse empty paragraphs (e.g. "<p>&nbsp;</p>") that only add blank gaps.
+    html = html.replaceAll(
+      RegExp(r'<p>(\s|&nbsp;)*</p>', caseSensitive: false),
+      '',
+    );
     return html;
   }
 
@@ -403,10 +418,131 @@ class _DetailViewState extends State<DetailView> {
     final isInquiryLink =
         normalized.contains('inquirypopup') || normalized == 'app-inquiry-form';
 
-    if (!isCallUsLink && !isInquiryLink) return;
+    if (isCallUsLink || isInquiryLink) {
+      Navigator.pop(context);
+      NavigationService.instance.switchToTab(4);
+      return;
+    }
 
-    Navigator.pop(context);
-    NavigationService.instance.switchToTab(4);
+    if (normalized.startsWith('mailto:') || normalized.startsWith('tel:')) {
+      ExternalLinkLauncher.openUrl(url);
+      return;
+    }
+
+    if (normalized.contains('/user/login') || normalized.contains('/login')) {
+      _confirmLogoutAndGoToTradeUserLogin();
+      return;
+    }
+  }
+
+  /// "Click for Trade User Login" tap handler.
+  ///
+  /// Shows the same logout confirmation used elsewhere in the app. On
+  /// confirmation, clears the current session (server + local) and lands
+  /// on the Sign In screen with the entire navigation stack removed, so
+  /// the back button cannot return to this (or any prior) screen.
+  void _confirmLogoutAndGoToTradeUserLogin() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Logout',
+            style: TextStyle(
+              color: Color(0xFF1A365D),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Do you want to logout?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            Row(
+              children: [
+                // Cancel Button
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 1,
+                    ),
+                    child: const Text(
+                      'CANCEL',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Yes Button
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      // Close confirm dialog
+                      Navigator.of(dialogContext).pop();
+
+                      // Show blocking loader while we call logout + clear local data
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) =>
+                            const Center(child: CircularProgressIndicator()),
+                      );
+
+                      try {
+                        final authProvider = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
+                        await authProvider.logout();
+                      } finally {
+                        if (mounted) {
+                          Navigator.of(context).pop(); // close loader
+                        }
+                      }
+
+                      if (!mounted) return;
+                      // Remove entire stack so back button can't return here.
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (context) => const SigninScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF151D51),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 2,
+                    ),
+                    child: const Text(
+                      'YES',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _fetchProductDetails() async {
@@ -2114,7 +2250,7 @@ class _DetailViewState extends State<DetailView> {
       top: false,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -2127,10 +2263,10 @@ class _DetailViewState extends State<DetailView> {
         ),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: const Color(0xFFFFF3E0),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.orange.shade300, width: 1.5),
             boxShadow: [
               BoxShadow(
@@ -2143,8 +2279,8 @@ class _DetailViewState extends State<DetailView> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, color: Colors.orange.shade800, size: 22),
-              const SizedBox(width: 10),
+              Icon(Icons.info_outline, color: Colors.orange.shade800, size: 18),
+              const SizedBox(width: 8),
               Expanded(
                 child: Html(
                   data: html,
@@ -2154,13 +2290,13 @@ class _DetailViewState extends State<DetailView> {
                     'body': Style(
                       margin: Margins.zero,
                       padding: HtmlPaddings.zero,
-                      fontSize: FontSize(14.0),
+                      fontSize: FontSize(13.0),
                       color: const Color(0xFF5D4037),
-                      lineHeight: const LineHeight(1.5),
+                      lineHeight: const LineHeight(1.25),
                       fontWeight: FontWeight.w500,
                     ),
                     'p': Style(
-                      margin: Margins.only(bottom: 8),
+                      margin: Margins.only(bottom: 4),
                       padding: HtmlPaddings.zero,
                     ),
                     'a': Style(
@@ -2169,6 +2305,25 @@ class _DetailViewState extends State<DetailView> {
                       textDecoration: TextDecoration.underline,
                     ),
                     'strong': Style(fontWeight: FontWeight.bold),
+                    // CMS content (from settings API) may include <hr>, <ul>/<li>
+                    // and Font Awesome <i> icon tags meant for the website.
+                    // These have large browser-default spacing that isn't
+                    // suitable for a compact mobile footer, so tighten them.
+                    'hr': Style(
+                      margin: Margins.symmetric(vertical: 3),
+                      border: const Border(),
+                      backgroundColor: Colors.orange.shade200,
+                      height: Height(1),
+                    ),
+                    'ul': Style(
+                      margin: Margins.only(bottom: 4),
+                      padding: HtmlPaddings.only(left: 16),
+                    ),
+                    'li': Style(
+                      margin: Margins.only(bottom: 1),
+                      padding: HtmlPaddings.zero,
+                    ),
+                    'i': Style(display: Display.none),
                   },
                 ),
               ),

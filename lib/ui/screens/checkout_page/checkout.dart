@@ -111,7 +111,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
           msg: 'Please login to continue checkout',
           toastLength: Toast.LENGTH_SHORT,
         );
-        Navigator.pushReplacementNamed(context, '/signin');
+        // Defer navigation to after the current frame/build completes.
+        // Calling Navigator methods synchronously from initState() (via
+        // this async function's un-awaited code path) can reenter the
+        // Navigator while it's still processing the transaction that
+        // pushed this very page, corrupting its internal lock and causing
+        // a '!_debugLocked' assertion on a later, unrelated navigation
+        // (e.g. after a subsequent successful login).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/signin');
+          }
+        });
       }
       return;
     }

@@ -7,7 +7,7 @@ import '../productlist_view/sale_products.dart';
 import '../productlist_view/productlist.dart';
 import '../../../services/user_role_service.dart';
 import '../../../services/storage_service.dart';
-// import '../../../data/services/settings_service.dart'; // Not using API call for now
+import '../../../data/services/settings_service.dart';
 import '../../../data/models/settings_model.dart';
 import '../../../data/models/homepage_model.dart';
 import '../../../data/models/categories_model.dart';
@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
   // Settings data
   SettingsModel? _settings;
-  // final SettingsService _settingsService = SettingsService(); // Commented out - only using cached settings
+  final SettingsService _settingsService = SettingsService();
 
   // Homepage data moved to HomepageProvider
   final HomepageService _homepageService = HomepageService();
@@ -299,22 +299,41 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
   }
 
-  /// Fetch settings from API and save to SharedPreferences
+  /// Fetch settings — cache-first, only calls the API when nothing is cached.
+  ///
+  /// This is the single place in the app responsible for populating the
+  /// settings cache: it runs once per Home load and is skipped entirely if
+  /// settings already exist in SharedPreferences. The cache is only cleared
+  /// on logout (`StorageService.clearAllData()`), so this will naturally
+  /// re-fetch fresh settings the next time Home loads after a logout,
+  /// regardless of whether the user logs back in or continues as guest.
   Future<void> _fetchSettings() async {
     try {
-      // Check if settings already exist in local storage
       final cachedSettings = await StorageService.getSettings();
       if (cachedSettings != null) {
-        setState(() {
-          _settings = cachedSettings;
-        });
+        if (mounted) {
+          setState(() {
+            _settings = cachedSettings;
+          });
+        }
+        Logger.info('Settings already cached, skipping API call');
+        return;
       }
 
-      // Skip fetching settings from API for now - only focus on homepage categories
-      Logger.info('Settings loading skipped - using cached settings only');
+      Logger.info('No cached settings found, fetching from API');
+      final settings = await _settingsService.getSettings();
+      await StorageService.saveSettings(settings);
+
+      if (mounted) {
+        setState(() {
+          _settings = settings;
+        });
+      }
+      Logger.info('Settings fetched and saved successfully');
     } catch (e) {
       Logger.error('Failed to load settings', e);
-      // Don't show error toast for settings
+      // Don't show error toast for settings — Home should still render
+      // using whatever is cached (or without settings) if the API fails.
     }
   }
 
