@@ -222,7 +222,8 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
           'originalPrice': p.previousPrice.toString(),
           'description':
               p.shortDescription ?? 'On sale — limited time offer.',
-          'onSale': true,
+          'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
+          'onsale_line': p.onSaleLine,
           'out_of_stock': p.outOfStock,
           'show_freight_cost_icon': p.showFreightCostIcon,
           'show_free_shipping_icon': p.showFreeShippingIcon,
@@ -251,7 +252,8 @@ class _SaleProductsScreenState extends State<SaleProductsScreen> {
           'originalPrice': p.previousPrice.toString(),
           'description':
               p.shortDescription ?? 'On sale — limited time offer.',
-          'onSale': true,
+          'onSale': p.previousPrice > 0 && p.previousPrice > p.price,
+          'onsale_line': p.onSaleLine,
           'out_of_stock': p.outOfStock,
           'show_freight_cost_icon': p.showFreightCostIcon,
           'show_free_shipping_icon': p.showFreeShippingIcon,

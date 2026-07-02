@@ -612,7 +612,12 @@ class _CartPageState extends State<CartPage> {
       debugPrint(prettyPayload);
       debugPrint('*************checkout post body end***********');
 
-      final response = await _cartService.updateCart(payload);
+      // TEMPORARY: update-cart API disabled for testing — re-enable when ready.
+      // final response = await _cartService.updateCart(payload);
+      final response =
+          await StorageService.getCartData() ??
+          _lastCartResponse ??
+          <String, dynamic>{};
 
       // Log API response
       final prettyResponse = const JsonEncoder.withIndent(

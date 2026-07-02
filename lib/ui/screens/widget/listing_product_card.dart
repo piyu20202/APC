@@ -26,7 +26,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    final isOnSale = _hasStrikePrice(product) || product['onSale'] == true;
+    final isOnSale = _hasStrikePrice(product);
     // FIX 4: Removed unnecessary `dynamic` type annotation
     final rawFeatures = product['display_features'];
 
@@ -573,7 +573,7 @@ class _ProductListCardState extends State<ProductListCard> {
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    final isOnSale = _hasStrikePrice(product) || product['onSale'] == true;
+    final isOnSale = _hasStrikePrice(product);
     final outOfStock = _isOutOfStock(product);
     final rawFeatures = product['display_features'];
 
@@ -1084,13 +1084,11 @@ String _saleLabel(Map<String, dynamic> product) {
   if (label is String && label.trim().isNotEmpty) {
     return label.trim();
   }
-  return 'Sale';
+  return '';
 }
 
 bool _shouldShowSaleTopBanner(Map<String, dynamic> product) {
-  final label = product['onsale_line'];
-  if (label is String && label.trim().isNotEmpty) return true;
-  return _hasStrikePrice(product) || product['onSale'] == true;
+  return _hasStrikePrice(product) && _saleLabel(product).isNotEmpty;
 }
 
 /// Scrolling sale text for red sale banners.

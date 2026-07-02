@@ -1552,7 +1552,13 @@ class _DetailViewState extends State<DetailView> {
   }
 
   String? _detailSaleLabel() {
-    final label = _product?.onSaleLine;
+    final product = _product;
+    if (product == null) return null;
+    if (product.previousPrice <= 0 ||
+        product.price >= product.previousPrice) {
+      return null;
+    }
+    final label = product.onSaleLine;
     if (label == null) return null;
     final trimmed = label.trim();
     return trimmed.isEmpty ? null : trimmed;
