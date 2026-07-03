@@ -1014,9 +1014,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   }
 
   Widget _buildOrderSummaryCard() {
-    // FORCE FIX: Prioritize recalculated values, otherwise use local force calculation
-    // because backend data for these orders is consistently missing the GST layer.
-
     final grandTotal = _safeParseAmount(
       _responseData?['grand_total'] ??
           _orderData?['pay_amount'] ??
@@ -1033,8 +1030,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         ? _safeParseAmount(_orderData?['special_discount'])
         : 0.0;
 
-    // Mathematically consistent Subtotal (Total - GST - Shipping + Discount)
-    final subtotal = (grandTotal - tax - shipping + specialDiscount);
+    final subtotal = _safeParseAmount(_responseData?['subtotal_excluding_gst']);
 
     final amountPaid = _safeNum(_responseData?['amount_paid']);
     final amountDue = _safeParseAmount(_responseData?['amount_due']);
