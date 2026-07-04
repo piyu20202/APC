@@ -145,17 +145,30 @@ class CartService {
   }
 
   /// Get list of available coupons from /user/cart/coupons
-  Future<List<dynamic>> getAvailableCoupons(Map<String, dynamic> oldCart) async {
+  Future<List<dynamic>> getAvailableCoupons({
+    required double totalPayableAmount,
+    // Map<String, dynamic>? oldCart, // Re-enable when backend requires cart
+  }) async {
     try {
       Logger.info('Calling get-available-coupons API');
-      
-      // LOG: Check what we are sending as old_cart
-      final payload = {'old_cart': oldCart};
-      debugPrint('COUPON_API_PAYLOAD: ${jsonEncode(payload)}');
+
+      final totalPayableAmountStr = totalPayableAmount.toStringAsFixed(2);
+      // Sent as query parameters (not GET body) because Flutter's http client
+      // negotiates HTTP/1.1, and some server/proxy configs silently drop the
+      // body of GET requests over HTTP/1.1. Query params are always part of
+      // the URI, so they reach the backend regardless of HTTP version.
+      final queryParams = {
+        // 'old_cart': oldCart,
+        'old_cart': '',
+        'total_payble_amt': totalPayableAmountStr,
+      };
+      debugPrint(
+        'COUPON_API_REQUEST -> Method: GET | URL: ${ApiEndpoints.baseUrl}${ApiEndpoints.availableCoupons} | Query: ${jsonEncode(queryParams)}',
+      );
 
       final response = await ApiClient.get(
         endpoint: ApiEndpoints.availableCoupons,
-        body: payload,
+        queryParameters: queryParams,
         requireAuth: true,
       );
 
