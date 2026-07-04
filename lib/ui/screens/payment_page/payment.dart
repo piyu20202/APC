@@ -2351,8 +2351,6 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    Fluttertoast.showToast(msg: 'Fetching available offers...');
-
     // If we haven't fetched coupons yet, fetch them first before showing modal
     // This allows showing a loader on the payment page button
     if (_availableCoupons.isEmpty) {
