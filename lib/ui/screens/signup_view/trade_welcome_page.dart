@@ -416,8 +416,8 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
       );
 
       if (shouldLogout == true) {
-        // Logout user
-        await StorageService.clearLoginData();
+        // Logout user (login + cart/session local data)
+        await StorageService.clearAllData();
 
         // Navigate to registration page
         if (mounted) {
@@ -492,8 +492,8 @@ class _TradeWelcomePageState extends State<TradeWelcomePage> {
       );
 
       if (shouldLogout == true) {
-        // Logout user
-        await StorageService.clearLoginData();
+        // Logout user (login + cart/session local data)
+        await StorageService.clearAllData();
 
         // Navigate to login page
         if (mounted) {

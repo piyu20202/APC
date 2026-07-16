@@ -91,6 +91,7 @@ class _PaymentPageState extends State<PaymentPage> {
   double? _gstRate;
   bool _hasPendingFreightQuote = false;
   bool _isPayLater = false;
+  bool _isTradeUser = false;
   bool _showFreeShippingLabel = false;
 
   /// From API `shipping_type`: `shipto` or `pickup`. Pickup hides free-delivery promo.
@@ -195,8 +196,9 @@ class _PaymentPageState extends State<PaymentPage> {
           _specialDiscount = 0.0;
           _specialDiscountDescription = null;
         } else {
-          final description =
-              args['summary_special_discount_description']?.toString().trim();
+          final description = args['summary_special_discount_description']
+              ?.toString()
+              .trim();
           _specialDiscountDescription =
               (description != null && description.isNotEmpty)
               ? description
@@ -1003,8 +1005,9 @@ class _PaymentPageState extends State<PaymentPage> {
         _toDouble(shippingResponse['special_discount']) ?? 0.0;
     if (specialDiscount > 0) {
       _specialDiscount = specialDiscount;
-      final description =
-          shippingResponse['special_discount_description']?.toString().trim();
+      final description = shippingResponse['special_discount_description']
+          ?.toString()
+          .trim();
       _specialDiscountDescription =
           (description != null && description.isNotEmpty) ? description : null;
     } else {
@@ -1200,6 +1203,9 @@ class _PaymentPageState extends State<PaymentPage> {
           .toString()
           .toLowerCase();
 
+      final UserModel? currentUser = await StorageService.getUserData();
+      final bool isTradeUser = (currentUser?.isTradeUser ?? 0) == 1;
+
       final payAmount = _toDouble(order?['pay_amount']);
       final totalAmount = _toDouble(order?['total']);
       double amount = payAmount ?? totalAmount ?? 0.0;
@@ -1298,6 +1304,7 @@ class _PaymentPageState extends State<PaymentPage> {
       setState(() {
         _orderNumber = orderNumber;
         _orderId = orderId;
+        _isTradeUser = isTradeUser;
         _currency = 'AUD';
 
         // ONLY set these from local variables if they haven't been set by _refreshPricing already
@@ -1414,7 +1421,7 @@ class _PaymentPageState extends State<PaymentPage> {
         _isLoading = false;
       });
 
-      if (mounted) {
+      if (mounted && !_isTradeUser) {
         final cartSnap = await _getPaymentCartContainer();
         if (mounted) {
           setState(() {
@@ -2217,6 +2224,8 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _applyPromoCode() async {
+    if (_isTradeUser) return;
+
     final code = _couponController.text.trim();
     if (code.isEmpty) {
       Fluttertoast.showToast(
@@ -2315,6 +2324,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _fetchAvailableCoupons({VoidCallback? onUpdate}) async {
+    if (_isTradeUser) return;
     if (_isLoadingCoupons) return;
     if (_hasAttemptedCouponFetch) return;
 
@@ -2345,6 +2355,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   void _showCouponsModal() async {
+    if (_isTradeUser) return;
     if (_isCouponApplied && _couponCode != null && _couponCode!.isNotEmpty) {
       return;
     }
@@ -2471,6 +2482,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _removeCoupon() async {
+    if (_isTradeUser) return;
     if (_isProcessing || _isUpdatingCoupon) return;
 
     setState(() {
@@ -3203,315 +3215,317 @@ class _PaymentPageState extends State<PaymentPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Card(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: PRICE DETAILS
-            const Text(
-              'PRICE DETAILS',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF151D51),
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Items total (excl. GST)
-            _summaryRow(
-              'Total of Items (excl. GST)',
-              formatPrice(_totalCostExclGst),
-            ),
-            const SizedBox(height: 12),
-
-            // Shipping Cost
-            _summaryRow(
-              'Shipping Cost (excl. GST)',
-              _showFreeShippingLabel
-                  ? '${currencySign}0.00'
-                  : formatPrice(_shippingCost),
-              valueColor: _hasPendingFreightQuote
-                  ? Colors.red
-                  : (_showFreeShippingLabel
-                        ? Colors.green
-                        : const Color(0xFFF44336)),
-              labelColor: _hasPendingFreightQuote
-                  ? Colors.red
-                  : (_showFreeShippingLabel
-                        ? Colors.green
-                        : const Color(0xFFF44336)),
-            ),
-            const SizedBox(height: 12),
-
-            // Discount - below Shipping Cost
-            if (_discountAmount != null && _discountAmount! > 0) ...[
-              _summaryRow(
-                'Discount',
-                '-${formatPrice(_discountAmount)}',
-                valueColor: Colors.red[700],
-                labelColor: Colors.red[700],
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // Mobile App Discount - below Discount
-            if (_specialDiscount != null && _specialDiscount! > 0) ...[
-              _summaryRow(
-                'Mobile App Discount',
-                '-${formatPrice(_specialDiscount)}',
-                valueColor: Colors.red[700],
-                labelColor: Colors.red[700],
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            const Divider(height: 1, thickness: 0.8),
-            const SizedBox(height: 12),
-
-            // Total without GST
-            _summaryRow('Total without GST', formatPrice(_totalWithoutGst)),
-            const SizedBox(height: 12),
-
-            // GST Row
-            _summaryRow('GST @ 10%', formatPrice(_gstAmount)),
-            const SizedBox(height: 12),
-
-            // Total incl. GST
-            _summaryRow('Total (incl. GST)', formatPrice(_totalWithGst)),
-            const SizedBox(height: 12),
-
-            // Promo Code Section (Hide if PayLater)
-            if (!_isPayLater) ...[
-              const Divider(height: 1, thickness: 0.5),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: TextField(
-                        controller: _couponController,
-                        readOnly:
-                            hasAppliedCoupon ||
-                            _isUpdatingCoupon ||
-                            _isProcessing,
-                        enabled:
-                            !hasAppliedCoupon &&
-                            !_isUpdatingCoupon &&
-                            !_isProcessing,
-                        textCapitalization: TextCapitalization.characters,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted:
-                            hasAppliedCoupon ||
-                                _isUpdatingCoupon ||
-                                _isProcessing
-                            ? null
-                            : (_) => _applyPromoCode(),
-                        decoration: InputDecoration(
-                          hintText: 'Enter promo code',
-                          hintStyle: TextStyle(
-                            color: Colors.grey[400],
-                            fontSize: 14,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                          ),
-                          border: InputBorder.none,
-                          suffixIcon: hasAppliedCoupon
-                              ? null
-                              : IconButton(
-                                  onPressed:
-                                      (_isLoadingCoupons ||
-                                          _isProcessing ||
-                                          _isUpdatingCoupon)
-                                      ? null
-                                      : _showCouponsModal,
-                                  icon: const Icon(
-                                    Icons.local_offer_outlined,
-                                    size: 20,
-                                    color: Color(0xFF151D51),
-                                  ),
-                                  tooltip: 'Browse offers',
-                                ),
-                        ),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _isProcessing
-                        ? null
-                        : (hasAppliedCoupon ? _removeCoupon : _applyPromoCode),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: hasAppliedCoupon
-                          ? Colors.orange
-                          : const Color(0xFF151D51),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      minimumSize: const Size(90, 44),
-                      elevation: 0,
-                    ),
-                    child: _isUpdatingCoupon
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : Text(
-                            hasAppliedCoupon ? 'Remove' : 'Apply',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed:
-                      (hasAppliedCoupon ||
-                          _isLoadingCoupons ||
-                          _isProcessing ||
-                          _isUpdatingCoupon)
-                      ? null
-                      : _showCouponsModal,
-                  icon: _isLoadingCoupons
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF151D51),
-                            ),
-                          ),
-                        )
-                      : const Icon(Icons.local_offer_outlined, size: 16),
-                  label: Text(
-                    _isLoadingCoupons
-                        ? 'Loading Offers...'
-                        : 'View Available Offers',
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: hasAppliedCoupon
-                        ? Colors.grey
-                        : const Color(0xFF151D51),
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: Colors.grey[200]!),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header: PRICE DETAILS
+                const Text(
+                  'PRICE DETAILS',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF151D51),
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-              const Divider(height: 1, thickness: 0.8),
-              const SizedBox(height: 12),
-              // Show applied promo code message
-              if (hasAppliedCoupon) ...[
-                Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 16,
-                      color: Colors.green[600],
+                const SizedBox(height: 20),
+
+                // Items total (excl. GST)
+                _summaryRow(
+                  'Total of Items (excl. GST)',
+                  formatPrice(_totalCostExclGst),
+                ),
+                const SizedBox(height: 12),
+
+                // Shipping Cost
+                _summaryRow(
+                  'Shipping Cost (excl. GST)',
+                  _showFreeShippingLabel
+                      ? '${currencySign}0.00'
+                      : formatPrice(_shippingCost),
+                  valueColor: _hasPendingFreightQuote
+                      ? Colors.red
+                      : (_showFreeShippingLabel
+                            ? Colors.green
+                            : const Color(0xFFF44336)),
+                  labelColor: _hasPendingFreightQuote
+                      ? Colors.red
+                      : (_showFreeShippingLabel
+                            ? Colors.green
+                            : const Color(0xFFF44336)),
+                ),
+                const SizedBox(height: 12),
+
+                // Discount - below Shipping Cost
+                if (_discountAmount != null && _discountAmount! > 0) ...[
+                  _summaryRow(
+                    'Discount',
+                    '-${formatPrice(_discountAmount)}',
+                    valueColor: Colors.red[700],
+                    labelColor: Colors.red[700],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Mobile App Discount - below Discount
+                if (_specialDiscount != null && _specialDiscount! > 0) ...[
+                  _summaryRow(
+                    'Mobile App Discount',
+                    '-${formatPrice(_specialDiscount)}',
+                    valueColor: Colors.red[700],
+                    labelColor: Colors.red[700],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                const Divider(height: 1, thickness: 0.8),
+                const SizedBox(height: 12),
+
+                // Total without GST
+                _summaryRow('Total without GST', formatPrice(_totalWithoutGst)),
+                const SizedBox(height: 12),
+
+                // GST Row
+                _summaryRow('GST @ 10%', formatPrice(_gstAmount)),
+                const SizedBox(height: 12),
+
+                // Total incl. GST
+                _summaryRow('Total (incl. GST)', formatPrice(_totalWithGst)),
+                const SizedBox(height: 12),
+
+                // Promo Code Section (Hide for PayLater and Trade users)
+                if (!_isPayLater && !_isTradeUser) ...[
+                  const Divider(height: 1, thickness: 0.5),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextField(
+                            controller: _couponController,
+                            readOnly:
+                                hasAppliedCoupon ||
+                                _isUpdatingCoupon ||
+                                _isProcessing,
+                            enabled:
+                                !hasAppliedCoupon &&
+                                !_isUpdatingCoupon &&
+                                !_isProcessing,
+                            textCapitalization: TextCapitalization.characters,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted:
+                                hasAppliedCoupon ||
+                                    _isUpdatingCoupon ||
+                                    _isProcessing
+                                ? null
+                                : (_) => _applyPromoCode(),
+                            decoration: InputDecoration(
+                              hintText: 'Enter promo code',
+                              hintStyle: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 14,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              border: InputBorder.none,
+                              suffixIcon: hasAppliedCoupon
+                                  ? null
+                                  : IconButton(
+                                      onPressed:
+                                          (_isLoadingCoupons ||
+                                              _isProcessing ||
+                                              _isUpdatingCoupon)
+                                          ? null
+                                          : _showCouponsModal,
+                                      icon: const Icon(
+                                        Icons.local_offer_outlined,
+                                        size: 20,
+                                        color: Color(0xFF151D51),
+                                      ),
+                                      tooltip: 'Browse offers',
+                                    ),
+                            ),
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _isProcessing
+                            ? null
+                            : (hasAppliedCoupon
+                                  ? _removeCoupon
+                                  : _applyPromoCode),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: hasAppliedCoupon
+                              ? Colors.orange
+                              : const Color(0xFF151D51),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          minimumSize: const Size(90, 44),
+                          elevation: 0,
+                        ),
+                        child: _isUpdatingCoupon
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                hasAppliedCoupon ? 'Remove' : 'Apply',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed:
+                          (hasAppliedCoupon ||
+                              _isLoadingCoupons ||
+                              _isProcessing ||
+                              _isUpdatingCoupon)
+                          ? null
+                          : _showCouponsModal,
+                      icon: _isLoadingCoupons
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF151D51),
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.local_offer_outlined, size: 16),
+                      label: Text(
+                        _isLoadingCoupons
+                            ? 'Loading Offers...'
+                            : 'View Available Offers',
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: hasAppliedCoupon
+                            ? Colors.grey
+                            : const Color(0xFF151D51),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Coupon Code $_couponCode applied',
+                  ),
+                  const Divider(height: 1, thickness: 0.8),
+                  const SizedBox(height: 12),
+                  // Show applied promo code message
+                  if (hasAppliedCoupon) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          size: 16,
+                          color: Colors.green[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Coupon Code $_couponCode applied',
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ] else ...[
+                  const Divider(height: 1, thickness: 0.8),
+                  const SizedBox(height: 16),
+                ],
+
+                // Total Payable Amount
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Payble Amount :',
                       style: TextStyle(
-                        color: Colors.green[700],
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      formatPrice(total),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-              ],
-            ] else ...[
-              const Divider(height: 1, thickness: 0.8),
-              const SizedBox(height: 16),
-            ],
 
-            // Total Payable Amount
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total Payble Amount :',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                // Pending Freight Quote (Shows when show_freight_cost_icon is 1)
+                if (_hasPendingFreightQuote) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    (_shippingTag != null && _shippingTag!.isNotEmpty)
+                        ? _shippingTag!
+                        : 'Pending Freight Cost',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                Text(
-                  formatPrice(total),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                ],
+                if (!_hasPendingFreightQuote &&
+                    _showFreeShippingLabel &&
+                    !_isPickupShipping) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your Order Eligible for Free Delivery',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
-
-            // Pending Freight Quote (Shows when show_freight_cost_icon is 1)
-            if (_hasPendingFreightQuote) ...[
-              const SizedBox(height: 8),
-              Text(
-                (_shippingTag != null && _shippingTag!.isNotEmpty)
-                    ? _shippingTag!
-                    : 'Pending Freight Cost',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-            if (!_hasPendingFreightQuote &&
-                _showFreeShippingLabel &&
-                !_isPickupShipping) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Your Order Eligible for Free Delivery',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.green.shade700,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
-      ),
-    ),
         if (_specialDiscount != null &&
             _specialDiscount! > 0 &&
             _specialDiscountDescription != null &&
@@ -3535,11 +3549,7 @@ class _PaymentPageState extends State<PaymentPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline,
-            size: 16,
-            color: Colors.blue[700],
-          ),
+          Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

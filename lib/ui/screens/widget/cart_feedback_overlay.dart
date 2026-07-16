@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_messages.dart';
 import '../../../services/navigation_service.dart';
 
 class CartFeedbackOverlay {
@@ -44,9 +45,9 @@ class CartFeedbackOverlay {
               ),
               const SizedBox(height: 24),
               // Message text
-              const Text(
-                'Item successfully added to your cart!',
-                style: TextStyle(
+              Text(
+                AppMessages.itemAddedToCart,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF151D51),

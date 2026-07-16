@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../services/storage_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,6 +23,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final restored = await authProvider.restoreSession();
+
+    if (!mounted) return;
+
+    // Signed-out / guest: drop any cart restored by Android Auto Backup so
+    // reinstall never shows leftover products without the user adding them.
+    if (!restored || !authProvider.isLoggedIn) {
+      await StorageService.clearSessionCartData();
+    }
 
     if (!mounted) return;
 

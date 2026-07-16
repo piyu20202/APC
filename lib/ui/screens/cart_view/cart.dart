@@ -6,6 +6,7 @@ import 'package:apcproject/services/navigation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_messages.dart';
 import '../../../core/network/network_checker.dart';
 import '../../../providers/auth_provider.dart';
 
@@ -275,6 +276,13 @@ class _CartPageState extends State<CartPage> {
       for (final key in keysToRemove) {
         await _persistCartSnapshot(cartKeyToRemove: key);
       }
+
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: AppMessages.itemRemovedFromCart,
+          toastLength: Toast.LENGTH_SHORT,
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -337,7 +345,7 @@ class _CartPageState extends State<CartPage> {
     updatedResponse['totalQty'] =
         _serverReportedQty ?? _calculateTotalQuantity();
     updatedResponse['totalPrice'] =
-      _serverReportedTotal ?? _calculateSubtotal();
+        _serverReportedTotal ?? _calculateSubtotal();
 
     _lastCartResponse = updatedResponse;
     await StorageService.saveCartData(updatedResponse);
@@ -348,8 +356,7 @@ class _CartPageState extends State<CartPage> {
   Future<void> _persistQuantitySnapshot() async {
     if (_lastCartResponse == null) return;
 
-    final updatedResponse =
-        Map<String, dynamic>.from(_lastCartResponse!);
+    final updatedResponse = Map<String, dynamic>.from(_lastCartResponse!);
     final cartMap = Map<String, dynamic>.from(
       (updatedResponse['cart'] as Map<String, dynamic>?) ?? {},
     );
@@ -360,8 +367,9 @@ class _CartPageState extends State<CartPage> {
       final quantity = item['quantity'];
 
       if (cartMap[key] is Map<String, dynamic>) {
-        final entry =
-            Map<String, dynamic>.from(cartMap[key] as Map<String, dynamic>);
+        final entry = Map<String, dynamic>.from(
+          cartMap[key] as Map<String, dynamic>,
+        );
         entry['qty'] = quantity;
         cartMap[key] = entry;
       }
@@ -503,6 +511,13 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
+  void _showQuantityUpdatedToast() {
+    Fluttertoast.showToast(
+      msg: AppMessages.itemQuantityUpdated,
+      toastLength: Toast.LENGTH_SHORT,
+    );
+  }
+
   Future<Map<String, dynamic>> _buildUpdatePayload() async {
     dynamic oldCartPayload = '';
 
@@ -608,9 +623,10 @@ class _CartPageState extends State<CartPage> {
 
       // Log POST body
       final prettyPayload = const JsonEncoder.withIndent('  ').convert(payload);
-      debugPrint('************checkout post body start************');
-      debugPrint(prettyPayload);
-      debugPrint('*************checkout post body end***********');
+
+      //debugPrint('************checkout post body start************');
+      //debugPrint(prettyPayload);
+      //debugPrint('*************checkout post body end***********');
 
       // TEMPORARY: update-cart API disabled for testing — re-enable when ready.
       // final response = await _cartService.updateCart(payload);
@@ -623,7 +639,8 @@ class _CartPageState extends State<CartPage> {
       final prettyResponse = const JsonEncoder.withIndent(
         '  ',
       ).convert(response);
-      debugPrint('=== CHECKOUT - API RESPONSE ===');
+
+      /* debugPrint('=== CHECKOUT - API RESPONSE ===');
       debugPrint(prettyResponse);
       debugPrint('==============================');
 
@@ -637,18 +654,24 @@ class _CartPageState extends State<CartPage> {
       debugPrint('║ shipping                  : ${response['shipping']}');
       debugPrint('║ tax                       : ${response['tax']}');
       debugPrint('║ total_with_gst            : ${response['total_with_gst']}');
+      */
+
       // Per-cart-item freight fields (cart-entry level + item sub-object level)
       final debugCart = response['cart'];
       if (debugCart is Map) {
         debugCart.forEach((key, val) {
           if (val is Map) {
-            final st   = val['product_sizeType'];
+            final st = val['product_sizeType'];
             final srfc = val['show_request_freight_cost'];
             final sfsi = val['show_free_shipping_icon'];
             final itemObj = val['item'];
-            final itemSt   = itemObj is Map ? itemObj['product_sizeType']      : '-';
-            final itemSrfc = itemObj is Map ? itemObj['show_request_freight_cost'] : '-';
-            final itemSfsi = itemObj is Map ? itemObj['show_free_shipping_icon']   : '-';
+            final itemSt = itemObj is Map ? itemObj['product_sizeType'] : '-';
+            final itemSrfc = itemObj is Map
+                ? itemObj['show_request_freight_cost']
+                : '-';
+            final itemSfsi = itemObj is Map
+                ? itemObj['show_free_shipping_icon']
+                : '-';
             debugPrint(
               '║   entry[$key]  product_sizeType=$st | show_request_freight_cost=$srfc | show_free_shipping_icon=$sfsi',
             );
@@ -658,12 +681,14 @@ class _CartPageState extends State<CartPage> {
           }
         });
       }
-      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      debugPrint(
+        '╚════════════════════════════════════════════════════════════╝',
+      );
       // ─────────────────────────────────────────────────────────────────────
 
       await StorageService.savePaymentCartSnapshot(response);
       debugPrint('PAYMENT_SNAPSHOT_SAVED: true');
-      // DEFERRED: We no longer clear the main cart here to prevent UI flicker 
+      // DEFERRED: We no longer clear the main cart here to prevent UI flicker
       // and to allow users to return to the cart if they cancel checkout.
       NavigationService.instance.refreshCartCount();
       NavigationService.instance.refreshCartItems();
@@ -678,8 +703,8 @@ class _CartPageState extends State<CartPage> {
       );
 
       if (!mounted) return;
-      // We don't need to manually clear the state here because 
-      // NavigationService.instance.refreshCartItems() already triggers a reload 
+      // We don't need to manually clear the state here because
+      // NavigationService.instance.refreshCartItems() already triggers a reload
       // which will see the empty cart data in storage.
       // Clearing it here manually causes a UI flicker before navigation.
 
@@ -831,8 +856,9 @@ class _CartPageState extends State<CartPage> {
                         if (itemId != null) {
                           _recordQuantityChange(itemId, -1);
                         }
-                    // Keep cart badge in sync with quantity changes
-                    _persistQuantitySnapshot();
+                        // Keep cart badge in sync with quantity changes
+                        _persistQuantitySnapshot();
+                        _showQuantityUpdatedToast();
                       }
                     },
                     onQuantityIncrease: () {
@@ -848,8 +874,9 @@ class _CartPageState extends State<CartPage> {
                       if (itemId != null) {
                         _recordQuantityChange(itemId, 1);
                       }
-                  // Keep cart badge in sync with quantity changes
-                  _persistQuantitySnapshot();
+                      // Keep cart badge in sync with quantity changes
+                      _persistQuantitySnapshot();
+                      _showQuantityUpdatedToast();
                     },
                     onDelete: () {
                       if (cartKey != null && _deletingItems.contains(cartKey)) {
@@ -892,6 +919,7 @@ class _CartPageState extends State<CartPage> {
                           }
                           // Keep cart badge in sync with quantity changes
                           _persistQuantitySnapshot();
+                          _showQuantityUpdatedToast();
                         }
                       },
                       onQuantityIncrease: () {
@@ -911,6 +939,7 @@ class _CartPageState extends State<CartPage> {
                         }
                         // Keep cart badge in sync with quantity changes
                         _persistQuantitySnapshot();
+                        _showQuantityUpdatedToast();
                       },
                       onDelete: () {
                         if (addonCartKey != null &&

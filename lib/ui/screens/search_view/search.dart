@@ -118,7 +118,7 @@ class _SearchScreenState extends State<SearchScreen> {
       final result = await _repository.searchProducts(
         searchKeyword: query,
         page: page.toString(),
-        perPage: '20',
+        perPage: '40',
       );
 
       final List<dynamic> products = result['products'];
@@ -159,7 +159,6 @@ class _SearchScreenState extends State<SearchScreen> {
         // First, flatten any comma-separated items inside each feature entry
         final List<String> flattened = [];
         for (final item in displayFeaturesList) {
-          if (item == null) continue;
           final parts = item.toString().split(',');
           for (final p in parts) {
             final t = p.trim();
@@ -316,57 +315,60 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildPagination() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[200]!)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Previous Button
-          TextButton.icon(
-            onPressed: _currentPage > 1
-                ? () => _performSearch(
-                    _searchController.text,
-                    page: _currentPage - 1,
-                  )
-                : null,
-            icon: const Icon(Icons.chevron_left),
-            label: const Text('Prev'),
-            style: TextButton.styleFrom(
-              foregroundColor: _currentPage > 1
-                  ? const Color(0xFF151D51)
-                  : Colors.grey,
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey[200]!)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Previous Button
+            TextButton.icon(
+              onPressed: _currentPage > 1
+                  ? () => _performSearch(
+                      _searchController.text,
+                      page: _currentPage - 1,
+                    )
+                  : null,
+              icon: const Icon(Icons.chevron_left),
+              label: const Text('Prev'),
+              style: TextButton.styleFrom(
+                foregroundColor: _currentPage > 1
+                    ? const Color(0xFF151D51)
+                    : Colors.grey,
+              ),
             ),
-          ),
 
-          // Page Info
-          Text(
-            'Page $_currentPage of $_lastPage',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          ),
+            // Page Info
+            Text(
+              'Page $_currentPage of $_lastPage',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
 
-          // Next Button
-          TextButton(
-            onPressed: _currentPage < _lastPage
-                ? () => _performSearch(
-                    _searchController.text,
-                    page: _currentPage + 1,
-                  )
-                : null,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [const Text('Next'), const Icon(Icons.chevron_right)],
+            // Next Button
+            TextButton(
+              onPressed: _currentPage < _lastPage
+                  ? () => _performSearch(
+                      _searchController.text,
+                      page: _currentPage + 1,
+                    )
+                  : null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [const Text('Next'), const Icon(Icons.chevron_right)],
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: _currentPage < _lastPage
+                    ? const Color(0xFF151D51)
+                    : Colors.grey,
+              ),
             ),
-            style: TextButton.styleFrom(
-              foregroundColor: _currentPage < _lastPage
-                  ? const Color(0xFF151D51)
-                  : Colors.grey,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

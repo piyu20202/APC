@@ -145,6 +145,15 @@ class StorageService {
     await UserRoleService.removeTraderStatus();
   }
 
+  /// Clears cart/checkout/order state that must not survive logout or a
+  /// guest/signed-out session (including after Android backup restore).
+  static Future<void> clearSessionCartData() async {
+    await clearCartData();
+    await clearPaymentCartSnapshot();
+    await clearCheckoutData();
+    await clearOrderData();
+  }
+
   /// Get complete login response
   static Future<LoginResponse?> getLoginResponse() async {
     final accessToken = await getAccessToken();
@@ -390,10 +399,7 @@ class StorageService {
   static Future<void> clearAllData() async {
     await clearLoginData();
     await clearSettings();
-    await clearCartData();
-    await clearPaymentCartSnapshot();
-    await clearCheckoutData();
-    await clearOrderData();
+    await clearSessionCartData();
     await clearPaymentConfig();
   }
 

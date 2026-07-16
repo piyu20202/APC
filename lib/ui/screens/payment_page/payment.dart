@@ -91,6 +91,7 @@ class _PaymentPageState extends State<PaymentPage> {
   double? _gstRate;
   bool _hasPendingFreightQuote = false;
   bool _isPayLater = false;
+  bool _isTradeUser = false;
   bool _showFreeShippingLabel = false;
 
   /// From API `shipping_type`: `shipto` or `pickup`. Pickup hides free-delivery promo.
@@ -580,9 +581,8 @@ class _PaymentPageState extends State<PaymentPage> {
           return;
         }
 
-        // CONDITIONAL FLOW: check process_payment
-        if (response['process_payment'] == 0 &&
-            response['show_order_success'] == 1) {
+        // CONDITIONAL FLOW: check process_payment (skip only for freight-quote UI)
+        if (_shouldSkipPaymentAndShowSuccess(response)) {
           _navigateToOrderSuccess(response, 'Google Pay');
           return;
         }
@@ -760,9 +760,13 @@ class _PaymentPageState extends State<PaymentPage> {
     return 'shipto';
   }
 
-  /// Centralized freight rule resolution logic
-  /// Determines whether to charge shipping, show free label, or pending quote
-  /// Based on order type, product flags, and freight rules
+  /// Centralized freight rule resolution (normal payment flow).
+  ///
+  /// Backend Shipping Cost/Info rules:
+  /// - shipto + show_freight_cost_icon == 1 + shipping == 0 → Request Freight Quote
+  /// - shipto + show_freight_cost_icon == 1 + shipping > 0  → Pay Now
+  /// - pickup + show_freight_cost_icon == 1                 → Pay Now
+  /// - show_freight_cost_icon == 0                          → Pay Now
   _FreightRuleResult _resolveFreightRule({
     required double rawShippingCost,
     dynamic orderType,
@@ -774,16 +778,25 @@ class _PaymentPageState extends State<PaymentPage> {
     final requestFreightCost = _toDouble(showRequestFreightCost) ?? 0.0;
     final freeShippingIcon = _toDouble(showFreeShippingIcon) ?? 0.0;
     final isPickup = _normalizeShippingType(shippingType) == 'pickup';
+    final shipping =
+        rawShippingCost < 0 ? 0.0 : rawShippingCost;
 
+    // Freight-needed signal from API icon and/or large order type.
+    final needsFreight =
+        requestFreightCost >= 1 || normalizedOrderType == 'large';
+
+    // Pickup (or no freight flag): always direct payment — never pending quote.
+    // Ship-to + freight needed: pending only while shipping cost is still 0.
     final hasPendingFreightQuote =
-        normalizedOrderType == 'large' || requestFreightCost >= 1;
+        !isPickup && needsFreight && shipping <= 0;
+
     // Pickup: customer collects from office — never show "free delivery" promo.
     final showFreeShippingLabel =
         !isPickup && !hasPendingFreightQuote && freeShippingIcon == 1;
 
     final shippingCost = hasPendingFreightQuote || showFreeShippingLabel
         ? 0.0
-        : (rawShippingCost < 0 ? 0.0 : rawShippingCost);
+        : shipping;
 
     return _FreightRuleResult(
       shippingCost: shippingCost,
@@ -1202,6 +1215,9 @@ class _PaymentPageState extends State<PaymentPage> {
           .toString()
           .toLowerCase();
 
+      final UserModel? currentUser = await StorageService.getUserData();
+      final bool isTradeUser = (currentUser?.isTradeUser ?? 0) == 1;
+
       final payAmount = _toDouble(order?['pay_amount']);
       final totalAmount = _toDouble(order?['total']);
       double amount = payAmount ?? totalAmount ?? 0.0;
@@ -1300,6 +1316,7 @@ class _PaymentPageState extends State<PaymentPage> {
       setState(() {
         _orderNumber = orderNumber;
         _orderId = orderId;
+        _isTradeUser = isTradeUser;
         _currency = 'AUD';
 
         // ONLY set these from local variables if they haven't been set by _refreshPricing already
@@ -1416,7 +1433,7 @@ class _PaymentPageState extends State<PaymentPage> {
         _isLoading = false;
       });
 
-      if (mounted) {
+      if (mounted && !_isTradeUser) {
         final cartSnap = await _getPaymentCartContainer();
         if (mounted) {
           setState(() {
@@ -1473,7 +1490,10 @@ class _PaymentPageState extends State<PaymentPage> {
         checkoutData: checkoutData,
       );
       payload['payment_method'] =
-          widget.arguments?['payment_method'] ?? 'Credit Card';
+          widget.arguments?['payment_method'] ??
+          (_hasPendingFreightQuote
+              ? 'Freight Quote'
+              : _effectiveSelectedPaymentMethod);
 
       final response = await _orderService.storeOrder(payload);
 
@@ -1613,6 +1633,37 @@ class _PaymentPageState extends State<PaymentPage> {
     };
   }
 
+  /// Store-order `process_payment` gate.
+  ///
+  /// Backend: process_payment == 1 → continue payment;
+  ///          process_payment == 0 → order success (freight quote).
+  ///
+  /// Flutter guard: if UI is already on Pay Now path
+  /// (`!_hasPendingFreightQuote`, e.g. pickup + large), never skip payment
+  /// even if backend still returns process_payment == 0.
+  bool _shouldSkipPaymentAndShowSuccess(Map<String, dynamic> response) {
+    final processPayment = response['process_payment'];
+    final showSuccess = response['show_order_success'];
+    final isProcessPaymentZero =
+        processPayment == 0 || processPayment?.toString() == '0';
+    final isShowSuccess =
+        showSuccess == 1 || showSuccess?.toString() == '1';
+
+    if (!isProcessPaymentZero || !isShowSuccess) return false;
+
+    // Pay Now path (pickup / freight already priced) → must open PayPal/card.
+    if (!_hasPendingFreightQuote) {
+      debugPrint(
+        'STORE_ORDER: process_payment=0 ignored because UI is Pay Now '
+        '(shippingType=$_shippingType, hasPendingFreightQuote=$_hasPendingFreightQuote). '
+        'Continuing to payment.',
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   void _navigateToOrderSuccess(Map<String, dynamic> response, String method) {
     if (!mounted) return;
 
@@ -1683,9 +1734,8 @@ class _PaymentPageState extends State<PaymentPage> {
           return;
         }
 
-        // CONDITIONAL FLOW: check process_payment
-        if (response['process_payment'] == 0 &&
-            response['show_order_success'] == 1) {
+        // CONDITIONAL FLOW: check process_payment (skip only for freight-quote UI)
+        if (_shouldSkipPaymentAndShowSuccess(response)) {
           _navigateToOrderSuccess(response, 'Credit Card');
           return;
         }
@@ -1826,9 +1876,8 @@ class _PaymentPageState extends State<PaymentPage> {
           return;
         }
 
-        // CONDITIONAL FLOW: check process_payment
-        if (response['process_payment'] == 0 &&
-            response['show_order_success'] == 1) {
+        // CONDITIONAL FLOW: check process_payment (skip only for freight-quote UI)
+        if (_shouldSkipPaymentAndShowSuccess(response)) {
           _navigateToOrderSuccess(response, 'PayPal');
           return;
         }
@@ -2033,8 +2082,7 @@ class _PaymentPageState extends State<PaymentPage> {
           if (mounted) setState(() => _isProcessing = false);
           return;
         }
-        if (response['process_payment'] == 0 &&
-            response['show_order_success'] == 1) {
+        if (_shouldSkipPaymentAndShowSuccess(response)) {
           _navigateToOrderSuccess(response, 'PayPal');
           return;
         }
@@ -2219,6 +2267,8 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _applyPromoCode() async {
+    if (_isTradeUser) return;
+
     final code = _couponController.text.trim();
     if (code.isEmpty) {
       Fluttertoast.showToast(
@@ -2317,6 +2367,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _fetchAvailableCoupons({VoidCallback? onUpdate}) async {
+    if (_isTradeUser) return;
     if (_isLoadingCoupons) return;
     if (_hasAttemptedCouponFetch) return;
 
@@ -2347,6 +2398,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   void _showCouponsModal() async {
+    if (_isTradeUser) return;
     if (_isCouponApplied && _couponCode != null && _couponCode!.isNotEmpty) {
       return;
     }
@@ -2473,6 +2525,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _removeCoupon() async {
+    if (_isTradeUser) return;
     if (_isProcessing || _isUpdatingCoupon) return;
 
     setState(() {
@@ -3291,8 +3344,8 @@ class _PaymentPageState extends State<PaymentPage> {
                 _summaryRow('Total (incl. GST)', formatPrice(_totalWithGst)),
                 const SizedBox(height: 12),
 
-                // Promo Code Section (Hide if PayLater)
-                if (!_isPayLater) ...[
+                // Promo Code Section (Hide for PayLater and Trade users)
+                if (!_isPayLater && !_isTradeUser) ...[
                   const Divider(height: 1, thickness: 0.5),
                   const SizedBox(height: 16),
                   Row(

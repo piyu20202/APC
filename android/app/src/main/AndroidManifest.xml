@@ -13,7 +13,11 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:replace="android:allowBackup">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -67,6 +71,16 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="vnd.youtube"/>
+        </intent>
+        <!-- Required for Google Pay inside Android WebView (Payment Request API) -->
+        <intent>
+            <action android:name="org.chromium.intent.action.PAY"/>
+        </intent>
+        <intent>
+            <action android:name="org.chromium.intent.action.IS_READY_TO_PAY"/>
+        </intent>
+        <intent>
+            <action android:name="org.chromium.intent.action.UPDATE_PAYMENT_DETAILS"/>
         </intent>
         <package android:name="com.google.android.youtube"/>
         <package android:name="com.android.chrome"/>

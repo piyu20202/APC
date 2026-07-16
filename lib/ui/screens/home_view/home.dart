@@ -46,6 +46,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with RouteAware {
+  /// Last-preference image when API image is missing or fails to load.
+  static const String _noImgAsset = 'assets/images/no_img.png';
+
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
   final PageController _bannerController = PageController();
@@ -54,13 +57,17 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   Timer? _midBannerTimer;
   final PageController _midBannerController = PageController();
 
-  // Auto-scroll for Latest Products
-  int _currentProductIndex = 0;
-  Timer? _productTimer;
-  final PageController _productController = PageController();
-
   // Trader status
   bool _isTrader = false;
+
+  Widget _buildNoImgFallback({BoxFit fit = BoxFit.contain}) {
+    return Image.asset(
+      _noImgAsset,
+      fit: fit,
+      width: double.infinity,
+      height: double.infinity,
+    );
+  }
 
   // Settings data
   SettingsModel? _settings;
@@ -127,101 +134,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     final shouldRun = widget.isActive && _isRouteVisible;
     if (shouldRun) {
       _startBannerTimer();
-      _startProductTimer();
       _startMidBannerTimer();
     } else {
       _stopBannerTimer();
-      _stopProductTimer();
       _stopMidBannerTimer();
     }
   }
-
-  final List<Map<String, dynamic>> banners = [
-    {
-      'image': 'assets/images/banner1.jpg',
-      'backgroundColor': const Color(0xFFE91E63),
-    },
-    {
-      'image': 'assets/images/banner2.jpg',
-      'backgroundColor': const Color(0xFFF44336),
-    },
-    {
-      'image': 'assets/images/banner3.jpg',
-      'backgroundColor': const Color(0xFF2196F3),
-    },
-  ];
-
-  final List<Map<String, dynamic>> products = [
-    {
-      'id': 1001,
-      'image': 'assets/images/1.png',
-      'name': 'Telescopic Linear Actuator - Heavy Duty',
-      'sku': 'APC-TLA-HD',
-      'description': 'Heavy duty linear actuator for industrial applications',
-      'currentPrice': '\$13',
-      'originalPrice': '\$42',
-      'onSale': true,
-    },
-    {
-      'id': 1002,
-      'image': 'assets/images/2.png',
-      'name': 'Robust Cast Alloy Casing Kit',
-      'sku': 'APC-RCAK-001',
-      'description': 'Durable cast alloy casing for long-lasting performance',
-      'currentPrice': '\$74',
-      'originalPrice': '\$99',
-      'onSale': true,
-    },
-    {
-      'id': 1003,
-      'image': 'assets/images/3.png',
-      'name': 'Farm Gate Opener Kit',
-      'sku': 'APC-FGO-001',
-      'description': 'Complete farm gate automation solution',
-      'currentPrice': '\$59',
-      'originalPrice': '\$79',
-      'onSale': true,
-    },
-  ];
-
-  final List<Map<String, dynamic>> featuredProducts = [
-    {
-      'id': 2001,
-      'image': 'assets/images/product1.png',
-      'name': 'Gas Automation Kit',
-      'description': 'Complete gas automation solution for gates',
-      'currentPrice': '\$89',
-      'originalPrice': '\$120',
-      'onSale': true,
-    },
-    {
-      'id': 2002,
-      'image': 'assets/images/product2.png',
-      'name': 'Gate & Fencing Hardware',
-      'description': 'Professional grade gate and fencing hardware',
-      'currentPrice': '\$45',
-      'originalPrice': '\$65',
-      'onSale': true,
-    },
-    {
-      'id': 2003,
-      'image': 'assets/images/product3.png',
-      'name': 'Brushless Electric Gate Kit',
-      'description': 'High-performance brushless electric gate system',
-      'currentPrice': '\$199',
-      'originalPrice': '\$250',
-      'onSale': true,
-    },
-    {
-      'id': 2004,
-      'image': 'assets/images/product4.png',
-      'name': 'Custom Made Gate',
-      'description': 'Custom designed gate solutions',
-      'currentPrice': '\$299',
-      'originalPrice': '\$350',
-      'onSale': true,
-    },
-  ];
 
   @override
   void initState() {
@@ -355,10 +273,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           context,
           listen: false,
         );
-        final apiSliders = homeProvider.sliders;
-        final itemCount = apiSliders.isNotEmpty
-            ? apiSliders.length
-            : banners.length;
+        final itemCount = homeProvider.sliders.length;
 
         if (itemCount == 0) return;
 
@@ -376,27 +291,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void _stopBannerTimer() {
     _bannerTimer?.cancel();
     _bannerTimer = null;
-  }
-
-  void _startProductTimer() {
-    if (_productTimer?.isActive == true) return;
-    _productTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      if (_productController.hasClients && products.isNotEmpty) {
-        final next = (_currentProductIndex + 1) % products.length;
-        _productController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-        if (mounted) setState(() => _currentProductIndex = next);
-      }
-    });
-  }
-
-  void _stopProductTimer() {
-    _productTimer?.cancel();
-    _productTimer = null;
   }
 
   void _startMidBannerTimer() {
@@ -432,8 +326,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     routeObserver.unsubscribe(this);
     _stopBannerTimer();
     _bannerController.dispose();
-    _stopProductTimer();
-    _productController.dispose();
     _stopMidBannerTimer();
     _midBannerController.dispose();
     super.dispose();
@@ -661,13 +553,24 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     return Consumer<HomepageProvider>(
       builder: (context, homeProvider, _) {
         final apiSliders = homeProvider.sliders;
-        final bool hasApiSliders = apiSliders.isNotEmpty;
-        final int itemCount = hasApiSliders
-            ? apiSliders.length
-            : banners.length;
 
-        if (itemCount == 0) {
-          return const SizedBox.shrink();
+        if (homeProvider.isLoading) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 16),
+            height: 160,
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (apiSliders.isEmpty) {
+          // Last preference: show no_img when API returns no banner data.
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 16),
+            child: AspectRatio(
+              aspectRatio: 16 / 7,
+              child: _buildNoImgFallback(fit: BoxFit.cover),
+            ),
+          );
         }
 
         return Container(
@@ -690,106 +593,51 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           _currentBannerIndex = index;
                         });
                       },
-                      itemCount: itemCount,
+                      itemCount: apiSliders.length,
                       itemBuilder: (context, index) {
-                        // Use API sliders if available, otherwise fall back to local assets
-                        if (hasApiSliders) {
-                          final slider = apiSliders[index];
-                          return Container(
-                            margin: EdgeInsets.zero,
-                            decoration: const BoxDecoration(),
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.zero,
-                                    child: GestureDetector(
-                                      onTap: () async {
-                                        if (slider.link != null &&
-                                            slider.link!.isNotEmpty) {
-                                          final uri = Uri.parse(slider.link!);
-                                          if (await canLaunchUrl(uri)) {
-                                            await launchUrl(uri);
-                                          }
+                        final slider = apiSliders[index];
+                        final photo = slider.photo.trim();
+                        if (photo.isEmpty) {
+                          return _buildNoImgFallback(fit: BoxFit.cover);
+                        }
+                        return Container(
+                          margin: EdgeInsets.zero,
+                          decoration: const BoxDecoration(),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.zero,
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      if (slider.link != null &&
+                                          slider.link!.isNotEmpty) {
+                                        final uri = Uri.parse(slider.link!);
+                                        if (await canLaunchUrl(uri)) {
+                                          await launchUrl(uri);
                                         }
-                                      },
-                                      child: CachedNetworkImage(
-                                        imageUrl: slider.photo,
-                                        fit: BoxFit.cover,
-                                        errorWidget: (context, url, error) {
-                                          return Container(
-                                            color: Colors.grey[300],
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.image,
-                                                color: Colors.white54,
-                                                size: 60,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        placeholder: (context, url) =>
-                                            Container(
-                                              color: Colors.grey[200],
-                                              child: const Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              ),
-                                            ),
+                                      }
+                                    },
+                                    child: CachedNetworkImage(
+                                      imageUrl: photo,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (context, url, error) =>
+                                          _buildNoImgFallback(fit: BoxFit.cover),
+                                      placeholder: (context, url) => Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          );
-                        } else {
-                          // Existing static banners (fallback)
-                          final banner = banners[index];
-                          return Container(
-                            margin: EdgeInsets.zero,
-                            decoration: const BoxDecoration(),
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.zero,
-                                    child: Image.asset(
-                                      banner['image'],
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [
-                                                    banner['backgroundColor'],
-                                                    banner['backgroundColor']
-                                                        .withValues(alpha: 0.8),
-                                                  ],
-                                                ),
-                                              ),
-                                              child: Center(
-                                                child: Icon(
-                                                  Icons.image,
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.5),
-                                                  size: 60,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
+                              ),
+                            ],
+                          ),
+                        );
                       },
                     ),
 
@@ -801,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          itemCount,
+                          apiSliders.length,
                           (index) => Container(
                             width: 8,
                             height: 8,
@@ -1070,17 +918,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                         ),
                                       ),
                                       errorWidget: (context, url, error) =>
-                                          Image.asset(
-                                            'assets/images/no_image.png',
-                                            width: double.infinity,
-                                            fit: BoxFit.contain,
-                                          ),
+                                          _buildNoImgFallback(),
                                     )
-                                  : Image.asset(
-                                      'assets/images/no_image.png',
-                                      width: double.infinity,
-                                      fit: BoxFit.contain,
-                                    ),
+                                  : _buildNoImgFallback(),
                             ),
                           ),
                           // Category name - grows to fit full text
@@ -1121,72 +961,80 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Widget _buildLatestProductsSection() {
-    final homeProvider = Provider.of<HomepageProvider>(context);
-    final displayProducts = homeProvider.latestProducts.isNotEmpty
-        ? homeProvider.latestProducts
-        : null;
-    final itemCount = displayProducts?.length ?? products.length;
+    return Consumer<HomepageProvider>(
+      builder: (context, homeProvider, _) {
+        final latestProducts = homeProvider.latestProducts;
+        final isLoading = homeProvider.isLoadingLatestProducts;
+        final double sectionHeight = isLoading
+            ? 320
+            : latestProducts.isEmpty
+            ? 90
+            : 320;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Latest Product',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF151D51),
-            ),
-          ),
-          const SizedBox(height: 16),
-          homeProvider.isLoadingLatestProducts
-              ? const SizedBox(
-                  height: 200,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : SizedBox(
-                  height: 320,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: itemCount,
-                    itemBuilder: (context, index) {
-                      if (displayProducts != null) {
-                        final apiProduct = displayProducts[index];
-                        final mapped =
-                            ProductCardMapper.mapLatestProductForListingCard(
-                              product: apiProduct,
-                              isTradeUser: _isTrader,
-                              descriptionFallback:
-                                  'Latest product — description coming soon.',
-                            );
-                        return SizedBox(
-                          width: MediaQuery.of(context).size.width * 0.47,
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: ListingProductCard(product: mapped),
-                          ),
-                        );
-                      }
-                      final product = products[index];
-                      final mapped =
-                          ProductCardMapper.mapLegacyProductMapForListingCard(
-                            product: product,
-                            isTradeUser: _isTrader,
-                          );
-                      return SizedBox(
-                        width: 180,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: ListingProductCard(product: mapped),
-                        ),
-                      );
-                    },
-                  ),
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Latest Product',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF151D51),
                 ),
-        ],
-      ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: sectionHeight,
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : latestProducts.isEmpty
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: const Center(
+                          child: Text(
+                            'No data found',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: latestProducts.length,
+                        itemBuilder: (context, index) {
+                          final apiProduct = latestProducts[index];
+                          final mapped =
+                              ProductCardMapper.mapLatestProductForListingCard(
+                                product: apiProduct,
+                                isTradeUser: _isTrader,
+                                descriptionFallback:
+                                    'Latest product — description coming soon.',
+                              );
+                          return SizedBox(
+                            width: MediaQuery.of(context).size.width * 0.47,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: ListingProductCard(
+                                product: mapped,
+                                hideStrikePriceForTradeUser: true,
+                                imageFallbackAsset: _noImgAsset,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1203,7 +1051,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           _didLogBannersOnce = true;
         }
 
-        // If no banners from API, show a placeholder or nothing
+        // No mid-banner section when API returns none.
         if (allBanners.isEmpty) {
           if (kDebugMode) {
             debugPrint('No banners available - hiding banner section');
@@ -1246,6 +1094,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         itemCount: allBanners.length,
                         itemBuilder: (context, index) {
                           final banner = allBanners[index];
+                          final photo = banner.photo.trim();
+                          if (photo.isEmpty) {
+                            return _buildNoImgFallback(fit: BoxFit.cover);
+                          }
                           return GestureDetector(
                             onTap: () {
                               if (banner.link != null &&
@@ -1254,7 +1106,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                               }
                             },
                             child: CachedNetworkImage(
-                              imageUrl: banner.photo,
+                              imageUrl: photo,
                               fit: BoxFit.cover,
                               width: double.infinity,
                               placeholder: (context, url) => Container(
@@ -1263,16 +1115,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                   child: CircularProgressIndicator(),
                                 ),
                               ),
-                              errorWidget: (context, url, error) => Container(
-                                color: Colors.grey[300],
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.image,
-                                    color: Colors.grey,
-                                    size: 40,
-                                  ),
-                                ),
-                              ),
+                              errorWidget: (context, url, error) =>
+                                  _buildNoImgFallback(fit: BoxFit.cover),
                             ),
                           );
                         },
@@ -1373,7 +1217,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                             width: MediaQuery.of(context).size.width * 0.47,
                             child: Padding(
                               padding: const EdgeInsets.only(right: 12),
-                              child: ListingProductCard(product: mapped),
+                              child: ListingProductCard(
+                                product: mapped,
+                                hideStrikePriceForTradeUser: true,
+                                imageFallbackAsset: _noImgAsset,
+                              ),
                             ),
                           );
                         },

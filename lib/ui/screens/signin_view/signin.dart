@@ -7,6 +7,7 @@ import '../../../providers/auth_provider.dart';
 import '../forgotpassword_view/forgotpassword.dart';
 import '../../../data/services/settings_service.dart';
 import '../../../services/storage_service.dart';
+import '../../../core/constants/app_messages.dart';
 import '../../../core/utils/logger.dart';
 import '../../../data/services/payment_config_service.dart';
 
@@ -51,7 +52,7 @@ class _SigninScreenState extends State<SigninScreen> {
 
           // Show success toast with user name
           Fluttertoast.showToast(
-            msg: 'Welcome $userName! Login successful.',
+            msg: AppMessages.loginSuccess(userName),
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.BOTTOM,
             backgroundColor: Colors.green,
@@ -176,7 +177,7 @@ class _SigninScreenState extends State<SigninScreen> {
             final userName = authProvider.currentUser?.name ?? 'User';
 
             Fluttertoast.showToast(
-              msg: 'Welcome $userName! Login successful.',
+              msg: AppMessages.loginSuccess(userName),
               toastLength: Toast.LENGTH_SHORT,
               gravity: ToastGravity.BOTTOM,
               backgroundColor: Colors.green,
@@ -304,7 +305,7 @@ class _SigninScreenState extends State<SigninScreen> {
           final userName = authProvider.currentUser?.name ?? 'User';
 
           Fluttertoast.showToast(
-            msg: 'Welcome $userName! Login successful.',
+            msg: AppMessages.loginSuccess(userName),
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.BOTTOM,
             backgroundColor: Colors.green,

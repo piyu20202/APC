@@ -77,8 +77,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               actions: [
                 TextButton(
                   onPressed: () async {
-                    // Clear login + cart/session local data, then go to login.
-                    await StorageService.clearAllData();
+                    // Clear stored login data and navigate to the login screen.
+                    await StorageService.clearLoginData();
                     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                   },
                   child: const Text('Logout'),
@@ -206,24 +206,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     }
   }
 
-  /// PayLater: whether unpaid order can proceed to payment.
-  /// Pickup (incl. large) → pay now.
-  /// Normal → pay now.
-  /// Large + shipping already set → pay now.
-  /// Large + shipto + shipping == 0 → hide (freight pending).
-  bool _canShowPayNowForUnpaidOrder(Map<String, dynamic> order) {
-    final shippingType =
-        (order['shipping'] ?? '').toString().trim().toLowerCase();
-    final isPickup = shippingType == 'pickup';
-    final orderType = (order['order_type'] ?? '').toString().toLowerCase();
-    final shippingCost = _safeNum(order['normal_shipping_cost']);
-
-    if (isPickup) return true;
-    if (orderType == 'normal') return true;
-    if (orderType == 'large' && shippingCost > 0) return true;
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
     final shippingType = (_orderData?['shipping'] ?? '')
@@ -321,14 +303,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     _buildOrderSummaryCard(),
                     const SizedBox(height: 24),
 
-                    // PAY NOW Button visibility (PayLater):
+                    // PAY NOW Button visibility:
                     // Hide if: status == 7 OR payment_status == 'Paid'
                     // Show if: payment_status == 'Partial' (always)
-                    //       OR unpaid + pickup (incl. large) → direct pay
-                    //       OR unpaid + normal order
-                    //       OR unpaid + large + shipping already set (> 0)
-                    // Hide if: unpaid + shipto + large + shipping == 0
-                    //          (freight still pending — cannot pay yet)
+                    //       OR payment_status == 'Unpaid' AND (normal order OR large with shipping > 0)
                     if (_orderData!['status']?.toString() != '7' &&
                         _orderData!['payment_status']?.toLowerCase() !=
                             'paid') ...[
@@ -337,7 +315,12 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         _buildPayNowButton()
                       else if (_orderData!['payment_status']?.toLowerCase() ==
                               'unpaid' &&
-                          _canShowPayNowForUnpaidOrder(_orderData!))
+                          (_orderData!['order_type'] == 'normal' ||
+                              (_orderData!['order_type'] == 'large' &&
+                                  _safeNum(
+                                        _orderData!['normal_shipping_cost'],
+                                      ) >
+                                      0)))
                         _buildPayNowButton(),
                     ],
                     if (_orderData!['payment_status']?.toLowerCase() ==

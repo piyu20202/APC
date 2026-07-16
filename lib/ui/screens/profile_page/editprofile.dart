@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../../core/constants/app_messages.dart';
 import 'package:provider/provider.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/models/user_model.dart';
@@ -155,13 +156,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (country != null && country.isNotEmpty) {
       _selectedCountry = country;
     }
-  }
-
-  String? _messageFromApi(Map<String, dynamic>? data) {
-    final message = data?['message'];
-    if (message == null) return null;
-    final text = message.toString().trim();
-    return text.isEmpty ? null : text;
   }
 
   Future<void> _loadUserDataFromStorage() async {
@@ -597,7 +591,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       formData.removeWhere((key, value) => value.toString().isEmpty);
 
       // POST /user/update-profile
-      final updateResponse = await _authService.updateUserProfile(formData);
+      await _authService.updateUserProfile(formData);
 
       // GET /user/profile — refresh local session with latest fields
       final profileResponse = await _authService.fetchUserProfile();
@@ -610,8 +604,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (mounted) {
         Fluttertoast.showToast(
-          msg: _messageFromApi(updateResponse) ??
-              'Profile updated successfully',
+          msg: AppMessages.profileUpdated,
           toastLength: Toast.LENGTH_LONG,
         );
         Navigator.of(context).pop();

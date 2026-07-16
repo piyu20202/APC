@@ -173,6 +173,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
     });
 
     try {
+      final int effectivePerPage = widget.perPage ?? 40;
+      print('📦 Listing perPage: $effectivePerPage (page: $page)');
+
       if (widget.categorySlug != null && widget.categoryType != null) {
         Logger.info(
           'Fetching products - slug: ${widget.categorySlug}, type: ${widget.categoryType}',
@@ -182,7 +185,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           categorySlug: widget.categorySlug,
           categoryType: widget.categoryType,
           page: page,
-          perPage: widget.perPage ?? 20,
+          perPage: effectivePerPage,
           categoryId: widget.categoryId,
           subcategoryId: widget.subcategoryId,
           childcategoryId: widget.childcategoryId,
@@ -259,6 +262,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
           };
         }).toList();
 
+        print(
+          '📦 Listing grid products received: ${products.length} | perPage: $effectivePerPage | Page: $_currentPage/$_lastPage',
+        );
         Logger.info(
           'Loaded ${products.length} products from API. Page: $_currentPage/$_lastPage',
         );
@@ -275,6 +281,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           subchildcategoryId: widget.subchildcategoryId,
           sort: sortParam,
           page: page,
+          perPage: effectivePerPage,
         );
 
         final apiProducts = List<LatestProduct>.from(result['products']);
@@ -342,6 +349,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 displayColorsList, // Per-feature background colors
           };
         }).toList();
+
+        print(
+          '📦 Listing grid products received: ${products.length} | perPage: $effectivePerPage | Page: $_currentPage/$_lastPage',
+        );
       } else {
         products = List.from(_dummyProducts);
         Logger.info('Using dummy products: ${products.length}');
@@ -453,52 +464,55 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Widget _buildPagination() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[200]!)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          TextButton.icon(
-            onPressed: _currentPage > 1
-                ? () => _loadProducts(
-                    sortParam: _mapSortToApiSort(_selectedSort),
-                    page: _currentPage - 1,
-                  )
-                : null,
-            icon: const Icon(Icons.chevron_left),
-            label: const Text('Prev'),
-            style: TextButton.styleFrom(
-              foregroundColor: _currentPage > 1
-                  ? const Color(0xFF151D51)
-                  : Colors.grey,
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey[200]!)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton.icon(
+              onPressed: _currentPage > 1
+                  ? () => _loadProducts(
+                      sortParam: _mapSortToApiSort(_selectedSort),
+                      page: _currentPage - 1,
+                    )
+                  : null,
+              icon: const Icon(Icons.chevron_left),
+              label: const Text('Prev'),
+              style: TextButton.styleFrom(
+                foregroundColor: _currentPage > 1
+                    ? const Color(0xFF151D51)
+                    : Colors.grey,
+              ),
             ),
-          ),
-          Text(
-            'Page $_currentPage of $_lastPage',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-          TextButton(
-            onPressed: _currentPage < _lastPage
-                ? () => _loadProducts(
-                    sortParam: _mapSortToApiSort(_selectedSort),
-                    page: _currentPage + 1,
-                  )
-                : null,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [Text('Next'), Icon(Icons.chevron_right)],
+            Text(
+              'Page $_currentPage of $_lastPage',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
-            style: TextButton.styleFrom(
-              foregroundColor: _currentPage < _lastPage
-                  ? const Color(0xFF151D51)
-                  : Colors.grey,
+            TextButton(
+              onPressed: _currentPage < _lastPage
+                  ? () => _loadProducts(
+                      sortParam: _mapSortToApiSort(_selectedSort),
+                      page: _currentPage + 1,
+                    )
+                  : null,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [Text('Next'), Icon(Icons.chevron_right)],
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: _currentPage < _lastPage
+                    ? const Color(0xFF151D51)
+                    : Colors.grey,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -556,23 +570,28 @@ class _ProductListScreenState extends State<ProductListScreen> {
           )
         else
           (_isGridView
-              ? SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.60,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) =>
-                          ListingProductCard(product: products[index]),
-                      childCount: products.length,
+              ? (() {
+                  print(
+                    '📦 Listing grid showing: ${products.length} products | perPage: ${widget.perPage ?? 40}',
+                  );
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.60,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) =>
+                            ListingProductCard(product: products[index]),
+                        childCount: products.length,
+                      ),
                     ),
-                  ),
-                )
+                  );
+                })()
               : SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) =>

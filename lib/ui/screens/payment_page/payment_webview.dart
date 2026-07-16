@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../../../core/network/api_endpoints.dart';
 
 /// PayPal JS SDK WebView — SDD Section 4.2 (With URL Console Log)
@@ -53,7 +55,41 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   @override
   void initState() {
     super.initState();
-    _initWebView();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            if (mounted) setState(() => _isLoading = true);
+            _handleUrlChange(url); // redirect fast ho to yahan catch hoga
+          },
+          onPageFinished: (String url) {
+            if (mounted) setState(() => _isLoading = false);
+            _handleUrlChange(url); // page load hone par check
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            _handleUrlChange(request.url); // sabse pehle yahan aata hai
+            return NavigationDecision.navigate;
+          },
+          onWebResourceError: (WebResourceError error) {
+            debugPrint('WebView Error: ${error.description}');
+          },
+        ),
+      )
+      ..addJavaScriptChannel(
+        'PayPalResult',
+        onMessageReceived: (JavaScriptMessage message) {
+          debugPrint('Received message from PayPal JS SDK: ${message.message}');
+          try {
+            final Map<String, dynamic> result = jsonDecode(message.message);
+            _popWithResult(result); // JS channel se aaye to directly pop
+          } catch (e) {
+            debugPrint('Error parsing JavaScript channel message: $e');
+          }
+        },
+      );
+    _prepareAndLoad();
   }
 
   /// URL check karke success/failure detect karta hai
@@ -94,43 +130,35 @@ class _PaymentWebViewState extends State<PaymentWebView> {
     }
   }
 
-  void _initWebView() {
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            if (mounted) setState(() => _isLoading = true);
-            _handleUrlChange(url); // redirect fast ho to yahan catch hoga
-          },
-          onPageFinished: (String url) {
-            if (mounted) setState(() => _isLoading = false);
-            _handleUrlChange(url); // page load hone par check
-          },
-          onNavigationRequest: (NavigationRequest request) {
-            _handleUrlChange(request.url); // sabse pehle yahan aata hai
-            return NavigationDecision.navigate;
-          },
-          onWebResourceError: (WebResourceError error) {
-            debugPrint('WebView Error: ${error.description}');
-          },
-        ),
-      )
-      ..addJavaScriptChannel(
-        'PayPalResult',
-        onMessageReceived: (JavaScriptMessage message) {
-          debugPrint('Received message from PayPal JS SDK: ${message.message}');
-          try {
-            final Map<String, dynamic> result = jsonDecode(message.message);
-            _popWithResult(result); // JS channel se aaye to directly pop
-          } catch (e) {
-            debugPrint('Error parsing JavaScript channel message: $e');
-          }
-        },
-      );
-
+  /// Enable Google Pay Payment Request on Android, then load Laravel page.
+  Future<void> _prepareAndLoad() async {
+    await _enableAndroidPaymentRequest();
+    if (!mounted) return;
     _loadPaymentPage();
+  }
+
+  /// Required for Google Pay inside Android WebView (avoids OR_BIBED_15).
+  Future<void> _enableAndroidPaymentRequest() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+
+    try {
+      final platformController = _controller.platform;
+      if (platformController is! AndroidWebViewController) return;
+
+      final supported = await platformController.isWebViewFeatureSupported(
+        WebViewFeatureType.paymentRequest,
+      );
+      if (supported) {
+        await platformController.setPaymentRequestEnabled(true);
+        debugPrint('PaymentWebView: Android Payment Request API enabled');
+      } else {
+        debugPrint(
+          'PaymentWebView: Payment Request API not supported on this WebView',
+        );
+      }
+    } catch (e) {
+      debugPrint('PaymentWebView: Failed to enable Payment Request API: $e');
+    }
   }
 
   void _loadPaymentPage() {

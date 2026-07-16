@@ -1,18 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:marquee/marquee.dart';
+import 'package:provider/provider.dart';
 import '../detail_view/detail_view.dart';
+import '../../../core/constants/app_messages.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/cart_payload_builder.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../services/storage_service.dart';
 import '../../../services/navigation_service.dart';
+import '../../../services/user_role_service.dart';
 import 'cart_feedback_overlay.dart';
 
 class ListingProductCard extends StatefulWidget {
   final Map<String, dynamic> product;
 
-  const ListingProductCard({super.key, required this.product});
+  /// When true, trade users do not see the struck-through previous price.
+  final bool hideStrikePriceForTradeUser;
+
+  /// Last-resort asset when product image is missing or fails to load.
+  final String imageFallbackAsset;
+
+  const ListingProductCard({
+    super.key,
+    required this.product,
+    this.hideStrikePriceForTradeUser = false,
+    this.imageFallbackAsset = 'assets/images/no_image.png',
+  });
 
   @override
   State<ListingProductCard> createState() => _ListingProductCardState();
@@ -22,6 +38,18 @@ class _ListingProductCardState extends State<ListingProductCard> {
   final ProductService _productService = ProductService();
   final CartService _cartService = CartService();
   bool _isQuickAdding = false;
+  bool _isTradeUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTradeStatus();
+  }
+
+  Future<void> _loadTradeStatus() async {
+    final isTrader = await UserRoleService.isTraderUser();
+    if (mounted) setState(() => _isTradeUser = isTrader);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,10 +172,16 @@ class _ListingProductCardState extends State<ListingProductCard> {
                                       ),
                                       child: Opacity(
                                         opacity: 0.6,
-                                        child: _buildProductImage(product),
+                                        child: _buildProductImage(
+                                          product,
+                                          widget.imageFallbackAsset,
+                                        ),
                                       ),
                                     )
-                                  : _buildProductImage(product),
+                                  : _buildProductImage(
+                                      product,
+                                      widget.imageFallbackAsset,
+                                    ),
                             ),
                           ),
                           if (_shouldShowSaleTopBanner(product))
@@ -370,7 +404,10 @@ class _ListingProductCardState extends State<ListingProductCard> {
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (isOnSale && _shouldShowPrice(product))
+                              if (isOnSale &&
+                                  _shouldShowPrice(product) &&
+                                  !(_isTradeUser &&
+                                      widget.hideStrikePriceForTradeUser))
                                 Text(
                                   _formatPrice(
                                     product['previous_price'] ??
@@ -384,22 +421,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                              _shouldShowPrice(product)
-                                  ? Text(
-                                      _formatPrice(
-                                        product['price'] ??
-                                            product['currentPrice'] ??
-                                            '',
-                                      ),
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    )
-                                  : const SizedBox.shrink(),
+                              _buildPriceText(product, _isTradeUser),
                             ],
                           ),
                         ),
@@ -477,6 +499,15 @@ class _ListingProductCardState extends State<ListingProductCard> {
 
   Future<void> _handleQuickAdd(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      Fluttertoast.showToast(
+        msg: AppMessages.guestCartDisabled,
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
+
     final productId = widget.product['id'] as int?;
     if (productId == null) {
       messenger.showSnackBar(
@@ -569,6 +600,18 @@ class _ProductListCardState extends State<ProductListCard> {
   final ProductService _productService = ProductService();
   final CartService _cartService = CartService();
   bool _isQuickAdding = false;
+  bool _isTradeUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTradeStatus();
+  }
+
+  Future<void> _loadTradeStatus() async {
+    final isTrader = await UserRoleService.isTraderUser();
+    if (mounted) setState(() => _isTradeUser = isTrader);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -913,22 +956,7 @@ class _ProductListCardState extends State<ProductListCard> {
                                   ),
                                 if (isOnSale && _shouldShowPrice(product))
                                   const SizedBox(height: 2),
-                                _shouldShowPrice(product)
-                                    ? Text(
-                                        _formatPrice(
-                                          product['price'] ??
-                                              product['currentPrice'] ??
-                                              '',
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
-                                        ),
-                                      )
-                                    : const SizedBox.shrink(),
+                                _buildPriceText(product, _isTradeUser),
                               ],
                             ),
                           ),
@@ -1000,6 +1028,15 @@ class _ProductListCardState extends State<ProductListCard> {
 
   Future<void> _handleQuickAdd(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      Fluttertoast.showToast(
+        msg: AppMessages.guestCartDisabled,
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
+
     final productId = widget.product['id'] as int?;
     if (productId == null) {
       messenger.showSnackBar(
@@ -1268,11 +1305,52 @@ String _formatPrice(dynamic v) {
   return '\$${n.toStringAsFixed(2)}';
 }
 
-Widget _buildProductImage(Map<String, dynamic> product) {
+Widget _buildPriceText(Map<String, dynamic> product, bool isTradeUser) {
+  if (!_shouldShowPrice(product)) return const SizedBox.shrink();
+
+  final formatted = _formatPrice(
+    product['price'] ?? product['currentPrice'] ?? '',
+  );
+  if (formatted.isEmpty) return const SizedBox.shrink();
+
+  const priceStyle = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  );
+
+  if (!isTradeUser) {
+    return Text(
+      formatted,
+      style: priceStyle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  return RichText(
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    text: TextSpan(
+      children: [
+        const TextSpan(
+          text: 'Trade Price: ',
+          style: priceStyle,
+        ),
+        TextSpan(text: formatted, style: priceStyle),
+      ],
+    ),
+  );
+}
+
+Widget _buildProductImage(
+  Map<String, dynamic> product, [
+  String fallbackAsset = 'assets/images/no_image.png',
+]) {
   final thumb = (product['thumbnail'] ?? product['image'])?.toString();
   if (thumb == null || thumb.isEmpty) {
     return Image.asset(
-      'assets/images/no_image.png',
+      fallbackAsset,
       width: double.infinity,
       height: 100,
       fit: BoxFit.contain,
@@ -1299,7 +1377,7 @@ Widget _buildProductImage(Map<String, dynamic> product) {
         ),
       ),
       errorWidget: (context, url, error) => Image.asset(
-        'assets/images/no_image.png',
+        fallbackAsset,
         width: double.infinity,
         height: 124,
         fit: BoxFit.contain,
@@ -1312,13 +1390,16 @@ Widget _buildProductImage(Map<String, dynamic> product) {
     width: double.infinity,
     height: 124,
     fit: BoxFit.contain,
-    errorBuilder: (context, error, stackTrace) =>
-        SizedBox(width: double.infinity, height: 124, child: _imageFallback()),
+    errorBuilder: (context, error, stackTrace) => SizedBox(
+      width: double.infinity,
+      height: 124,
+      child: _imageFallback(fallbackAsset),
+    ),
   );
 }
 
-Widget _imageFallback() {
+Widget _imageFallback([String fallbackAsset = 'assets/images/no_image.png']) {
   return Center(
-    child: Image.asset('assets/images/no_image.png', fit: BoxFit.contain),
+    child: Image.asset(fallbackAsset, fit: BoxFit.contain),
   );
 }

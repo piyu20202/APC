@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:marquee/marquee.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_messages.dart';
 import '../../../providers/auth_provider.dart';
 import '../signin_view/signin.dart';
 import '../../../data/services/product_service.dart';
@@ -19,9 +20,11 @@ import '../../../data/models/product_detail_response.dart';
 import 'addon_detail_screen.dart';
 import '../../../data/models/settings_model.dart';
 import '../../../services/storage_service.dart';
+import '../../../services/user_role_service.dart';
 import '../../../core/exceptions/api_exception.dart';
 import '../widget/cart_feedback_overlay.dart';
 import 'get_more_info_modal.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../../core/utils/external_link_launcher.dart';
 
 class DetailView extends StatefulWidget {
@@ -65,6 +68,7 @@ class _DetailViewState extends State<DetailView> {
 
   // Footer state
   int kitQuantity = 1;
+  bool _isTradeUser = false;
 
   final Map<int, int> _selectedQtyForCustomise = {};
 
@@ -342,6 +346,12 @@ class _DetailViewState extends State<DetailView> {
     super.initState();
     _fetchProductDetails();
     _loadSettings();
+    _loadTradeStatus();
+  }
+
+  Future<void> _loadTradeStatus() async {
+    final isTrader = await UserRoleService.isTraderUser();
+    if (mounted) setState(() => _isTradeUser = isTrader);
   }
 
   Future<void> _loadSettings() async {
@@ -1216,18 +1226,19 @@ class _DetailViewState extends State<DetailView> {
                             mainAxisSize: MainAxisSize.min,
 
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: const Text(
-                                  'Your Price:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black87,
+                              if (!_isTradeUser)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: const Text(
+                                    'Your Price:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black87,
+                                    ),
                                   ),
                                 ),
-                              ),
 
-                              const SizedBox(height: 4),
+                              if (!_isTradeUser) const SizedBox(height: 4),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 mainAxisSize: MainAxisSize.min,
@@ -1239,6 +1250,30 @@ class _DetailViewState extends State<DetailView> {
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         color: Colors.orange[700],
+                                      ),
+                                    )
+                                  else if (_isTradeUser)
+                                    RichText(
+                                      text: TextSpan(
+                                        children: [
+                                          const TextSpan(
+                                            text: 'Trade Price: ',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text:
+                                                '\$${_formatCurrency(_calculateFinalPriceAll())}',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     )
                                   else
@@ -3570,6 +3605,16 @@ class _DetailViewState extends State<DetailView> {
 
   Future<void> _handleAddToCart() async {
     if (_isAddingToCart) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      Fluttertoast.showToast(
+        msg: AppMessages.guestCartDisabled,
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
+
     setState(() {
       _isAddingToCart = true;
     });
