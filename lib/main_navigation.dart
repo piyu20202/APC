@@ -141,46 +141,49 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       },
       child: Scaffold(
         body: IndexedStack(index: _selectedIndex, children: _buildScreens()),
-        bottomNavigationBar: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            BottomNavigationBar(
-              type: BottomNavigationBarType.fixed,
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
-              selectedItemColor: const Color(0xFF151D51),
-              unselectedItemColor: Colors.grey,
-              backgroundColor: Colors.white,
-              elevation: 8,
-              items: [
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.home_outlined),
-                  activeIcon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.search_outlined),
-                  activeIcon: Icon(Icons.search),
-                  label: 'Search',
-                ),
-                BottomNavigationBarItem(
-                  icon: _buildCartNavIcon(false),
-                  activeIcon: _buildCartNavIcon(true),
-                  label: 'Cart',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.contact_mail_outlined),
-                  activeIcon: Icon(Icons.contact_mail),
-                  label: 'Contact Us',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline),
-                  activeIcon: Icon(Icons.person),
-                  label: 'Profile',
-                ),
-              ],
-            ),
-          ],
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BottomNavigationBar(
+                type: BottomNavigationBarType.fixed,
+                currentIndex: _selectedIndex,
+                onTap: _onItemTapped,
+                selectedItemColor: const Color(0xFF151D51),
+                unselectedItemColor: Colors.grey,
+                backgroundColor: Colors.white,
+                elevation: 8,
+                items: [
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.home_outlined),
+                    activeIcon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.search_outlined),
+                    activeIcon: Icon(Icons.search),
+                    label: 'Search',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: _buildCartNavIcon(false),
+                    activeIcon: _buildCartNavIcon(true),
+                    label: 'Cart',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.contact_mail_outlined),
+                    activeIcon: Icon(Icons.contact_mail),
+                    label: 'Contact Us',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.person_outline),
+                    activeIcon: Icon(Icons.person),
+                    label: 'Profile',
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
