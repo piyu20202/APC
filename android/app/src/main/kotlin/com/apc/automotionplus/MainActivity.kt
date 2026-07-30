@@ -2,9 +2,10 @@ package com.apc.automotionplus
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity() {
+// FlutterFragmentActivity (ComponentActivity) is required for enableEdgeToEdge().
+class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

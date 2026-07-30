@@ -11,7 +11,8 @@ plugins {
 
 android {
     namespace = "com.apc.automotionplus"
-    compileSdk = flutter.compileSdkVersion
+    // Play requires target API 36 by Aug 31, 2026. Pin explicitly (Flutter 3.32 defaults to 35).
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -47,7 +48,8 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23  // Required for pay_android plugin
-        targetSdk = flutter.targetSdkVersion
+        // Play requires target API 36 by Aug 31, 2026. Pin explicitly (Flutter 3.32 defaults to 35).
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
