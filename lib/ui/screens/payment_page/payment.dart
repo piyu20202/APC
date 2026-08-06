@@ -14,6 +14,7 @@ import 'package:apcproject/config/environment.dart';
 import 'package:apcproject/data/models/user_model.dart';
 import 'package:apcproject/core/utils/logger.dart';
 import 'package:apcproject/core/utils/coupon_cart_display.dart';
+import 'package:apcproject/core/utils/shipping_address_helper.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:apcproject/data/services/payment_config_service.dart';
 import 'package:apcproject/data/models/payment_config_model.dart';
@@ -1074,6 +1075,7 @@ class _PaymentPageState extends State<PaymentPage> {
           'code': "",
           'shipping_type_method': "",
           'old_cart': "",
+          'shipping_address': ShippingAddressHelper.fromOrder(_orderData),
         };
         debugPrint(
           'REFRESH_PRICING: PayLater Case Payload: ${jsonEncode(shippingPayload)}',
@@ -1094,6 +1096,7 @@ class _PaymentPageState extends State<PaymentPage> {
           'old_cart': oldCart,
           'code': _couponCode ?? "",
           'shipping_type_method': shippingTypeMethod,
+          'shipping_address': ShippingAddressHelper.fromCheckout(checkoutData),
         };
         debugPrint(
           'REFRESH_PRICING: Normal Flow Payload: ${jsonEncode(shippingPayload)}',
@@ -1546,7 +1549,12 @@ class _PaymentPageState extends State<PaymentPage> {
       await StorageService.clearCartData();
 
       return response;
-    } on ApiException catch (_) {
+    } on ApiException catch (e) {
+      Fluttertoast.showToast(
+        msg: e.message,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
       return null;
     } catch (e) {
       debugPrint('Error creating order for direct payment: $e');
@@ -1609,7 +1617,9 @@ class _PaymentPageState extends State<PaymentPage> {
       'shipping_landline': '',
       'shipping_area_code': '',
       'shipping_unit_apartmentno': '',
-      'shipping_address': '',
+      'shipping_address': shipping == 'pickup'
+          ? ''
+          : ShippingAddressHelper.fromCheckout(checkoutData),
       'shipping_address1': '',
       'shipping_city': '',
       'shipping_state': '',
@@ -2263,6 +2273,7 @@ class _PaymentPageState extends State<PaymentPage> {
       'code': code,
       'postcode': postcode,
       'shipping_type_method': shippingTypeMethod,
+      'shipping_address': ShippingAddressHelper.fromCheckout(checkoutData),
     };
   }
 

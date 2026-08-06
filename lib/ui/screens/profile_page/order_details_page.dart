@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/exceptions/api_exception.dart';
+import '../../../core/utils/shipping_address_helper.dart';
 import '../../../services/storage_service.dart';
 import '../detail_view/detail_view.dart';
 import 'tracking_info_page.dart';
@@ -1289,6 +1290,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         'code': "",
         'shipping_type_method': "",
         'old_cart': "",
+        'shipping_address': ShippingAddressHelper.fromOrder(_orderData),
       };
 
       debugPrint(
