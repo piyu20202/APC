@@ -103,6 +103,7 @@ class _PaymentPageState extends State<PaymentPage> {
   String _orderPaymentStatus = '';
   double? _specialDiscount;
   String? _specialDiscountDescription;
+  String? _poBoxMessage;
   String? _shippingTag;
 
   // Google Pay
@@ -1006,6 +1007,28 @@ class _PaymentPageState extends State<PaymentPage> {
     return null;
   }
 
+  void _setPoBoxMessageFrom(
+    Map<String, dynamic> response, {
+    bool clearIfMissing = true,
+  }) {
+    final root = response['po_box_message']?.toString().trim();
+    if (root != null && root.isNotEmpty) {
+      _poBoxMessage = root;
+      return;
+    }
+    final order = response['order'];
+    if (order is Map) {
+      final fromOrder = order['po_box_message']?.toString().trim();
+      if (fromOrder != null && fromOrder.isNotEmpty) {
+        _poBoxMessage = fromOrder;
+        return;
+      }
+    }
+    if (clearIfMissing) {
+      _poBoxMessage = null;
+    }
+  }
+
   /// Applies pricing fields from `/user/cart/shipping` (or compatible) response.
   void _applyPricingFromShippingResponse(
     Map<String, dynamic> shippingResponse,
@@ -1027,6 +1050,8 @@ class _PaymentPageState extends State<PaymentPage> {
       _specialDiscount = 0.0;
       _specialDiscountDescription = null;
     }
+
+    _setPoBoxMessageFrom(shippingResponse);
 
     _totalCostExclGst = _toDouble(shippingResponse['total_cost_excl_gst']);
     _totalWithoutGst = _toDouble(shippingResponse['total_without_gst']);
@@ -1521,6 +1546,7 @@ class _PaymentPageState extends State<PaymentPage> {
           _orderData = response;
           _orderNumber = orderNumber;
           _orderId = _toInt(order?['id']);
+          _setPoBoxMessageFrom(response);
 
           // Set additional flags to avoid redundant _initializePayment() calls
           final statusRoot = (response['order_status'] ?? '')
@@ -2330,6 +2356,7 @@ class _PaymentPageState extends State<PaymentPage> {
           _couponDiscount = couponDetails['discount'] as double;
           _isCouponApplied = true;
           _couponController.text = _couponCode ?? code;
+          _setPoBoxMessageFrom(response, clearIfMissing: false);
         });
       }
 
@@ -2570,6 +2597,7 @@ class _PaymentPageState extends State<PaymentPage> {
             _isCouponApplied = false;
             _couponController.clear();
             _resetAvailableCouponsCache();
+            _setPoBoxMessageFrom(response, clearIfMissing: false);
           });
         }
 
@@ -2890,9 +2918,9 @@ class _PaymentPageState extends State<PaymentPage> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(
                         16.0,
+                        12.0,
                         16.0,
                         16.0,
-                        100.0,
                       ),
                       child: Form(
                         key: _formKey,
@@ -2930,19 +2958,19 @@ class _PaymentPageState extends State<PaymentPage> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
                             ],
                             _buildOrderSummaryCard(),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 12),
 
                             if (_canShowPaymentOptionsByStatus) ...[
                               _buildPaymentMethodSection(),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
 
                               if (effectivePaymentMethod == 'Credit Card') ...[
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
                                 _buildCardInputFields(),
-                                const SizedBox(height: 24),
+                                const SizedBox(height: 12),
                               ],
                             ],
                           ],
@@ -2974,41 +3002,6 @@ class _PaymentPageState extends State<PaymentPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (_hasPendingFreightQuote && !_isPayLater) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8E1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFFCC02)),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: Color(0xFFF9A825),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'By clicking request freight quote a team member will update your online quote within one business day with the freight delivery cost. The updated Quote can be viewed though your online accounts "My Orders" section',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF5D4037),
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
                       _canShowPaymentOptionsByStatus
                           ? (effectivePaymentMethod == 'PayPal'
                                 ? _buildPayPalButton()
@@ -3276,7 +3269,7 @@ class _PaymentPageState extends State<PaymentPage> {
             side: BorderSide(color: Colors.grey[200]!),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3284,20 +3277,20 @@ class _PaymentPageState extends State<PaymentPage> {
                 const Text(
                   'PRICE DETAILS',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF151D51),
                     letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
 
                 // Items total (excl. GST)
                 _summaryRow(
                   'Total of Items (excl. GST)',
                   formatPrice(_totalCostExclGst),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 9),
 
                 // Shipping Cost
                 _summaryRow(
@@ -3316,7 +3309,7 @@ class _PaymentPageState extends State<PaymentPage> {
                             ? Colors.green
                             : const Color(0xFFF44336)),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 9),
 
                 // Discount - below Shipping Cost
                 if (_discountAmount != null && _discountAmount! > 0) ...[
@@ -3326,7 +3319,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     valueColor: Colors.red[700],
                     labelColor: Colors.red[700],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 9),
                 ],
 
                 // Mobile App Discount - below Discount
@@ -3337,33 +3330,33 @@ class _PaymentPageState extends State<PaymentPage> {
                     valueColor: Colors.red[700],
                     labelColor: Colors.red[700],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 9),
                 ],
 
                 const Divider(height: 1, thickness: 0.8),
-                const SizedBox(height: 12),
+                const SizedBox(height: 9),
 
                 // Total without GST
                 _summaryRow('Total without GST', formatPrice(_totalWithoutGst)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 9),
 
                 // GST Row
                 _summaryRow('GST @ 10%', formatPrice(_gstAmount)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 9),
 
                 // Total incl. GST
                 _summaryRow('Total (incl. GST)', formatPrice(_totalWithGst)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 9),
 
                 // Promo Code Section (Hide for PayLater and Trade users)
                 if (!_isPayLater && !_isTradeUser) ...[
                   const Divider(height: 1, thickness: 0.5),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: Container(
-                          height: 44,
+                          height: 42,
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey[300]!),
                             borderRadius: BorderRadius.circular(8),
@@ -3432,7 +3425,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          minimumSize: const Size(90, 44),
+                          minimumSize: const Size(90, 42),
                           elevation: 0,
                         ),
                         child: _isUpdatingCoupon
@@ -3456,7 +3449,7 @@ class _PaymentPageState extends State<PaymentPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
@@ -3498,7 +3491,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     ),
                   ),
                   const Divider(height: 1, thickness: 0.8),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   // Show applied promo code message
                   if (hasAppliedCoupon) ...[
                     Row(
@@ -3519,11 +3512,11 @@ class _PaymentPageState extends State<PaymentPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                   ],
                 ] else ...[
                   const Divider(height: 1, thickness: 0.8),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                 ],
 
                 // Total Payable Amount
@@ -3533,7 +3526,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     const Text(
                       'Total Payble Amount :',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
@@ -3541,7 +3534,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     Text(
                       formatPrice(total),
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
@@ -3551,13 +3544,13 @@ class _PaymentPageState extends State<PaymentPage> {
 
                 // Pending Freight Quote (Shows when show_freight_cost_icon is 1)
                 if (_hasPendingFreightQuote) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     (_shippingTag != null && _shippingTag!.isNotEmpty)
                         ? _shippingTag!
                         : 'Pending Freight Cost',
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Colors.red,
                       fontWeight: FontWeight.bold,
                     ),
@@ -3566,11 +3559,11 @@ class _PaymentPageState extends State<PaymentPage> {
                 if (!_hasPendingFreightQuote &&
                     _showFreeShippingLabel &&
                     !_isPickupShipping) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     'Your Order Eligible for Free Delivery',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Colors.green.shade700,
                       fontWeight: FontWeight.bold,
                     ),
@@ -3584,8 +3577,16 @@ class _PaymentPageState extends State<PaymentPage> {
             _specialDiscount! > 0 &&
             _specialDiscountDescription != null &&
             _specialDiscountDescription!.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildSpecialDiscountDescriptionBox(),
+        ],
+        if (_poBoxMessage != null && _poBoxMessage!.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _buildPoBoxMessageBox(),
+        ],
+        if (_hasPendingFreightQuote && !_isPayLater) ...[
+          const SizedBox(height: 10),
+          _buildFreightQuoteInfoBox(),
         ],
       ],
     );
@@ -3611,6 +3612,68 @@ class _PaymentPageState extends State<PaymentPage> {
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.blueGrey[800],
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPoBoxMessageBox() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFEBEE),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEF9A9A)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: Colors.red[700]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _poBoxMessage!,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red[700],
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreightQuoteInfoBox() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFFCC02)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 16,
+            color: Color(0xFFF9A825),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'By clicking request freight quote a team member will update your online quote within one business day with the freight delivery cost. The updated Quote can be viewed though your online accounts "My Orders" section',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF5D4037),
                 height: 1.4,
               ),
             ),
