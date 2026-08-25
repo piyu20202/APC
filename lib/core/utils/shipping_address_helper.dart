@@ -1,38 +1,60 @@
+import 'package:flutter/foundation.dart';
+
 /// Builds the combined `shipping_address` string for cart/order APIs.
 ///
 /// Format: address, city, state, zip code
 class ShippingAddressHelper {
   static String fromCheckout(Map<String, dynamic>? checkoutData) {
-    if (checkoutData == null) return '';
+    if (checkoutData == null) {
+      debugPrint('SHIPPING_ADDRESS [fromCheckout]: (empty — no checkout data)');
+      return '';
+    }
 
     final shippingMethod =
         checkoutData['shipping_method']?.toString() ?? 'Ship to Address';
-    if (shippingMethod == 'Pickup') return '';
+    if (shippingMethod == 'Pickup') {
+      debugPrint('SHIPPING_ADDRESS [fromCheckout]: (empty — Pickup)');
+      return '';
+    }
 
-    return _joinParts(
+    final value = _joinParts(
       address: checkoutData['address'],
       city: checkoutData['suburb'],
       state: checkoutData['state'],
       zip: checkoutData['post_code'],
     );
+    debugPrint('SHIPPING_ADDRESS [fromCheckout]: "$value"');
+    return value;
   }
 
   static String fromOrder(Map<String, dynamic>? orderData) {
-    if (orderData == null) return '';
+    if (orderData == null) {
+      debugPrint('SHIPPING_ADDRESS [fromOrder]: (empty — no order data)');
+      return '';
+    }
 
     final order = orderData['order'] is Map<String, dynamic>
         ? orderData['order'] as Map<String, dynamic>
         : orderData;
 
     final existing = order['shipping_address']?.toString().trim();
-    if (existing != null && existing.isNotEmpty) return existing;
+    if (existing != null && existing.isNotEmpty) {
+      debugPrint('SHIPPING_ADDRESS [fromOrder existing]: "$existing"');
+      return existing;
+    }
 
-    return _joinParts(
-      address: order['shipping_address'] ?? order['address'] ?? order['customer_address'],
+    final value = _joinParts(
+      address:
+          order['shipping_address'] ??
+          order['address'] ??
+          order['customer_address'],
       city: order['shipping_city'] ?? order['city'] ?? order['customer_city'],
-      state: order['shipping_state'] ?? order['state'] ?? order['customer_state'],
+      state:
+          order['shipping_state'] ?? order['state'] ?? order['customer_state'],
       zip: order['shipping_zip'] ?? order['zip'] ?? order['customer_zip'],
     );
+    debugPrint('SHIPPING_ADDRESS [fromOrder built]: "$value"');
+    return value;
   }
 
   static String _joinParts({
