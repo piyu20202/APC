@@ -1,9 +1,9 @@
 class ApiEndpoints {
   /* ********** PRODUCTION Base Url Start********** */
-  //static const String baseUrl = 'https://www.automotionplus.com.au/api';
+  static const String baseUrl = 'https://www.automotionplus.com.au/api';
 
   /* PRODUCTION Base Url ForPayment Page Web Url For Make Payments on webview Production Url*/
-  //static const String paymentPageWebUrl = 'https://www.automotionplus.com.au';
+  static const String paymentPageWebUrl = 'https://www.automotionplus.com.au';
 
   /* ********** PRODUCTION Base Url End********** */
 
@@ -11,13 +11,13 @@ class ApiEndpoints {
 
   /* ********** DEVELOPMENT Base Url Start ********** */
 
-  static const String baseUrl =
-      'https://www.gurgaonit.com/apc_production_dev/api';
+  /*static const String baseUrl =
+      'https://www.gurgaonit.com/apc_production_dev/api';*/
 
   /* DEVELOPMENT Base Url ForPayment Page Web Url For Make Payments on webview DEVELOPMENT Url*/
 
-  static const String paymentPageWebUrl =
-      'https://www.gurgaonit.com/apc_production_dev';
+  /* static const String paymentPageWebUrl =
+      'https://www.gurgaonit.com/apc_production_dev';*/
 
   /* ********** DEVELOPMENT Base Url End ********** */
 
