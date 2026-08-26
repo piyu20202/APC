@@ -394,7 +394,7 @@ class _ListingProductCardState extends State<ListingProductCard> {
                   ],
                   const SizedBox(height: 4),
                   SizedBox(
-                    height: 40,
+                    height: _isTradeUser ? 48 : 40,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -1328,18 +1328,26 @@ Widget _buildPriceText(Map<String, dynamic> product, bool isTradeUser) {
     );
   }
 
-  return RichText(
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-    text: TextSpan(
-      children: [
-        const TextSpan(
-          text: 'Trade Price: ',
-          style: priceStyle,
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        'Trade Price',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey[700],
+          height: 1.1,
         ),
-        TextSpan(text: formatted, style: priceStyle),
-      ],
-    ),
+      ),
+      Text(
+        formatted,
+        style: priceStyle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ],
   );
 }
 

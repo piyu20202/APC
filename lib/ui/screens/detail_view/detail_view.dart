@@ -1253,28 +1253,29 @@ class _DetailViewState extends State<DetailView> {
                                       ),
                                     )
                                   else if (_isTradeUser)
-                                    RichText(
-                                      text: TextSpan(
-                                        children: [
-                                          const TextSpan(
-                                            text: 'Trade Price: ',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black,
-                                            ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Trade Price',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.grey[700],
+                                            height: 1.1,
                                           ),
-                                          TextSpan(
-                                            text:
-                                                '\$${_formatCurrency(_calculateFinalPriceAll())}',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black,
-                                            ),
+                                        ),
+                                        Text(
+                                          '\$${_formatCurrency(_calculateFinalPriceAll())}',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     )
                                   else
                                     Text(
