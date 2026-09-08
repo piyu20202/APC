@@ -8,6 +8,7 @@ import '../../../data/models/user_model.dart';
 import '../../../data/models/settings_model.dart';
 import '../../../data/services/settings_service.dart';
 import '../../../core/utils/logger.dart';
+import '../../widgets/auth_input_field.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -43,6 +44,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // Login status
   bool _isLoggedIn = false;
   bool _isLoadingUserData = true;
+  bool _createAccount = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   // States list
   final List<String> _states = [
@@ -105,38 +109,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     _isLoggedIn = authProvider.isLoggedIn;
 
-    if (!_isLoggedIn) {
-      if (mounted) {
-        Fluttertoast.showToast(
-          msg: 'Please login to continue checkout',
-          toastLength: Toast.LENGTH_SHORT,
-        );
-        // Defer navigation to after the current frame/build completes.
-        // Calling Navigator methods synchronously from initState() (via
-        // this async function's un-awaited code path) can reenter the
-        // Navigator while it's still processing the transaction that
-        // pushed this very page, corrupting its internal lock and causing
-        // a '!_debugLocked' assertion on a later, unrelated navigation
-        // (e.g. after a subsequent successful login).
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, '/signin');
-          }
-        });
+    if (_isLoggedIn) {
+      final user = authProvider.currentUser;
+      if (user != null) {
+        _prefillFromUserProfile(user);
       }
-      return;
-    }
-
-    final user = authProvider.currentUser;
-    if (user != null) {
-      _prefillFromUserProfile(user);
     }
 
     await _loadPickupLocations();
 
-    setState(() {
-      _isLoadingUserData = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoadingUserData = false;
+      });
+    }
   }
 
   Future<void> _loadPickupLocations() async {
@@ -252,8 +238,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 _buildOrderNoteSection(),
                 const SizedBox(height: 24),
 
-                // Account Creation Section - REMOVED for mobile
-                // (Mobile users must be logged in, so account creation not needed)
+                if (!_isLoggedIn) ...[
+                  _buildCreateAccountSection(),
+                  const SizedBox(height: 24),
+                ],
 
                 // Continue Button
                 _buildContinueButton(),
@@ -748,6 +736,91 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
+  Widget _buildCreateAccountSection() {
+    return Card(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _createAccount,
+              activeColor: const Color(0xFF151D51),
+              onChanged: (value) {
+                setState(() {
+                  _createAccount = value ?? false;
+                  if (!_createAccount) {
+                    _passwordController.clear();
+                    _confirmPasswordController.clear();
+                  }
+                });
+              },
+              title: const Text(
+                'Create an account to track your future orders online',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF151D51),
+                ),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            if (_createAccount) ...[
+              const SizedBox(height: 8),
+              AuthInputField(
+                controller: _passwordController,
+                label: 'Password',
+                icon: Icons.lock,
+                placeholder: 'Password',
+                isPassword: true,
+                obscureText: _obscurePassword,
+                onToggleObscure: () {
+                  setState(() => _obscurePassword = !_obscurePassword);
+                },
+                validator: (value) {
+                  if (!_createAccount) return null;
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter password';
+                  }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              AuthInputField(
+                controller: _confirmPasswordController,
+                label: 'Confirm Password',
+                icon: Icons.lock_outline,
+                placeholder: 'Confirm Password',
+                isPassword: true,
+                obscureText: _obscureConfirmPassword,
+                onToggleObscure: () {
+                  setState(
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                  );
+                },
+                validator: (value) {
+                  if (!_createAccount) return null;
+                  if (value == null || value.isEmpty) {
+                    return 'Please confirm your password';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'Passwords do not match';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildContinueButton() {
     return SizedBox(
       width: double.infinity,
@@ -766,26 +839,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     return;
                   }
 
-                  // Double-check user is logged in (defensive check)
-                  final authProvider = Provider.of<AuthProvider>(
-                    context,
-                    listen: false,
-                  );
-                  if (!authProvider.isLoggedIn) {
-                    Fluttertoast.showToast(
-                      msg: 'Please login to continue',
-                      toastLength: Toast.LENGTH_SHORT,
-                    );
-                    Navigator.pushReplacementNamed(context, '/signin');
-                    return;
-                  }
-
                   setState(() {
                     _isSubmitting = true;
                   });
 
                   try {
-                    // Save checkout form data (no account creation needed for mobile)
+                    final createUnderAccount = _isLoggedIn
+                        ? 0
+                        : (_createAccount ? 1 : 0);
+                    final password = _isLoggedIn
+                        ? ''
+                        : (_createAccount
+                              ? _passwordController.text.trim()
+                              : '');
+
                     final checkoutData = {
                       'shipping_method': _shippingMethod,
                       'pickup_location': _selectedPickupLocationId,
@@ -800,10 +867,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       'address': _addressController.text.trim(),
                       'suburb': _suburbController.text.trim(),
                       'state': _selectedState,
-                      'country':
-                          'AU', // Backend expects country code; dropdown is Australia only
+                      'country': 'AU',
                       'post_code': _postCodeController.text.trim(),
                       'order_note': _orderNoteController.text.trim(),
+                      'create_underaccount': createUnderAccount,
+                      'password': password,
                     };
 
                     await StorageService.saveCheckoutData(checkoutData);

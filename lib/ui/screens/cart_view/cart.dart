@@ -593,20 +593,6 @@ class _CartPageState extends State<CartPage> {
       return;
     }
 
-    // Guest guard: block checkout before hitting the update-cart API or
-    // navigating to CheckoutPage. Cart data itself is not user-scoped
-    // (see StorageService._keyCartData) and is never cleared on login, so
-    // it will still be there once the user signs in and returns.
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isLoggedIn) {
-      Fluttertoast.showToast(
-        msg: 'Please login to continue checkout',
-        toastLength: Toast.LENGTH_SHORT,
-      );
-      Navigator.pushReplacementNamed(context, '/signin');
-      return;
-    }
-
     setState(() {
       _isCheckoutSubmitting = true;
     });

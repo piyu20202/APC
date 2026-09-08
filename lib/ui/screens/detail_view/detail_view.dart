@@ -3607,15 +3607,6 @@ class _DetailViewState extends State<DetailView> {
   Future<void> _handleAddToCart() async {
     if (_isAddingToCart) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isLoggedIn) {
-      Fluttertoast.showToast(
-        msg: AppMessages.guestCartDisabled,
-        toastLength: Toast.LENGTH_SHORT,
-      );
-      return;
-    }
-
     setState(() {
       _isAddingToCart = true;
     });

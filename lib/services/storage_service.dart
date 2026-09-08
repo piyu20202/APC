@@ -39,6 +39,36 @@ class StorageService {
     await UserRoleService.setIsTraderUser(response.user.isTradeUser == 1);
   }
 
+  /// If store-order response includes login payload, persist session (guest checkout).
+  static Future<bool> trySaveLoginFromOrderResponse(
+    Map<String, dynamic> response,
+  ) async {
+    try {
+      final user = response['user'];
+      if (user == null) {
+        return false;
+      }
+
+      final normalized = Map<String, dynamic>.from(response);
+      if (!normalized.containsKey('access_token') &&
+          normalized['token'] != null) {
+        normalized['access_token'] = normalized['token'];
+      }
+      if (normalized['access_token'] == null ||
+          normalized['access_token'].toString().isEmpty) {
+        return false;
+      }
+      normalized['token_type'] ??= 'Bearer';
+
+      final loginResponse = LoginResponse.fromJson(normalized);
+      await saveLoginData(loginResponse);
+      return true;
+    } catch (e) {
+      debugPrint('trySaveLoginFromOrderResponse failed: $e');
+      return false;
+    }
+  }
+
   /// Get access token
   static Future<String?> getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();

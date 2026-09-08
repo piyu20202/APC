@@ -26,13 +26,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // Signed-out / guest: drop any cart restored by Android Auto Backup so
-    // reinstall never shows leftover products without the user adding them.
-    if (!restored || !authProvider.isLoggedIn) {
-      await StorageService.clearSessionCartData();
-    }
-
-    if (!mounted) return;
+    // Guest cart is allowed — do not clear cart on splash for signed-out users.
+    // Cart is cleared on explicit logout via clearSessionCartData().
 
     // Settings are now fetched once (cache-first) from the Home screen,
     // regardless of how the user lands there (login or guest).

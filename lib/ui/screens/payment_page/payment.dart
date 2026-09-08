@@ -3,8 +3,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:apcproject/services/storage_service.dart';
+import 'package:apcproject/providers/auth_provider.dart';
 import 'package:apcproject/data/services/payment_service.dart';
 import 'package:apcproject/data/services/cart_service.dart';
 import 'package:apcproject/data/services/order_service.dart';
@@ -1495,20 +1497,19 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       final userData = await StorageService.getUserData();
-      if (userData == null) {
-        Fluttertoast.showToast(msg: 'Please login to continue');
+      final checkoutData = await StorageService.getCheckoutData();
+      if (checkoutData == null) {
+        Fluttertoast.showToast(msg: 'Please complete checkout form');
         return null;
       }
+
+      final createUnderAccount =
+          (checkoutData['create_underaccount'] ?? 0) == 1 ||
+          checkoutData['create_underaccount']?.toString() == '1';
 
       final cartResponse = await _getPaymentCartContainer();
       if (cartResponse == null || cartResponse['cart'] == null) {
         Fluttertoast.showToast(msg: 'Cart is empty');
-        return null;
-      }
-
-      final checkoutData = await StorageService.getCheckoutData();
-      if (checkoutData == null) {
-        Fluttertoast.showToast(msg: 'Please complete checkout form');
         return null;
       }
 
@@ -1524,6 +1525,15 @@ class _PaymentPageState extends State<PaymentPage> {
               : _effectiveSelectedPaymentMethod);
 
       final response = await _orderService.storeOrder(payload);
+
+      if (createUnderAccount) {
+        final loggedIn =
+            await StorageService.trySaveLoginFromOrderResponse(response);
+        if (loggedIn && mounted) {
+          await Provider.of<AuthProvider>(context, listen: false)
+              .restoreSession();
+        }
+      }
 
       final order = response['order'] as Map<String, dynamic>?;
       final orderNumber = order?['order_number'] as String?;
@@ -1590,7 +1600,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Map<String, dynamic> _buildOrderPayload({
-    required UserModel userData,
+    UserModel? userData,
     required Map<String, dynamic> cartResponse,
     required Map<String, dynamic> checkoutData,
   }) {
@@ -1622,8 +1632,8 @@ class _PaymentPageState extends State<PaymentPage> {
 
     return <String, dynamic>{
       'cart': cart,
-      'user_id': userData.id,
-      'email': userData.email,
+      'user_id': userData?.id ?? 0,
+      'email': checkoutData['email'] as String? ?? userData?.email ?? '',
       'coupon_id': '',
       'multi_coupon_id': '',
       'coupon_code': _couponCode ?? '',
@@ -1637,6 +1647,8 @@ class _PaymentPageState extends State<PaymentPage> {
       'vendor_packing_id': 1,
       'order_source': 'mobile',
       'order_source_device': deviceType,
+      'create_underaccount': checkoutData['create_underaccount'] ?? 0,
+      'password': checkoutData['password'] ?? '',
       'shipping_name': '',
       'shipping_email': '',
       'shipping_phone': '',
@@ -1651,21 +1663,22 @@ class _PaymentPageState extends State<PaymentPage> {
       'shipping_state': '',
       'shipping_country': 'AU',
       'shipping_zip': '',
-      'name': checkoutData['name'] as String? ?? userData.name,
+      'name': checkoutData['name'] as String? ?? userData?.name ?? '',
       'companyname': checkoutData['company'] as String? ?? '',
-      'phone': checkoutData['mobile'] as String? ?? userData.phone,
+      'phone': checkoutData['mobile'] as String? ?? userData?.phone ?? '',
       'landline':
-          checkoutData['landline'] as String? ?? userData.landline ?? '',
+          checkoutData['landline'] as String? ?? userData?.landline ?? '',
       'area_code':
-          checkoutData['area_code'] as String? ?? userData.areaCode ?? '',
+          checkoutData['area_code'] as String? ?? userData?.areaCode ?? '',
       'unit_apartmentno':
-          checkoutData['unit'] as String? ?? userData.unitApartmentNo ?? '',
-      'address': checkoutData['address'] as String? ?? userData.address ?? '',
+          checkoutData['unit'] as String? ?? userData?.unitApartmentNo ?? '',
+      'address':
+          checkoutData['address'] as String? ?? userData?.address ?? '',
       'address1': '',
-      'city': checkoutData['suburb'] as String? ?? userData.city ?? '',
-      'state': checkoutData['state'] as String? ?? userData.state ?? '',
+      'city': checkoutData['suburb'] as String? ?? userData?.city ?? '',
+      'state': checkoutData['state'] as String? ?? userData?.state ?? '',
       'country': 'AU',
-      'zip': checkoutData['post_code'] as String? ?? userData.zip ?? '',
+      'zip': checkoutData['post_code'] as String? ?? userData?.zip ?? '',
     };
   }
 

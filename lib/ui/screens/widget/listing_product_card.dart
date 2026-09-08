@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:marquee/marquee.dart';
-import 'package:provider/provider.dart';
 import '../detail_view/detail_view.dart';
-import '../../../core/constants/app_messages.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/cart_payload_builder.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../services/storage_service.dart';
 import '../../../services/navigation_service.dart';
 import '../../../services/user_role_service.dart';
@@ -499,15 +495,6 @@ class _ListingProductCardState extends State<ListingProductCard> {
 
   Future<void> _handleQuickAdd(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isLoggedIn) {
-      Fluttertoast.showToast(
-        msg: AppMessages.guestCartDisabled,
-        toastLength: Toast.LENGTH_SHORT,
-      );
-      return;
-    }
-
     final productId = widget.product['id'] as int?;
     if (productId == null) {
       messenger.showSnackBar(
@@ -1028,15 +1015,6 @@ class _ProductListCardState extends State<ProductListCard> {
 
   Future<void> _handleQuickAdd(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isLoggedIn) {
-      Fluttertoast.showToast(
-        msg: AppMessages.guestCartDisabled,
-        toastLength: Toast.LENGTH_SHORT,
-      );
-      return;
-    }
-
     final productId = widget.product['id'] as int?;
     if (productId == null) {
       messenger.showSnackBar(
