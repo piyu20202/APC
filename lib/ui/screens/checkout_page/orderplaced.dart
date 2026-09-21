@@ -3,15 +3,76 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:apcproject/services/storage_service.dart';
 import '../profile_page/myorder.dart';
 
-class OrderPlacedPage extends StatelessWidget {
+class OrderPlacedPage extends StatefulWidget {
   const OrderPlacedPage({super.key});
 
   @override
+  State<OrderPlacedPage> createState() => _OrderPlacedPageState();
+}
+
+class _OrderPlacedPageState extends State<OrderPlacedPage> {
+  bool _guestNoAccount = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveGuestNoAccount();
+    });
+  }
+
+  Future<void> _resolveGuestNoAccount() async {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+    bool guestNoAccount = args?['guest_no_account'] == true;
+    if (args?['guest_no_account'] == null) {
+      final loggedIn = await StorageService.isLoggedIn();
+      final checkoutData = await StorageService.getCheckoutData();
+      final createAccount =
+          (checkoutData?['create_account'] ?? 0) == 1 ||
+          checkoutData?['create_account']?.toString() == '1';
+      guestNoAccount = !loggedIn && !createAccount;
+    }
+
+    if (!mounted) return;
+    setState(() => _guestNoAccount = guestNoAccount);
+  }
+
+  void _onContinueShopping() {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/main',
+      (route) => false,
+      arguments: {'tabIndex': 0},
+    );
+  }
+
+  void _onMyOrders() {
+    if (_guestNoAccount) {
+      Fluttertoast.showToast(
+        msg:
+            'You are a Guest user. Please log in or create an account',
+        toastLength: Toast.LENGTH_LONG,
+      );
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/signin',
+        (route) => false,
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MyOrdersPage()),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final String? paymentMethod = args?['payment_method']?.toString();
-    // Case sensitivity handling for different flow scenarios
-    final bool isPayLaterFlow = paymentMethod == 'Manual / Freight Quote';
+    final Map<String, dynamic>? args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -34,7 +95,6 @@ class OrderPlacedPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Company Logo - same as login/signup screen
               Center(
                 child: Container(
                   constraints: BoxConstraints(
@@ -45,40 +105,38 @@ class OrderPlacedPage extends StatelessWidget {
                     'assets/images/logo.png',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.image, size: 80, color: Colors.grey);
+                      return const Icon(
+                        Icons.image,
+                        size: 80,
+                        color: Colors.grey,
+                      );
                     },
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-              // Success Checkbox
-              const Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 80,
-              ),
+              const Icon(Icons.check_circle, color: Colors.green, size: 80),
               const SizedBox(height: 24),
-
-              // Thank You Message
               const Text(
                 'Thank you for your order!',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
-
               const SizedBox(height: 8),
-
               FutureBuilder<Map<String, dynamic>?>(
                 future: StorageService.getOrderData(),
                 builder: (context, snapshot) {
                   String invoiceNumber = '';
                   if (snapshot.hasData && snapshot.data != null) {
-                    final order = snapshot.data!['order'] as Map<String, dynamic>?;
+                    final order =
+                        snapshot.data!['order'] as Map<String, dynamic>?;
                     invoiceNumber = order?['order_number'] as String? ?? '';
                   }
-                  
-                  final paymentToken = args?['payment_token']?.toString() ?? '';
-                  final showTransactionId = paymentToken.isNotEmpty && paymentToken != invoiceNumber;
+
+                  final paymentToken =
+                      args?['payment_token']?.toString() ?? '';
+                  final showTransactionId =
+                      paymentToken.isNotEmpty && paymentToken != invoiceNumber;
 
                   return Column(
                     children: [
@@ -98,30 +156,22 @@ class OrderPlacedPage extends StatelessWidget {
                       if (showTransactionId)
                         Text(
                           'Transaction ID: $paymentToken',
-                          style: const TextStyle(fontSize: 13, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                     ],
                   );
                 },
               ),
-
               const SizedBox(height: 40),
-
-              // Action Buttons
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
-                        // Navigate to main with home tab (index 0) as initial tab
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          '/main',
-                          (route) => false,
-                          arguments: {'tabIndex': 0},
-                        );
-                      },
+                      onPressed: _onContinueShopping,
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF002e5b)),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -138,19 +188,10 @@ class OrderPlacedPage extends StatelessWidget {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 16),
-
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MyOrdersPage(),
-                          ),
-                        );
-                      },
+                      onPressed: _onMyOrders,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF002e5b),
                         foregroundColor: Colors.white,

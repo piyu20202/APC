@@ -42,14 +42,29 @@ class _CartPageState extends State<CartPage> {
     super.initState();
     NavigationService.instance.registerCartItemsRefresher(() {
       if (mounted) {
-        _loadCartItems();
+        final loggedIn =
+            Provider.of<AuthProvider>(context, listen: false).isLoggedIn;
+        if (loggedIn) {
+          _loadCartItems();
+        }
       }
     });
-    _loadCartItems();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final loggedIn =
+          Provider.of<AuthProvider>(context, listen: false).isLoggedIn;
+      if (loggedIn) {
+        _loadCartItems();
+      } else {
+        setState(() => _isLoading = false);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoggedIn = Provider.of<AuthProvider>(context).isLoggedIn;
+
     return Scaffold(
       drawer: const AppDrawer(),
       backgroundColor: Colors.grey[50],
@@ -68,62 +83,178 @@ class _CartPageState extends State<CartPage> {
         actions: null,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: RefreshIndicator.adaptive(
-        onRefresh: _onRefreshCart,
-        child: _isLoading
-            ? const CustomScrollView(
-                physics: AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: AppStateView(state: AppViewState.loading),
-                  ),
-                ],
-              )
-            : (_errorMessage != null)
-            ? CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: AppStateView(
-                      state: AppViewState.error,
-                      title: 'Unable to load cart',
-                      message: _errorMessage,
-                      primaryActionLabel: 'Retry',
-                      onPrimaryAction: _loadCartItems,
-                    ),
-                  ),
-                ],
-              )
-            : (cartItems.isEmpty)
-            ? CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: AppStateView(
-                      state: AppViewState.empty,
-                      title: 'Your cart is empty',
-                      message:
-                          'Looks like you have not added anything to the cart. Go ahead & explore categories',
-                      primaryActionLabel: 'Continue Shopping',
-                      onPrimaryAction: () {
-                        // In this app, the "catalog" lives on the Home tab.
-                        // Using Navigator.pop() here can pop the root route (black screen)
-                        // when Cart is shown as a bottom-tab screen.
-                        NavigationService.instance.switchToTab(0);
+      body: !isLoggedIn
+          ? _buildGuestAccountRequiredBody()
+          : RefreshIndicator.adaptive(
+              onRefresh: _onRefreshCart,
+              child: _isLoading
+                  ? const CustomScrollView(
+                      physics: AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: AppStateView(state: AppViewState.loading),
+                        ),
+                      ],
+                    )
+                  : (_errorMessage != null)
+                  ? CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: AppStateView(
+                            state: AppViewState.error,
+                            title: 'Unable to load cart',
+                            message: _errorMessage,
+                            primaryActionLabel: 'Retry',
+                            onPrimaryAction: _loadCartItems,
+                          ),
+                        ),
+                      ],
+                    )
+                  : (cartItems.isEmpty)
+                  ? CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: AppStateView(
+                            state: AppViewState.empty,
+                            title: 'Your cart is empty',
+                            message:
+                                'Looks like you have not added anything to the cart. Go ahead & explore categories',
+                            primaryActionLabel: 'Continue Shopping',
+                            onPrimaryAction: () {
+                              NavigationService.instance.switchToTab(0);
 
-                        final navigator = Navigator.of(context);
-                        if (navigator.canPop()) {
-                          navigator.popUntil((route) => route.isFirst);
-                        }
-                      },
+                              final navigator = Navigator.of(context);
+                              if (navigator.canPop()) {
+                                navigator.popUntil((route) => route.isFirst);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  : _buildCartWithItems(),
+            ),
+    );
+  }
+
+  /// Guest Cart tab: require login/signup (add-to-cart elsewhere still allowed).
+  Widget _buildGuestAccountRequiredBody() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              const Text(
+                'Account Required to View Cart',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please log in or create an account to view your items and complete your order.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+              ),
+              const SizedBox(height: 28),
+              // Same style as Sign In page "Log In" button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/signin');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF151D51),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Log In',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
-                ],
-              )
-            : _buildCartWithItems(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Same style as Signup page "Signup" button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/signup');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF151D51),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                  child: const Text(
+                    'Sign Up',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Same outlined style as Sign In "Continue as Guest"
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: TextButton(
+                  onPressed: () {
+                    NavigationService.instance.switchToTab(0);
+                    final navigator = Navigator.of(context);
+                    if (navigator.canPop()) {
+                      navigator.popUntil((route) => route.isFirst);
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF151D51),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: const BorderSide(color: Color(0xFF151D51)),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continue Browsing',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

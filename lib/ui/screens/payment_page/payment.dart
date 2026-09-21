@@ -1504,8 +1504,8 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       final createUnderAccount =
-          (checkoutData['create_underaccount'] ?? 0) == 1 ||
-          checkoutData['create_underaccount']?.toString() == '1';
+          (checkoutData['create_account'] ?? 0) == 1 ||
+          checkoutData['create_account']?.toString() == '1';
 
       final cartResponse = await _getPaymentCartContainer();
       if (cartResponse == null || cartResponse['cart'] == null) {
@@ -1647,7 +1647,7 @@ class _PaymentPageState extends State<PaymentPage> {
       'vendor_packing_id': 1,
       'order_source': 'mobile',
       'order_source_device': deviceType,
-      'create_underaccount': checkoutData['create_underaccount'] ?? 0,
+      'create_account': checkoutData['create_account'] ?? 0,
       'password': checkoutData['password'] ?? '',
       'shipping_name': '',
       'shipping_email': '',
@@ -1713,7 +1713,10 @@ class _PaymentPageState extends State<PaymentPage> {
     return true;
   }
 
-  void _navigateToOrderSuccess(Map<String, dynamic> response, String method) {
+  Future<void> _navigateToOrderSuccess(
+    Map<String, dynamic> response,
+    String method,
+  ) async {
     if (!mounted) return;
 
     Fluttertoast.showToast(
@@ -1721,6 +1724,16 @@ class _PaymentPageState extends State<PaymentPage> {
       backgroundColor: Colors.green,
       textColor: Colors.white,
     );
+
+    final checkoutData = await StorageService.getCheckoutData();
+    final loggedIn = await StorageService.isLoggedIn();
+    final createAccount =
+        (checkoutData?['create_account'] ?? 0) == 1 ||
+        checkoutData?['create_account']?.toString() == '1';
+    // Guest without password/account: stay logged out and exit after success.
+    final guestNoAccount = !loggedIn && !createAccount;
+
+    if (!mounted) return;
 
     Navigator.pushNamedAndRemoveUntil(
       context,
@@ -1734,6 +1747,7 @@ class _PaymentPageState extends State<PaymentPage> {
             response['order']?['order_number'] ??
             _orderNumber,
         'payment_method': method,
+        'guest_no_account': guestNoAccount,
       },
     );
   }

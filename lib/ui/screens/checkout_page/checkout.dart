@@ -870,7 +870,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       'country': 'AU',
                       'post_code': _postCodeController.text.trim(),
                       'order_note': _orderNoteController.text.trim(),
-                      'create_underaccount': createUnderAccount,
+                      'create_account': createUnderAccount,
                       'password': password,
                     };
 
