@@ -42,28 +42,19 @@ class _CartPageState extends State<CartPage> {
     super.initState();
     NavigationService.instance.registerCartItemsRefresher(() {
       if (mounted) {
-        final loggedIn =
-            Provider.of<AuthProvider>(context, listen: false).isLoggedIn;
-        if (loggedIn) {
-          _loadCartItems();
-        }
-      }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final loggedIn =
-          Provider.of<AuthProvider>(context, listen: false).isLoggedIn;
-      if (loggedIn) {
         _loadCartItems();
-      } else {
-        setState(() => _isLoading = false);
       }
     });
+    _loadCartItems();
   }
 
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = Provider.of<AuthProvider>(context).isLoggedIn;
+    // Guest + empty cart → Account Required.
+    // Guest + items → normal cart (checkout allowed).
+    final showGuestAccountRequired =
+        !isLoggedIn && !_isLoading && _errorMessage == null && cartItems.isEmpty;
 
     return Scaffold(
       drawer: const AppDrawer(),
@@ -83,7 +74,7 @@ class _CartPageState extends State<CartPage> {
         actions: null,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: !isLoggedIn
+      body: showGuestAccountRequired
           ? _buildGuestAccountRequiredBody()
           : RefreshIndicator.adaptive(
               onRefresh: _onRefreshCart,
@@ -142,7 +133,7 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  /// Guest Cart tab: require login/signup (add-to-cart elsewhere still allowed).
+  /// Guest + empty cart only: prompt login/signup.
   Widget _buildGuestAccountRequiredBody() {
     return Center(
       child: Padding(

@@ -795,12 +795,19 @@ class _PaymentPageState extends State<PaymentPage> {
         !isPickup && needsFreight && shipping <= 0;
 
     // Pickup: customer collects from office — never show "free delivery" promo.
-    final showFreeShippingLabel =
-        !isPickup && !hasPendingFreightQuote && freeShippingIcon == 1;
+    // Free shipping promo only when icon is set AND actual shipping fee is zero.
+    final showFreeShippingLabel = !isPickup &&
+        !hasPendingFreightQuote &&
+        freeShippingIcon == 1 &&
+        shipping <= 0;
+    // OLD (client may prefer — free-shipping icon alone forced the label ON):
+    // final showFreeShippingLabel =
+    //     !isPickup && !hasPendingFreightQuote && freeShippingIcon == 1;
 
-    final shippingCost = hasPendingFreightQuote || showFreeShippingLabel
-        ? 0.0
-        : shipping;
+    // Keep real shipping fee when API returned a positive cost (e.g. $16.50).
+    // Only force 0 for pending freight quote or true free-shipping.
+    final shippingCost =
+        hasPendingFreightQuote || showFreeShippingLabel ? 0.0 : shipping;
 
     return _FreightRuleResult(
       shippingCost: shippingCost,
@@ -1035,7 +1042,12 @@ class _PaymentPageState extends State<PaymentPage> {
   void _applyPricingFromShippingResponse(
     Map<String, dynamic> shippingResponse,
   ) {
-    _shippingCost = _toDouble(shippingResponse['shipping']) ?? 0.0;
+    _shippingCost = _toDouble(shippingResponse['shipping']) ??
+        _toDouble(shippingResponse['shipping_cost']) ??
+        _toDouble(shippingResponse['normal_shipping_cost']) ??
+        0.0;
+    // OLD (client may prefer — only read `shipping` key):
+    // _shippingCost = _toDouble(shippingResponse['shipping']) ?? 0.0;
     _gstAmount = _toDouble(shippingResponse['tax']) ?? 0.0;
     _discountAmount = _toDouble(shippingResponse['discount']) ?? 0.0;
 
@@ -3296,7 +3308,7 @@ class _PaymentPageState extends State<PaymentPage> {
             side: BorderSide(color: Colors.grey[200]!),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3304,39 +3316,43 @@ class _PaymentPageState extends State<PaymentPage> {
                 const Text(
                   'PRICE DETAILS',
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF151D51),
                     letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
 
                 // Items total (excl. GST)
                 _summaryRow(
                   'Total of Items (excl. GST)',
                   formatPrice(_totalCostExclGst),
                 ),
-                const SizedBox(height: 9),
+                const SizedBox(height: 6),
 
-                // Shipping Cost
+                // Shipping Cost — show real fee when > 0; $0 only for free/pending
                 _summaryRow(
                   'Shipping Cost (excl. GST)',
-                  _showFreeShippingLabel
+                  (_showFreeShippingLabel && (_shippingCost ?? 0) <= 0)
                       ? '${currencySign}0.00'
                       : formatPrice(_shippingCost),
+                  // OLD (client may prefer — free-shipping icon always showed $0.00):
+                  // _showFreeShippingLabel
+                  //     ? '${currencySign}0.00'
+                  //     : formatPrice(_shippingCost),
                   valueColor: _hasPendingFreightQuote
                       ? Colors.red
-                      : (_showFreeShippingLabel
+                      : ((_showFreeShippingLabel && (_shippingCost ?? 0) <= 0)
                             ? Colors.green
                             : const Color(0xFFF44336)),
                   labelColor: _hasPendingFreightQuote
                       ? Colors.red
-                      : (_showFreeShippingLabel
+                      : ((_showFreeShippingLabel && (_shippingCost ?? 0) <= 0)
                             ? Colors.green
                             : const Color(0xFFF44336)),
                 ),
-                const SizedBox(height: 9),
+                const SizedBox(height: 6),
 
                 // Discount - below Shipping Cost
                 if (_discountAmount != null && _discountAmount! > 0) ...[
@@ -3346,7 +3362,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     valueColor: Colors.red[700],
                     labelColor: Colors.red[700],
                   ),
-                  const SizedBox(height: 9),
+                  const SizedBox(height: 6),
                 ],
 
                 // Mobile App Discount - below Discount
@@ -3357,33 +3373,33 @@ class _PaymentPageState extends State<PaymentPage> {
                     valueColor: Colors.red[700],
                     labelColor: Colors.red[700],
                   ),
-                  const SizedBox(height: 9),
+                  const SizedBox(height: 6),
                 ],
 
                 const Divider(height: 1, thickness: 0.8),
-                const SizedBox(height: 9),
+                const SizedBox(height: 6),
 
                 // Total without GST
                 _summaryRow('Total without GST', formatPrice(_totalWithoutGst)),
-                const SizedBox(height: 9),
+                const SizedBox(height: 6),
 
                 // GST Row
                 _summaryRow('GST @ 10%', formatPrice(_gstAmount)),
-                const SizedBox(height: 9),
+                const SizedBox(height: 6),
 
                 // Total incl. GST
                 _summaryRow('Total (incl. GST)', formatPrice(_totalWithGst)),
-                const SizedBox(height: 9),
+                const SizedBox(height: 6),
 
                 // Promo Code Section (Hide for PayLater and Trade users)
                 if (!_isPayLater && !_isTradeUser) ...[
                   const Divider(height: 1, thickness: 0.5),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: Container(
-                          height: 42,
+                          height: 40,
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey[300]!),
                             borderRadius: BorderRadius.circular(8),
@@ -3452,7 +3468,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          minimumSize: const Size(90, 42),
+                          minimumSize: const Size(90, 40),
                           elevation: 0,
                         ),
                         child: _isUpdatingCoupon
@@ -3476,7 +3492,7 @@ class _PaymentPageState extends State<PaymentPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
@@ -3518,7 +3534,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     ),
                   ),
                   const Divider(height: 1, thickness: 0.8),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   // Show applied promo code message
                   if (hasAppliedCoupon) ...[
                     Row(
@@ -3529,41 +3545,62 @@ class _PaymentPageState extends State<PaymentPage> {
                           color: Colors.green[600],
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          'Coupon Code $_couponCode applied',
-                          style: TextStyle(
-                            color: Colors.green[700],
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            'Coupon Code $_couponCode applied',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.green[700],
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                   ],
                 ] else ...[
                   const Divider(height: 1, thickness: 0.8),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                 ],
 
-                // Total Payable Amount
+                // Total Payable Amount — single line, scales down on small iPhones
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Total Payble Amount :',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    Expanded(
+                      flex: 3,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Total Payable Amount :',
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
                       ),
                     ),
-                    Text(
-                      formatPrice(total),
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          formatPrice(total),
+                          maxLines: 1,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -3718,24 +3755,41 @@ class _PaymentPageState extends State<PaymentPage> {
     bool isBoldLabel = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      padding: const EdgeInsets.symmetric(vertical: 1.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: labelColor ?? const Color(0xFF151D51),
-              fontWeight: isBoldLabel ? FontWeight.bold : FontWeight.w500,
+          Expanded(
+            flex: 3,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: labelColor ?? const Color(0xFF151D51),
+                  fontWeight: isBoldLabel ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: valueColor ?? Colors.black,
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: valueColor ?? Colors.black,
+                ),
+              ),
             ),
           ),
         ],
